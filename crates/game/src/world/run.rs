@@ -46,16 +46,34 @@ impl World {
             return Err(Message::error("You are not in a target network."));
         };
         let name = &self.networks[run.network.0].name;
-        let mut shown = vec![Message::game(format!(
+        let jack = Message::game(format!(
             "You jack out of {name}. The shock costs your rig {SHOCK} integrity."
-        ))];
-        state.rig.integrity = state.rig.integrity.saturating_sub(SHOCK);
-        let crashed = state.rig.integrity == 0;
-        if crashed {
-            shown.push(Message::game(CRASH));
+        ));
+        let mut shown = self.damage(player, SHOCK);
+        if self.running(player) {
+            shown.extend(self.drop_link(player, false));
         }
-        shown.extend(self.drop_link(player, crashed));
+        shown.insert(0, jack);
         Ok(Step::show(shown))
+    }
+
+    pub(super) fn damage(&mut self, player: PlayerId, amount: u32) -> Vec<Message> {
+        let Some(state) = self.players.get_mut(&player) else {
+            return Vec::new();
+        };
+        state.rig.integrity = state.rig.integrity.saturating_sub(amount);
+        if state.rig.integrity > 0 {
+            return Vec::new();
+        }
+        let mut shown = vec![Message::game(CRASH)];
+        shown.extend(self.drop_link(player, true));
+        shown
+    }
+
+    pub(super) fn running(&self, player: PlayerId) -> bool {
+        self.players
+            .get(&player)
+            .is_some_and(|state| state.run.is_some())
     }
 
     pub(super) fn noise(&mut self, player: PlayerId, noise: u32) -> Vec<Message> {
@@ -72,12 +90,20 @@ impl World {
         }
         let mut shown = Vec::new();
         let mut watched = false;
-        for ice in &mut run.ice {
-            if ice.host == here && ice.kind == IceKind::Sentry && !ice.broken() {
-                watched = true;
-                if ice.intent.is_none() {
-                    shown.push(ice.compile(Action::Alert));
+        for ice in run
+            .ice
+            .iter_mut()
+            .filter(|ice| ice.host == here && !ice.broken())
+        {
+            match ice.kind {
+                IceKind::Sentry => {
+                    watched = true;
+                    if ice.intent.is_none() {
+                        shown.push(ice.compile(Action::Alert));
+                    }
                 }
+                IceKind::Scorch if !ice.awake => shown.push(ice.wake()),
+                _ => {}
             }
         }
         shown.extend(self.raise_trace(player, if watched { noise * 2 } else { noise }));

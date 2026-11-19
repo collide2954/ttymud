@@ -49,6 +49,11 @@ impl Ice {
             .text(format!(" ({ticks} {unit})."))
     }
 
+    pub(super) fn wake(&mut self) -> Message {
+        self.awake = true;
+        self.named().text(" wakes up.")
+    }
+
     pub(super) fn describe(&self) -> Message {
         let title = format!("{} v{}", self.kind.title(), self.version);
         let state = if self.broken() {
@@ -105,6 +110,11 @@ impl World {
                 ice.host = here;
                 shown.push(ice.named().text(" follows you."));
             }
+            if ice.kind == IceKind::Scorch && ice.host != here && ice.intent.is_some() {
+                ice.intent = None;
+                shown.push(ice.named().text(" loses your signal."));
+                continue;
+            }
             if let Some(intent) = &mut ice.intent {
                 intent.ticks = intent.ticks.saturating_sub(1);
                 if intent.ticks == 0 {
@@ -126,12 +136,6 @@ impl World {
             shown.extend(self.fire(player, index, action));
         }
         shown
-    }
-
-    fn running(&self, player: PlayerId) -> bool {
-        self.players
-            .get(&player)
-            .is_some_and(|state| state.run.is_some())
     }
 
     fn fire(&mut self, player: PlayerId, index: usize, action: Action) -> Vec<Message> {
@@ -171,7 +175,25 @@ impl World {
                     .text(".");
                 self.trace_hit(player, hit, amount)
             }
+            Effect::Damage(amount) => {
+                let hit = source
+                    .text(" fires ")
+                    .span(Style::Danger, action.name())
+                    .text(".");
+                self.damage_hit(player, hit, amount)
+            }
         }
+    }
+
+    fn damage_hit(&mut self, player: PlayerId, line: Message, amount: u32) -> Vec<Message> {
+        let before = self
+            .players
+            .get(&player)
+            .map_or(0, |state| state.rig.integrity);
+        let after = before.saturating_sub(amount);
+        let mut shown = vec![line.text(format!(" Integrity: {before} -> {after}."))];
+        shown.extend(self.damage(player, amount));
+        shown
     }
 
     fn trace_hit(&mut self, player: PlayerId, line: Message, amount: u32) -> Vec<Message> {
@@ -246,10 +268,67 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::walk;
+    use crate::testing::{joined, plain, step, walk};
+
+    const ARCHIVE: [&str; 4] = ["go back-room", "go gate", "go core", "go archive"];
 
     fn at_gate(lines: &[&str]) -> Vec<String> {
         walk(&[&["go back-room", "go gate"][..], lines].concat()).0
+    }
+
+    fn at_archive(lines: &[&str]) -> Vec<String> {
+        walk(&[&ARCHIVE[..], lines].concat()).0
+    }
+
+    #[test]
+    fn noise_wakes_a_scorch() {
+        let shown = at_archive(&["scan"]);
+        assert_eq!(shown.last().map(String::as_str), Some("scorch wakes up."));
+        assert_eq!(
+            at_archive(&["get tapes.db"]),
+            ["Downloaded tapes.db.", "Unknown ICE wakes up."]
+        );
+    }
+
+    #[test]
+    fn an_awake_scorch_attacks_the_rig() {
+        let shown = at_archive(&["scan", "~"]);
+        let [line] = shown.as_slice() else {
+            panic!("{shown:?}");
+        };
+        let burn = line == "scorch starts to compile BURN (2 ticks).";
+        let spike = line == "scorch starts to compile SPIKE (1 tick).";
+        assert!(burn || spike, "{line}");
+        let status = at_archive(&["scan", "~3", "status | grep integrity"]);
+        assert_ne!(status, ["Integrity: 100/100"]);
+    }
+
+    #[test]
+    fn leaving_the_host_dodges_a_scorch() {
+        assert_eq!(
+            at_archive(&["scan", "~", "go core", "~"]),
+            ["scorch loses your signal."]
+        );
+    }
+
+    #[test]
+    fn a_rig_without_integrity_crashes() {
+        let (mut world, player) = joined();
+        for line in ARCHIVE {
+            world.command(player, line);
+        }
+        world.command(player, "get tapes.db");
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.integrity = 5;
+        }
+        let shown = plain(&step(&mut world, player, "~3"));
+        let crash = "Your rig crashes, and you lose the loot of this run.";
+        assert!(shown.contains(&crash.to_owned()), "{shown:?}");
+        assert_eq!(world.prompt(player).as_deref(), Some("ghost@back-room $ "));
+        assert_eq!(
+            plain(&world.command(player, "inventory")),
+            ["Your rig has no files."]
+        );
     }
 
     #[test]

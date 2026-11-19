@@ -4,6 +4,8 @@ use super::{PlayerId, Step, Thing, World, choose, listing, usage};
 use crate::commands::Item;
 use crate::content::File;
 
+const DOWNLOAD_NOISE: u32 = 2;
+
 impl World {
     pub(super) fn read(
         &self,
@@ -58,6 +60,7 @@ impl World {
             return Ok(Step::default());
         };
         let mut shown = Vec::new();
+        let mut copied = false;
         for file in files {
             if state.rig.files.iter().any(|known| known.name == file.name) {
                 let name = &file.name;
@@ -73,11 +76,12 @@ impl World {
                 run.loot.push(file.name.clone());
             }
             state.rig.files.push(file);
+            copied = true;
         }
-        Ok(Step {
-            shown,
-            items: Vec::new(),
-        })
+        if copied {
+            shown.extend(self.noise(player, DOWNLOAD_NOISE));
+        }
+        Ok(Step::show(shown))
     }
 
     pub(super) fn inventory(&self, player: PlayerId) -> Step {

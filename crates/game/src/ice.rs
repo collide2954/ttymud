@@ -3,12 +3,15 @@ pub(crate) enum Action {
     Alert,
     TraceBurst,
     DeepTrace,
+    Burn,
+    Spike,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Effect {
     Alert,
     Trace(u32),
+    Damage(u32),
 }
 
 impl Action {
@@ -17,13 +20,16 @@ impl Action {
             Self::Alert => "ALERT",
             Self::TraceBurst => "TRACE BURST",
             Self::DeepTrace => "DEEP TRACE",
+            Self::Burn => "BURN",
+            Self::Spike => "SPIKE",
         }
     }
 
     pub(crate) fn ticks(self) -> u32 {
         match self {
+            Self::Spike => 1,
+            Self::TraceBurst | Self::Burn => 2,
             Self::Alert => 3,
-            Self::TraceBurst => 2,
             Self::DeepTrace => 4,
         }
     }
@@ -33,6 +39,8 @@ impl Action {
             Self::Alert => Effect::Alert,
             Self::TraceBurst => Effect::Trace(8),
             Self::DeepTrace => Effect::Trace(20),
+            Self::Burn => Effect::Damage(20),
+            Self::Spike => Effect::Damage(8),
         }
     }
 }
@@ -73,7 +81,8 @@ impl IceKind {
     pub(crate) fn actions(self) -> &'static [Action] {
         match self {
             Self::Hound => &[Action::TraceBurst, Action::DeepTrace],
-            Self::Sentry | Self::Warden | Self::Scorch => &[],
+            Self::Scorch => &[Action::Burn, Action::Spike],
+            Self::Sentry | Self::Warden => &[],
         }
     }
 
