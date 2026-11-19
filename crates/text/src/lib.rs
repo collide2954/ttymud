@@ -15,6 +15,7 @@ pub enum Style {
     Host,
     File,
     Command,
+    Player,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

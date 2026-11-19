@@ -2,6 +2,7 @@ mod files;
 mod grep;
 mod help;
 mod movement;
+mod presence;
 
 use std::collections::BTreeMap;
 
@@ -47,6 +48,7 @@ pub struct World {
     start: HostId,
     players: BTreeMap<PlayerId, Player>,
     next_player: u64,
+    outbox: Vec<Output>,
 }
 
 struct Step {
@@ -85,6 +87,7 @@ impl World {
             hosts,
             players: BTreeMap::new(),
             next_player: 0,
+            outbox: Vec::new(),
         }
     }
 
@@ -99,7 +102,9 @@ impl World {
                 rig: Vec::new(),
             },
         );
-        (player, address(player, self.scene(self.start)))
+        self.notify(self.start, player, &presence::named(name, " connects."));
+        let scene = self.scene(self.start, player);
+        (player, self.deliver(player, scene))
     }
 
     pub fn command(&mut self, player: PlayerId, line: &str) -> Vec<Output> {
@@ -111,7 +116,23 @@ impl World {
             Ok(stages) => self.run(player, &stages),
             Err(error) => vec![parse_error(error)],
         };
-        address(player, messages)
+        self.deliver(player, messages)
+    }
+
+    pub fn leave(&mut self, player: PlayerId) -> Vec<Output> {
+        let Some(state) = self.players.remove(&player) else {
+            return Vec::new();
+        };
+        if let Some(&host) = state.chain.last() {
+            self.notify(host, player, &presence::named(&state.name, " disconnects."));
+        }
+        std::mem::take(&mut self.outbox)
+    }
+
+    fn deliver(&mut self, player: PlayerId, messages: Vec<Message>) -> Vec<Output> {
+        let mut outputs = address(player, messages);
+        outputs.append(&mut self.outbox);
+        outputs
     }
 
     #[must_use]
@@ -163,7 +184,7 @@ impl World {
             Verb::Look => {
                 no_args(command, args)?;
                 Ok(Step {
-                    shown: self.scene(here),
+                    shown: self.scene(here, player),
                     items: self.items(here),
                 })
             }
@@ -220,7 +241,7 @@ impl World {
             .collect()
     }
 
-    fn scene(&self, id: HostId) -> Vec<Message> {
+    fn scene(&self, id: HostId, viewer: PlayerId) -> Vec<Message> {
         let host = &self.hosts[id.0];
         let mut scene = vec![
             Message::new(Kind::Game).span(Style::Title, &host.name),
@@ -230,6 +251,10 @@ impl World {
         if !host.files.is_empty() {
             let files = host.files.iter().map(|file| file.name.as_str());
             scene.push(listed(Message::game("Files: "), Style::File, files));
+        }
+        let present: Vec<&str> = self.others(id, viewer).map(|(_, name)| name).collect();
+        if !present.is_empty() {
+            scene.push(listed(Message::game("Here: "), Style::Player, present));
         }
         scene
     }
@@ -399,12 +424,12 @@ mod tests {
     }
 
     #[test]
-    fn outputs_go_to_the_player_who_joined() {
+    fn each_player_gets_an_own_id() {
         let mut world = world();
         let (first, _) = world.join("ghost");
         let (second, outputs) = world.join("nyx");
         assert_ne!(first, second);
-        assert!(outputs.iter().all(|output| output.player == second));
+        assert!(outputs.iter().any(|output| output.player == second));
     }
 
     #[test]

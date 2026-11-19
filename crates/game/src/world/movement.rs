@@ -23,15 +23,18 @@ impl World {
             }
             (_, None) => return Err(Message::error("Usage: go <place>.")),
         };
+        let from = self.here(player);
         let target = self.route(player, &place)?;
         self.move_to(player, target);
+        self.relocate(player, from, target);
         Ok(Step {
-            shown: self.scene(target),
+            shown: self.scene(target, player),
             items: Vec::new(),
         })
     }
 
     pub(super) fn back(&mut self, player: PlayerId) -> Result<Step, Message> {
+        let from = self.here(player);
         match self.players.get_mut(&player) {
             Some(state) if state.chain.len() > 1 => {
                 state.chain.pop();
@@ -39,8 +42,9 @@ impl World {
             _ => return Err(Message::error("There is no hop behind you.")),
         }
         let here = self.here(player);
+        self.relocate(player, from, here);
         Ok(Step {
-            shown: self.scene(here),
+            shown: self.scene(here, player),
             items: Vec::new(),
         })
     }
