@@ -166,7 +166,7 @@ mod tests {
     fn question_mark_lists_what_works_here() {
         assert_eq!(
             run("?"),
-            ["Here you can use: look, ls, go, read, download, inventory, grep, help"]
+            ["Here you can use: look, ls, go, read, download, inventory, grep, say, help"]
         );
     }
 
@@ -174,7 +174,7 @@ mod tests {
     fn question_mark_adds_back_after_a_move() {
         assert_eq!(
             walk(&["go back-room", "?"]).0,
-            ["Here you can use: look, ls, go, back, inventory, grep, help"]
+            ["Here you can use: look, ls, go, back, inventory, grep, say, help"]
         );
     }
 }

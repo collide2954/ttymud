@@ -13,6 +13,14 @@ pub(crate) fn plain(outputs: &[Output]) -> Vec<String> {
         .collect()
 }
 
+pub(crate) fn heard(outputs: &[Output], player: PlayerId) -> Vec<String> {
+    outputs
+        .iter()
+        .filter(|output| output.player == player)
+        .map(|output| output.message.plain())
+        .collect()
+}
+
 pub(crate) fn joined() -> (World, PlayerId) {
     let mut world = world();
     let (player, _) = world.join("ghost");

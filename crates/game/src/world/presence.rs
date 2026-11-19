@@ -43,16 +43,8 @@ pub(super) fn named(name: &str, rest: &str) -> Message {
 mod tests {
     use ttymud_text::Style;
 
-    use crate::testing::{plain, world};
+    use crate::testing::{heard as to, plain, world};
     use crate::{Output, PlayerId, World};
-
-    fn to(outputs: &[Output], player: PlayerId) -> Vec<String> {
-        outputs
-            .iter()
-            .filter(|output| output.player == player)
-            .map(|output| output.message.plain())
-            .collect()
-    }
 
     fn two() -> (World, PlayerId, PlayerId) {
         let mut world = world();

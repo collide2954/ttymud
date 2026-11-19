@@ -1,3 +1,4 @@
+mod chat;
 mod files;
 mod grep;
 mod help;
@@ -112,6 +113,9 @@ impl World {
             return Vec::new();
         }
         let line = sanitize(line);
+        if let Some(text) = chat::chat_text(&line) {
+            return self.say(player, text);
+        }
         let messages = match parse::pipeline(&line) {
             Ok(stages) => self.run(player, &stages),
             Err(error) => vec![parse_error(error)],
@@ -208,6 +212,7 @@ impl World {
                 Ok(self.inventory(player))
             }
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
+            Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Help => help::help(args),
             Verb::Available => {
                 no_args(command, args)?;

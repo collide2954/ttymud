@@ -6,6 +6,7 @@ pub use sanitize::{MAX_LENGTH, sanitize};
 pub enum Kind {
     Game,
     Error,
+    Chat,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

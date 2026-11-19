@@ -10,6 +10,7 @@ pub(crate) enum Verb {
     Download,
     Inventory,
     Grep,
+    Say,
     Help,
     Available,
 }
@@ -127,6 +128,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         example: "ls | grep txt",
         takes: Takes::Required,
         output: true,
+    },
+    Command {
+        verb: Verb::Say,
+        names: &["say", "'"],
+        usage: "say <text>",
+        summary: "Talk to everyone on this host.",
+        example: "say hello",
+        takes: Takes::Nothing,
+        output: false,
     },
     Command {
         verb: Verb::Help,
