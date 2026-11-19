@@ -90,7 +90,7 @@ impl World {
 #[cfg(test)]
 mod tests {
     use crate::testing::{heard, plain, walk, world};
-    use crate::{PlayerId, World};
+    use crate::{Content, PlayerId, World};
 
     fn hot(kit: &str) -> (World, PlayerId) {
         let mut world = world();
@@ -145,10 +145,31 @@ mod tests {
     }
 
     #[test]
-    fn others_see_a_burn() {
+    fn a_burn_at_home_is_private() {
         let (mut world, player) = hot("ghost");
         let (ghost, _) = world.join("ghost");
         world.command(ghost, "go back-room");
+        assert_eq!(
+            heard(&world.command(player, "scan"), ghost),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn others_on_a_shared_hub_see_a_burn() {
+        let city = "[city c]\nname = C\nstart = hub\n[host hub]\nname = Hub\ndesc = A hub.\n\
+                    [network n]\nname = N\n[host gate]\nname = Gate\ndesc = A gate.\n\
+                    network = n\nroute = hub\n";
+        let mut world = World::new(Content::parse(city).unwrap(), 0);
+        let (ghost, _) = world.join("ghost");
+        let (player, _) = world.join("nyx");
+        world.command(player, "go gate");
+        if let Some(state) = world.players.get_mut(&player) {
+            state.heat = 4;
+            if let Some(run) = state.run.as_mut() {
+                run.trace = 98;
+            }
+        }
         assert_eq!(
             heard(&world.command(player, "scan"), ghost),
             ["nyx arrives.", "nyx burns. The police take the rig away."]

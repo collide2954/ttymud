@@ -9,7 +9,7 @@ impl World {
         host: HostId,
         except: PlayerId,
     ) -> impl Iterator<Item = (PlayerId, &str)> {
-        let shared = self.hosts[host.0].network.is_none();
+        let shared = self.hosts[host.0].network.is_none() && self.home != Some(host);
         self.players
             .iter()
             .filter(move |&(&id, state)| {
@@ -123,6 +123,25 @@ mod tests {
         );
         assert_eq!(
             to(&world.command(nyx, "go core"), ghost),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn the_home_host_is_private() {
+        let (mut world, ghost, nyx) = two();
+        world.command(ghost, "go back-room");
+        assert_eq!(
+            to(&world.command(nyx, "go back-room"), ghost),
+            Vec::<String>::new()
+        );
+        let shown = plain(&world.command(ghost, "look"));
+        assert!(
+            !shown.iter().any(|line| line.starts_with("Here:")),
+            "{shown:?}"
+        );
+        assert_eq!(
+            to(&world.command(nyx, "say hi"), ghost),
             Vec::<String>::new()
         );
     }
