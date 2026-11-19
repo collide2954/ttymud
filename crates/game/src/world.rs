@@ -94,6 +94,7 @@ struct Player {
     credits: u32,
     sold: Vec<String>,
     rep: BTreeMap<String, u32>,
+    done: Vec<(u64, String, u64)>,
     stash: Vec<File>,
 }
 
@@ -107,6 +108,7 @@ impl Player {
             credits: 0,
             sold: Vec::new(),
             rep: BTreeMap::new(),
+            done: Vec::new(),
             stash: Vec::new(),
             rig: Rig::new(),
             know: commands::programs()
@@ -228,6 +230,7 @@ impl World {
                 offer: def.offer,
                 steps: def.steps,
                 pay: def.pay,
+                posting: None,
             })
             .collect();
         let networks = content

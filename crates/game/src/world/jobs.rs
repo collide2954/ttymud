@@ -16,6 +16,7 @@ pub(super) struct Fixer {
     pub(super) name: String,
     pub(super) host: HostId,
     pub(super) corps: Vec<usize>,
+    pub(super) max_heat: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -43,6 +44,7 @@ pub(super) fn fixers(
             id: def.id,
             name: def.name,
             host: find(&def.host),
+            max_heat: def.max_heat,
         })
         .collect()
 }
@@ -103,6 +105,30 @@ impl World {
             .zip(id)
             .and_then(|(state, id)| state.rep.get(id).copied())
             .unwrap_or(0)
+    }
+
+    fn refusal(&self, player: PlayerId, fixer: usize) -> Option<Message> {
+        let most = self.fixers.get(fixer)?.max_heat?;
+        let heat = self.players.get(&player)?.heat;
+        (heat > most).then(|| {
+            Message::new(Kind::Error)
+                .span(Style::Player, self.fixer_name(fixer))
+                .text(format!(
+                    " does not work with handles at heat {} or more.",
+                    most + 1
+                ))
+        })
+    }
+
+    fn is_done(&self, player: PlayerId, offer: &Offer) -> bool {
+        let Some(state) = self.players.get(&player) else {
+            return false;
+        };
+        let fixer = &self.fixers[offer.fixer].id;
+        state
+            .done
+            .iter()
+            .any(|(day, id, slot)| *day == offer.day && id == fixer && *slot == offer.slot)
     }
 
     pub(super) fn gain_rep(&mut self, player: PlayerId, fixer: usize) -> Option<Message> {
@@ -205,6 +231,14 @@ impl World {
                 .text(" to end it."));
         }
         let offer = offers.swap_remove(number - 1);
+        if let Some(refusal) = self.refusal(player, offer.fixer) {
+            return Err(refusal);
+        }
+        if self.is_done(player, &offer) {
+            return Err(Message::error("You did this job today. ")
+                .span(Style::Player, self.fixer_name(offer.fixer))
+                .text(" posts new jobs each day."));
+        }
         let need = needed(self.corps[offer.corp].budget);
         let rep = self.rep_of(player, offer.fixer);
         if rep < need {
@@ -263,6 +297,7 @@ impl World {
             goal,
             steps: Vec::new(),
             pay: offer.pay,
+            posting: Some(key),
         });
         let index = self.contracts.len() - 1;
         self.postings.insert(key, index);
@@ -318,6 +353,7 @@ impl World {
                 continue;
             }
             shown.push(name.text(" has these jobs today:"));
+            shown.extend(self.refusal(player, fixer));
             let rep = self.rep_of(player, fixer);
             for offer in offers {
                 number += 1;
@@ -326,7 +362,9 @@ impl World {
                     .span(Style::File, &offer.target.goal)
                     .text(format!(". Pay: {} cr.", offer.pay));
                 let need = needed(corp.budget);
-                if rep < need {
+                if self.is_done(player, &offer) {
+                    line = line.text(" Done.");
+                } else if rep < need {
                     line = line.text(format!(" Needs {need} reputation."));
                 }
                 shown.push(line);
@@ -531,6 +569,69 @@ mod tests {
                 format!("Pell takes {goal} and pays you {pay} cr."),
                 "Your reputation with Pell: 1.".to_owned(),
             ]
+        );
+    }
+
+    fn finish(world: &mut World, player: PlayerId) {
+        let entry = entries(world).remove(0);
+        for line in ["go relay", "go back-room", &format!("go {entry}")] {
+            world.command(player, line);
+        }
+        let goal = world
+            .contracts
+            .last()
+            .map_or_default(|job| job.goal.clone());
+        let holder = (0..world.hosts.len())
+            .find(|&index| {
+                world.hosts[index]
+                    .files
+                    .iter()
+                    .any(|file| file.name == goal)
+            })
+            .map(HostId);
+        if let (Some(state), Some(holder)) = (world.players.get_mut(&player), holder) {
+            state.chain.push(holder);
+        }
+        for line in [
+            &format!("download {goal}"),
+            "back",
+            "back",
+            "go relay",
+            "go bazaar",
+        ] {
+            world.command(player, line);
+        }
+    }
+
+    #[test]
+    fn a_finished_job_cannot_be_taken_again_that_day() {
+        let (mut world, player, _) = hired("1");
+        finish(&mut world, player);
+        let board = plain(&world.command(player, "jobs"));
+        assert!(board[1].ends_with(" cr. Done."), "{board:?}");
+        assert_eq!(
+            plain(&world.command(player, "accept 1")),
+            ["You did this job today. Pell posts new jobs each day."]
+        );
+        world.set_time(20_001 * DAY + 100);
+        let shown = plain(&world.command(player, "accept 1"));
+        assert!(shown[0].starts_with("Pell: The target is "), "{shown:?}");
+    }
+
+    #[test]
+    fn a_careful_fixer_refuses_a_hot_handle() {
+        let (mut world, player, _) = hired("0");
+        world.fixers[0].max_heat = Some(3);
+        if let Some(state) = world.players.get_mut(&player) {
+            state.heat = 4;
+        }
+        assert_eq!(
+            plain(&world.command(player, "jobs"))[1],
+            "Pell does not work with handles at heat 4 or more."
+        );
+        assert_eq!(
+            plain(&world.command(player, "accept 1")),
+            ["Pell does not work with handles at heat 4 or more."]
         );
     }
 

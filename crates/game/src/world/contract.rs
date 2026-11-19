@@ -1,5 +1,6 @@
 use ttymud_text::{Message, Style};
 
+use super::jobs::DAY;
 use super::{NetworkId, PlayerId, Step, World, lines};
 use crate::contract::Event;
 
@@ -16,6 +17,7 @@ pub(super) struct Contract {
     pub(super) offer: Vec<String>,
     pub(super) steps: Vec<(Event, String)>,
     pub(super) pay: u32,
+    pub(super) posting: Option<(u64, usize, u64)>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -134,6 +136,15 @@ impl World {
         };
         let pay = contract.pay - fee;
         state.credits += pay;
+        if let Some((day, fixer, slot)) = contract.posting {
+            let today = self.now / DAY;
+            state.done.retain(|&(done, ..)| done >= today);
+            let id = self
+                .fixers
+                .get(fixer)
+                .map_or_default(|fixer| fixer.id.clone());
+            state.done.push((day, id, slot));
+        }
         let (heat, fixer) = (state.heat, contract.fixer);
         let taken = match pay {
             0 => format!(" takes {}.", contract.goal),
