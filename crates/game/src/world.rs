@@ -4,6 +4,7 @@ use ttymud_text::{Kind, Message, Style};
 
 use crate::commands::{self, Command, Verb};
 use crate::content::{Content, File};
+use crate::matching;
 use crate::parse::{self, ParseError, Stage};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -109,8 +110,7 @@ impl World {
         let mut found = Vec::with_capacity(stages.len());
         for stage in stages {
             let Some(command) = commands::find(&stage.name) else {
-                let name = &stage.name;
-                return vec![Message::error(format!("Unknown command: {name}."))];
+                return vec![unknown(&stage.name)];
             };
             found.push(command);
         }
@@ -183,6 +183,17 @@ impl World {
             scene.push(listed("Files: ", Style::File, files));
         }
         scene
+    }
+}
+
+fn unknown(name: &str) -> Message {
+    let message = Message::error(format!("Unknown command: {name}."));
+    match matching::closest(&name.to_lowercase(), commands::names()) {
+        Some(near) => message
+            .text(" Did you mean ")
+            .span(Style::Command, near)
+            .text("?"),
+        None => message,
     }
 }
 
@@ -311,6 +322,12 @@ mod tests {
     #[test]
     fn unknown_commands_fail() {
         assert_eq!(run("xyzzy"), ["Unknown command: xyzzy."]);
+    }
+
+    #[test]
+    fn typos_get_a_suggestion() {
+        assert_eq!(run("lok"), ["Unknown command: lok. Did you mean look?"]);
+        assert_eq!(run("LX"), ["Unknown command: LX. Did you mean ls?"]);
     }
 
     #[test]

@@ -30,6 +30,12 @@ pub(crate) const COMMANDS: &[Command] = &[
     },
 ];
 
+pub(crate) fn names() -> impl Iterator<Item = &'static str> {
+    COMMANDS
+        .iter()
+        .flat_map(|command| command.names.iter().copied())
+}
+
 pub(crate) fn find(name: &str) -> Option<&'static Command> {
     let name = name.to_lowercase();
     COMMANDS
