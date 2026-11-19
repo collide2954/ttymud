@@ -42,6 +42,15 @@ impl From<io::Error> for Error {
     }
 }
 
+impl From<Error> for io::Error {
+    fn from(error: Error) -> Self {
+        match error {
+            Error::Io(error) => error,
+            other => Self::other(other),
+        }
+    }
+}
+
 impl From<snow::Error> for Error {
     fn from(error: snow::Error) -> Self {
         Self::Noise(error)

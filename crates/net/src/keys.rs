@@ -1,4 +1,7 @@
 use std::fmt::{self, Write as _};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::Path;
 
 use snow::params::NoiseParams;
 
@@ -76,6 +79,24 @@ impl Keys {
         let private = encode_hex(&self.private);
         let public = self.public.to_hex();
         format!("{HEADER}\nprivate = {private}\npublic = {public}\n")
+    }
+
+    pub fn load(path: &Path) -> Result<Self, Error> {
+        Self::from_text(&fs::read_to_string(path)?)
+    }
+
+    pub fn save_new(&self, path: &Path) -> Result<(), Error> {
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(path)?;
+        file.write_all(self.to_text().as_bytes())?;
+        file.sync_all()?;
+        Ok(())
     }
 
     pub fn from_text(text: &str) -> Result<Self, Error> {
@@ -171,6 +192,51 @@ mod tests {
         ] {
             assert!(Keys::from_text(text).is_err(), "{text:?}");
         }
+    }
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let id = std::process::id();
+        let path = std::env::temp_dir().join(format!("ttymud-net-{id}-{name}.key"));
+        let _ = std::fs::remove_file(&path);
+        path
+    }
+
+    #[test]
+    fn keys_survive_a_round_trip_through_a_file() {
+        let path = scratch("round-trip");
+        let keys = Keys::generate().unwrap();
+        keys.save_new(&path).unwrap();
+        let loaded = Keys::load(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(loaded.public(), keys.public());
+        assert_eq!(loaded.private(), keys.private());
+    }
+
+    #[test]
+    fn saving_never_replaces_a_key_file() {
+        let path = scratch("existing");
+        Keys::generate().unwrap().save_new(&path).unwrap();
+        let second = Keys::generate().unwrap().save_new(&path);
+        let _ = std::fs::remove_file(&path);
+        let error = std::io::Error::from(second.unwrap_err());
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+    }
+
+    #[test]
+    fn a_missing_key_file_is_not_found() {
+        let error = std::io::Error::from(Keys::load(&scratch("missing")).unwrap_err());
+        assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn only_the_owner_can_read_a_key_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let path = scratch("mode");
+        Keys::generate().unwrap().save_new(&path).unwrap();
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(mode & 0o777, 0o600);
     }
 
     #[test]

@@ -1,5 +1,5 @@
-use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::fs;
+use std::io;
 use std::path::Path;
 
 use ttymud_net::Keys;
@@ -12,27 +12,12 @@ pub fn init(dir: &Path) -> io::Result<bool> {
     if path.exists() {
         return Ok(false);
     }
-    let keys = Keys::generate().map_err(io::Error::other)?;
-    write_secret(&path, &keys.to_text())?;
+    Keys::generate()?.save_new(&path)?;
     Ok(true)
 }
 
 pub fn load_keys(dir: &Path) -> io::Result<Keys> {
-    let text = fs::read_to_string(dir.join(KEY_FILE))?;
-    Keys::from_text(&text).map_err(io::Error::other)
-}
-
-fn write_secret(path: &Path, text: &str) -> io::Result<()> {
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut file = options.open(path)?;
-    file.write_all(text.as_bytes())?;
-    file.sync_all()
+    Ok(Keys::load(&dir.join(KEY_FILE))?)
 }
 
 #[cfg(test)]
@@ -75,20 +60,6 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         let error = load_keys(&dir).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::NotFound);
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn only_the_owner_can_read_the_key() {
-        use std::os::unix::fs::PermissionsExt;
-        let dir = scratch("mode");
-        init(&dir).unwrap();
-        let mode = fs::metadata(dir.join("server.key"))
-            .unwrap()
-            .permissions()
-            .mode();
-        assert_eq!(mode & 0o777, 0o600);
         let _ = fs::remove_dir_all(&dir);
     }
 }
