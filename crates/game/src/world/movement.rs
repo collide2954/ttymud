@@ -45,7 +45,7 @@ impl World {
 
     fn arrive(&mut self, player: PlayerId, from: HostId, to: HostId) -> Step {
         self.relocate(player, from, to);
-        let mut shown: Vec<Message> = self.cross(player, from, to).into_iter().collect();
+        let mut shown = self.cross(player, from, to);
         shown.extend(self.scene(to, player));
         Step::show(shown)
     }

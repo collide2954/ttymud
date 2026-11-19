@@ -16,6 +16,28 @@ impl World {
         self.contracts.get(index)
     }
 
+    pub(super) fn finish_contract(
+        &mut self,
+        player: PlayerId,
+        network: NetworkId,
+    ) -> Option<Message> {
+        let state = self.players.get(&player)?;
+        let contract = self.contracts.get(state.contract?)?;
+        let has_goal = state
+            .rig
+            .files
+            .iter()
+            .any(|file| file.name == contract.goal);
+        if contract.network != network || !has_goal {
+            return None;
+        }
+        let message = Message::game("")
+            .span(Style::Player, &contract.fixer)
+            .text(": Clean work. The contract is complete.");
+        self.players.get_mut(&player)?.contract = None;
+        Some(message)
+    }
+
     pub(super) fn offer(&self, player: PlayerId) -> Vec<Message> {
         let Some(contract) = self.contract_of(player) else {
             return Vec::new();
@@ -104,6 +126,39 @@ mod tests {
         assert_eq!(
             plain(&world.command(player, "contract")),
             ["You have no contract."]
+        );
+    }
+
+    #[test]
+    fn a_clean_exit_with_the_goal_completes_the_contract() {
+        let (mut world, player) = hired();
+        for line in ["go back-room", "go gate", "go core", "get data.db", "back"] {
+            world.command(player, line);
+        }
+        assert_eq!(
+            plain(&world.command(player, "back"))[..3],
+            [
+                "You leave the network of Test Lab. Clean exit.",
+                "Pell: Clean work. The contract is complete.",
+                "The Back Room",
+            ]
+        );
+        assert_eq!(
+            plain(&world.command(player, "contract")),
+            ["You have no contract."]
+        );
+    }
+
+    #[test]
+    fn a_clean_exit_without_the_goal_keeps_the_contract() {
+        let (mut world, player) = hired();
+        for line in ["go back-room", "go gate"] {
+            world.command(player, line);
+        }
+        assert_eq!(plain(&world.command(player, "back"))[1], "The Back Room");
+        assert_eq!(
+            plain(&world.command(player, "contract"))[0],
+            "Contract from Pell"
         );
     }
 

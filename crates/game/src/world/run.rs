@@ -148,8 +148,10 @@ impl World {
         self.scene(here, player)
     }
 
-    pub(super) fn cross(&mut self, player: PlayerId, from: HostId, to: HostId) -> Option<Message> {
-        let state = self.players.get_mut(&player)?;
+    pub(super) fn cross(&mut self, player: PlayerId, from: HostId, to: HostId) -> Vec<Message> {
+        let Some(state) = self.players.get_mut(&player) else {
+            return Vec::new();
+        };
         match (self.hosts[from.0].network, self.hosts[to.0].network) {
             (None, Some(network)) => {
                 state.run = Some(Run {
@@ -160,18 +162,19 @@ impl World {
                     ice: deploy(&self.hosts, network),
                 });
                 let name = &self.networks[network.0].name;
-                Some(Message::game(format!(
+                vec![Message::game(format!(
                     "You connect to the network of {name}."
-                )))
+                ))]
             }
             (Some(network), None) => {
                 state.run = None;
                 let name = &self.networks[network.0].name;
-                Some(Message::game(format!(
-                    "You leave the network of {name}. Clean exit."
-                )))
+                let exit = Message::game(format!("You leave the network of {name}. Clean exit."));
+                std::iter::once(exit)
+                    .chain(self.finish_contract(player, network))
+                    .collect()
             }
-            _ => None,
+            _ => Vec::new(),
         }
     }
 }
