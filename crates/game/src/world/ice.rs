@@ -16,6 +16,7 @@ pub(super) struct Ice {
     pub(super) guards: Option<HostId>,
     pub(super) known: bool,
     pub(super) awake: bool,
+    pub(super) fooled: bool,
     pub(super) intent: Option<Intent>,
 }
 
@@ -84,6 +85,7 @@ pub(super) fn deploy(hosts: &[Host], network: NetworkId) -> Vec<Ice> {
                 guards: def.guards.as_deref().and_then(find),
                 known: false,
                 awake: false,
+                fooled: false,
                 intent: None,
             })
         })
@@ -101,6 +103,12 @@ impl World {
             return Vec::new();
         };
         let mut shown = Vec::new();
+        if run.mask > 0 {
+            run.mask -= 1;
+            if run.mask == 0 {
+                shown.push(Message::game("Your mask drops."));
+            }
+        }
         let mut fired = Vec::new();
         for (index, ice) in run.ice.iter_mut().enumerate() {
             if ice.broken() {
@@ -180,6 +188,9 @@ impl World {
                     .text(" fires ")
                     .span(Style::Danger, action.name())
                     .text(".");
+                if std::mem::take(&mut run.firewall) {
+                    return vec![hit.text(" Your firewall stops it.")];
+                }
                 self.damage_hit(player, hit, amount)
             }
         }
@@ -197,11 +208,15 @@ impl World {
     }
 
     fn trace_hit(&mut self, player: PlayerId, line: Message, amount: u32) -> Vec<Message> {
-        let before = self
+        let Some(run) = self
             .players
             .get(&player)
             .and_then(|state| state.run.as_ref())
-            .map_or(0, |run| run.trace);
+        else {
+            return vec![line];
+        };
+        let amount = if run.proxy { amount / 2 } else { amount };
+        let before = run.trace;
         let after = (before + amount).min(MAX_TRACE);
         let mut shown = vec![line.text(format!(" Trace: {before}% -> {after}%."))];
         shown.extend(self.raise_trace(player, amount));
@@ -217,10 +232,9 @@ impl World {
         else {
             return Ok(());
         };
-        let warden = run
-            .ice
-            .iter()
-            .find(|ice| ice.host == here && ice.guards == Some(target) && ice.integrity > 0);
+        let warden = run.ice.iter().find(|ice| {
+            ice.host == here && ice.guards == Some(target) && !ice.broken() && !ice.fooled
+        });
         let Some(warden) = warden else {
             return Ok(());
         };

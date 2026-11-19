@@ -16,6 +16,9 @@ pub(super) struct Run {
     pub(super) trace: u32,
     pub(super) loot: Vec<String>,
     pub(super) ice: Vec<Ice>,
+    pub(super) firewall: bool,
+    pub(super) mask: u32,
+    pub(super) proxy: bool,
 }
 
 impl World {
@@ -89,12 +92,13 @@ impl World {
         if noise == 0 {
             return Vec::new();
         }
+        let masked = run.mask > 0;
         let mut shown = Vec::new();
         let mut watched = false;
         for ice in run
             .ice
             .iter_mut()
-            .filter(|ice| ice.host == here && !ice.broken())
+            .filter(|ice| ice.host == here && !ice.broken() && !masked)
         {
             match ice.kind {
                 IceKind::Sentry => {
@@ -107,7 +111,12 @@ impl World {
                 _ => {}
             }
         }
-        shown.extend(self.raise_trace(player, if watched { noise * 2 } else { noise }));
+        let gain = match (masked, watched) {
+            (true, _) => noise / 2,
+            (false, true) => noise * 2,
+            (false, false) => noise,
+        };
+        shown.extend(self.raise_trace(player, gain));
         shown
     }
 
@@ -161,6 +170,9 @@ impl World {
                     trace: 0,
                     loot: Vec::new(),
                     ice: deploy(&self.hosts, network),
+                    firewall: false,
+                    mask: 0,
+                    proxy: false,
                 });
                 let name = &self.networks[network.0].name;
                 let shown = vec![Message::game(format!(

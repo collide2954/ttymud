@@ -193,7 +193,7 @@ impl World {
         self.players.get(&player)?.run.as_ref()
     }
 
-    fn targets(
+    pub(super) fn targets(
         &self,
         player: PlayerId,
         command: &str,

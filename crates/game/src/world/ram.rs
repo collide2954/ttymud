@@ -159,7 +159,10 @@ mod tests {
         for line in [HOME, "unload patch"] {
             world.command(player, line);
         }
-        assert_eq!(world.complete(player, "load ").names, ["patch"]);
+        assert_eq!(
+            world.complete(player, "load ").names,
+            ["patch", "firewall", "mask", "proxy", "pretext"]
+        );
         assert_eq!(world.complete(player, "unload s").names, ["scan", "scrub"]);
     }
 
@@ -173,13 +176,22 @@ mod tests {
             walk(&[HOME, "unload patch", "unload patch"]).0,
             ["patch is not in your RAM."]
         );
+        let known = "scan, probe, crack, scrub, patch, firewall, mask, proxy, pretext";
         assert_eq!(
             walk(&[HOME, "load nuke"]).0,
-            ["No program named nuke. Programs: scan, probe, crack, scrub, patch"]
+            [format!("No program named nuke. Programs: {known}")]
         );
         assert_eq!(
             walk(&[HOME, "unload"]).0,
-            ["Usage: unload <program>. Programs: scan, probe, crack, scrub, patch"]
+            [format!("Usage: unload <program>. Programs: {known}")]
+        );
+    }
+
+    #[test]
+    fn a_program_needs_room_in_ram() {
+        assert_eq!(
+            walk(&[HOME, "load mask"]).0,
+            ["mask needs 2 GB, but only 0 GB are free. Unload a program first."]
         );
     }
 }

@@ -10,6 +10,7 @@ mod presence;
 mod programs;
 mod ram;
 mod rig;
+mod roles;
 mod run;
 mod topics;
 
@@ -362,6 +363,19 @@ impl World {
                 no_args(command, args)?;
                 self.patch(player)
             }
+            Verb::Firewall => {
+                no_args(command, args)?;
+                self.firewall(player)
+            }
+            Verb::Mask => {
+                no_args(command, args)?;
+                Ok(self.mask(player))
+            }
+            Verb::Proxy => {
+                no_args(command, args)?;
+                self.proxy(player)
+            }
+            Verb::Pretext => self.pretext(player, args, input),
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Help => help::help(args),

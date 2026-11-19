@@ -8,6 +8,13 @@ const MAX_INTEGRITY: u32 = 100;
 const MAX_CYCLES: u32 = 4;
 pub(super) const RAM: u32 = 8;
 const PATCH: u32 = 20;
+const LOADS: [Verb; 5] = [
+    Verb::Scan,
+    Verb::Probe,
+    Verb::Crack,
+    Verb::Scrub,
+    Verb::Patch,
+];
 
 #[derive(Debug)]
 pub(super) struct Rig {
@@ -23,9 +30,7 @@ impl Rig {
             integrity: MAX_INTEGRITY,
             cycles: MAX_CYCLES,
             files: Vec::new(),
-            loads: commands::programs()
-                .map(|(command, _)| command.verb)
-                .collect(),
+            loads: LOADS.to_vec(),
         }
     }
 

@@ -54,7 +54,7 @@ impl World {
                 .iter()
                 .map(|file| file.name.as_str())
                 .collect(),
-            (Verb::Probe | Verb::Crack, _) => self
+            (Verb::Probe | Verb::Crack | Verb::Pretext, _) => self
                 .players
                 .get(&player)
                 .and_then(|state| state.run.as_ref())
