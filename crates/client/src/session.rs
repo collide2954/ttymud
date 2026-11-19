@@ -32,6 +32,7 @@ pub(crate) enum Event {
 pub(crate) enum Typed {
     Nothing,
     Line(String),
+    Complete(String),
     Quit,
 }
 
@@ -132,15 +133,22 @@ fn play(
                 Typed::Nothing
             }
         };
-        match typed {
+        let request = match typed {
             Typed::Line(line) if !draining && !is_quit(&line) => {
-                if sender.send(&ClientMessage::Command(line).encode()).is_err() {
-                    return Ok(Ending::Closed);
-                }
                 sent += 1;
+                Some(ClientMessage::Command(line))
             }
-            Typed::Line(_) | Typed::Quit => draining = true,
-            Typed::Nothing => {}
+            Typed::Complete(text) if !draining => Some(ClientMessage::Complete(text)),
+            Typed::Line(_) | Typed::Quit => {
+                draining = true;
+                None
+            }
+            Typed::Complete(_) | Typed::Nothing => None,
+        };
+        if let Some(request) = request
+            && sender.send(&request.encode()).is_err()
+        {
+            return Ok(Ending::Closed);
         }
         if draining && prompts > sent {
             return Ok(Ending::Quit);

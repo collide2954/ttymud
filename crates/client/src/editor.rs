@@ -53,7 +53,7 @@ impl Editor {
             Key::End => self.move_to(self.buffer.len()),
             Key::Up => self.older(),
             Key::Down => self.newer(),
-            Key::Tab => Action::Complete(self.buffer[..self.cursor].iter().collect()),
+            Key::Tab => Action::Complete(self.before()),
             Key::DeleteWord => self.delete_word(),
             Key::DeleteToStart => {
                 self.buffer.drain(..self.cursor);
@@ -79,6 +79,18 @@ impl Editor {
     #[must_use]
     pub(crate) fn cursor(&self) -> usize {
         self.cursor
+    }
+
+    #[must_use]
+    pub(crate) fn before(&self) -> String {
+        self.buffer[..self.cursor].iter().collect()
+    }
+
+    pub(crate) fn replace_before(&mut self, count: usize, text: &str) {
+        let start = self.cursor.saturating_sub(count);
+        self.buffer.drain(start..self.cursor);
+        self.cursor = start;
+        self.insert(text);
     }
 
     pub(crate) fn insert(&mut self, text: &str) {
@@ -313,6 +325,18 @@ mod tests {
         let mut editor = typed("a\u{1b}");
         editor.insert("b\u{7}\r\nc\u{9b}");
         assert_eq!((editor.line().as_str(), editor.cursor()), ("abc", 3));
+    }
+
+    #[test]
+    fn replace_before_swaps_the_end_of_the_text_before_the_cursor() {
+        let mut editor = typed("go ma x");
+        press(&mut editor, &[Key::Left, Key::Left]);
+        assert_eq!(editor.before(), "go ma");
+        editor.replace_before(2, "market");
+        assert_eq!(
+            (editor.line().as_str(), editor.cursor()),
+            ("go market x", 9)
+        );
     }
 
     #[test]
