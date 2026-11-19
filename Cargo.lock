@@ -3,6 +3,10 @@
 version = 4
 
 [[package]]
+name = "stelint"
+version = "0.1.0"
+
+[[package]]
 name = "ttymud"
 version = "0.1.0"
 
