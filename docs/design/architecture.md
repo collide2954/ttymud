@@ -11,22 +11,22 @@ TTYmud is a Cargo workspace.
     ├── clippy.toml      clippy settings
     ├── rustfmt.toml     rustfmt settings
     ├── crates/
-    │   ├── game/        ttymud-game: rules, world, ICE, trace, and the command parser
-    │   ├── wire/        ttymud-wire: frames, messages, and the text sanitizer
-    │   ├── server/      ttymud-server: the server binary
+    │   ├── text/        ttymud-text: styles, spans, messages, and the text sanitizer
+    │   ├── game/        ttymud-game: rules, world, content files, and the command parser
+    │   ├── wire/        ttymud-wire: frames and protocol messages
+    │   ├── server/      ttymud-server: the server binary and the default city
     │   └── client/      ttymud: the client binary
     ├── tools/
     │   └── stelint/     stelint: the STE check for the documents
-    ├── content/         hubs, corporations, ICE, and programs as data files
     └── docs/            the documents, in ASD-STE100
 
 Each directory in `crates/` and `tools/` contains one package. The name before the colon is the package name.
 
 These rules control the dependencies between crates:
 
-- `game` and `wire` have no dependencies. They do no input or output. As a result, their tests are fast and always give the same result.
+- `text` has no dependencies. `game` and `wire` use only `text`. These three crates do no input or output. As a result, their tests are fast and always give the same result.
 - `server` uses `game` and `wire`.
-- `client` uses `wire`, but not `game`. The client does not know the game rules. As a result, a modified client cannot change the rules.
+- `client` uses `wire` and `text`, but not `game`. The client does not know the game rules. As a result, a modified client cannot change the rules.
 - `stelint` is a tool for the documents. The game does not use it.
 
 ## Binaries
@@ -43,8 +43,9 @@ These rules control the dependencies between crates:
     ttymud-server init <data-dir>
     ttymud-server check <data-dir>
     ttymud-server run <data-dir>
+    ttymud-server play [name]
 
-The default port is 7331.
+The default port is 7331. The `play` command lets one player walk Port Ostra without a network. It is for tests and for a first look at the game.
 
 ## Server
 
@@ -59,12 +60,15 @@ This design is for a maximum of about 500 players on a small server. Most MUDs h
 
 ## Game core
 
-The `game` crate is a pure state machine. It does not read the clock, and it does not get random numbers from the operating system. The caller gives the time and the random seed:
+The `game` crate is a pure state machine. It does not read the clock, and it does not get random numbers from the operating system.
 
-    world.apply(input, now) -> outputs
-    world.tick(now) -> outputs
+    let mut world = World::new(Content::parse(text)?);
+    let (player, outputs) = world.join("ghost");
+    let outputs = world.command(player, "ls | grep txt");
 
-As a result, a test can give a seed and a time, and the test gets the same result each time. The crate has its own small random number generator.
+Each output has a player and a styled message. A command checks all stages of a pipeline before it runs the first stage. The `prompt` function gives the prompt of a player.
+
+Game time comes in M3 with `world.tick(now)`. The caller will give the time and the random seed. As a result, a test can give a seed and a time, and the test gets the same result each time.
 
 ## Storage
 
@@ -78,15 +82,9 @@ As a result, a crash cannot leave a damaged file. To make a backup, copy the dat
 
 ## Content files
 
-Hubs, corporations, ICE, programs, starter kits, and text templates are content files. They use a small text format with sections and keys. The same parser reads content files and save files.
+Hubs, corporations, ICE, programs, starter kits, and text templates are content files. They use a small text format with sections and keys. The [content](../content.md) document gives the format. The same parser will also read save files.
 
-    [host relay]
-    name = The Relay
-    desc = A crowded public node. Every channel hisses with talk.
-    route = night-market
-    route = back-room
-
-An operator can put content files in the data directory. A file in the data directory replaces the default file with the same name. The `ttymud-server check` command finds errors in content files.
+The default city, Port Ostra, is in `crates/server/content/`. The server binary contains it, so a server needs no other files. An operator can put content files in the data directory. A file in the data directory replaces the default file with the same name. The `ttymud-server check` command finds errors in content files.
 
 ## Wire protocol
 
@@ -132,7 +130,7 @@ TTYmud does not use serde, tokio, clap, or a crate for logs. The standard librar
 ## Tests
 
 - **Unit tests** in each crate.
-- **Scenario tests** for the game. A scenario gives a world, a seed, and a list of commands. The test compares the outputs with the expected outputs.
+- **Scenario tests** for the game. Each file in `crates/game/tests/scenarios/` is a transcript of commands and their expected output. The test runs the commands on a test city and compares the outputs with the transcript. A comment line starts with `#`.
 - **Golden tests** for the client renderer. There is one test for each layer and each color depth.
 - **Round-trip tests** for the wire protocol.
 - **Integration tests** that start a server and a client in one process on a local port.
