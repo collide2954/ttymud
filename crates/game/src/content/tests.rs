@@ -25,6 +25,22 @@ network = n
 ";
 
 #[test]
+fn the_example_in_the_content_document_is_valid() {
+    let document = include_str!("../../../../docs/content.md");
+    let section = document.split("## Example").nth(1).unwrap_or_default();
+    let lines: Vec<&str> = section
+        .split("\n## ")
+        .next()
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|line| line.strip_prefix("    "))
+        .collect();
+    let example = lines.join("\n");
+    assert!(example.contains("[contract first-job]"), "{example}");
+    assert_eq!(Content::parse(&example).err(), None);
+}
+
+#[test]
 fn the_city_can_name_a_host_for_the_burn_list() {
     let text = NET.replace("start = a", "start = a\nburns = a");
     assert_eq!(Content::parse(&text).unwrap().burns.as_deref(), Some("a"));
