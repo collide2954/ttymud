@@ -1,5 +1,6 @@
 mod markdown;
 mod sentence;
+mod words;
 
 use markdown::{Block, Kind};
 
@@ -16,6 +17,7 @@ pub fn check(markdown: &str) -> Vec<Issue> {
     let mut issues = Vec::new();
     for block in markdown::blocks(markdown) {
         semicolons(&block, &mut issues);
+        contractions(&block, &mut issues);
         if block.kind == Kind::Prose {
             let sentences = sentence::sentences(&block.text);
             long_sentences(&block, &sentences, &mut issues);
@@ -28,6 +30,15 @@ pub fn check(markdown: &str) -> Vec<Issue> {
 fn semicolons(block: &Block, issues: &mut Vec<Issue>) {
     if block.text.contains(';') {
         issues.push(issue(block, "semicolon: write two sentences".to_owned()));
+    }
+}
+
+fn contractions(block: &Block, issues: &mut Vec<Issue>) {
+    for word in words::contractions(&block.text) {
+        issues.push(issue(
+            block,
+            format!("contraction \"{word}\": write the full words"),
+        ));
     }
 }
 
@@ -146,6 +157,23 @@ mod tests {
     #[test]
     fn semicolon_in_code_passes() {
         assert_clean("Type `a; b` now.");
+    }
+
+    #[test]
+    fn contractions_fail() {
+        assert_eq!(
+            messages("Don't stop. It's late. They\u{2019}re here."),
+            [
+                "contraction \"Don't\": write the full words",
+                "contraction \"It's\": write the full words",
+                "contraction \"They\u{2019}re\": write the full words",
+            ]
+        );
+    }
+
+    #[test]
+    fn possessives_pass() {
+        assert_clean("The player's rig and the players' rigs.");
     }
 
     #[test]
