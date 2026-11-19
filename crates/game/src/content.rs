@@ -40,6 +40,7 @@ pub(crate) struct File {
 
 impl Content {
     pub fn parse(text: &str) -> Result<Self, Vec<ContentError>> {
+        let text = text.strip_prefix('\u{feff}').unwrap_or(text);
         let mut reader = Reader::default();
         for section in reader.sections(text) {
             reader.section(&section);
@@ -376,6 +377,14 @@ line = Two.
         assert_eq!(content.hosts[0].name, "Host A");
         assert_eq!(content.hosts[0].description, "The first host.");
         assert_eq!(content.hosts[0].routes, ["b"]);
+    }
+
+    #[test]
+    fn a_byte_order_mark_is_ignored() {
+        assert_eq!(
+            Content::parse(&format!("\u{feff}{CITY}")),
+            Content::parse(CITY)
+        );
     }
 
     #[test]
