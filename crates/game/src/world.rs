@@ -539,7 +539,7 @@ mod tests {
     use ttymud_text::{Kind, Style};
 
     use super::PlayerId;
-    use crate::testing::{joined, plain, run, world};
+    use crate::testing::{joined, plain, run, walk, world};
 
     #[test]
     fn joining_shows_the_start_host() {
@@ -642,6 +642,27 @@ mod tests {
     #[test]
     fn commands_without_input_reject_pipes() {
         assert_eq!(run("look | ls"), ["ls takes no input from a pipe."]);
+    }
+
+    #[test]
+    fn a_pipe_must_carry_what_the_next_command_needs() {
+        assert_eq!(
+            run("ls | crack"),
+            ["crack needs ICE, but ls gives routes and files."]
+        );
+        assert_eq!(run("help | go"), ["go needs routes, but help gives lines."]);
+        assert_eq!(
+            run("ls | grep x | probe"),
+            ["probe needs ICE, but ls gives routes and files."]
+        );
+    }
+
+    #[test]
+    fn a_pipe_that_does_not_fit_costs_nothing() {
+        let lines = ["go back-room", "go gate", "scan | read"];
+        assert_eq!(walk(&lines).0, ["read needs files, but scan gives ICE."]);
+        let lines = [&lines[..], &["status | grep cycles"]].concat();
+        assert_eq!(walk(&lines).0, ["Cycles: 4/4"]);
     }
 
     #[test]

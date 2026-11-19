@@ -88,11 +88,53 @@ impl Item {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Kinds(u8);
+
+impl Kinds {
+    const NONE: Self = Self(0);
+    const ROUTES: Self = Self(1);
+    const FILES: Self = Self(2);
+    const PLACES: Self = Self(3);
+    const LINES: Self = Self(4);
+    const ICE: Self = Self(8);
+    const ANY: Self = Self(15);
+
+    fn overlaps(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+
+    fn describe(self) -> String {
+        let words: Vec<&str> = [
+            (Self::ROUTES, "routes"),
+            (Self::FILES, "files"),
+            (Self::LINES, "lines"),
+            (Self::ICE, "ICE"),
+        ]
+        .into_iter()
+        .filter(|&(kind, _)| self.overlaps(kind))
+        .map(|(_, word)| word)
+        .collect();
+        match words.as_slice() {
+            [] => "nothing".to_owned(),
+            [rest @ .., last] if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
+            _ => words.join(""),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Takes {
     Nothing,
-    Optional,
-    Required,
+    Optional(Kinds),
+    Required(Kinds),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Gives {
+    Nothing,
+    Items(Kinds),
+    Same,
 }
 
 #[derive(Debug)]
@@ -103,7 +145,7 @@ pub(crate) struct Command {
     pub(crate) summary: &'static str,
     pub(crate) example: &'static str,
     pub(crate) takes: Takes,
-    pub(crate) output: bool,
+    pub(crate) gives: Gives,
 }
 
 impl Command {
@@ -120,7 +162,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Show the host where you are.",
         example: "look",
         takes: Takes::Nothing,
-        output: true,
+        gives: Gives::Items(Kinds::PLACES),
     },
     Command {
         verb: Verb::List,
@@ -129,7 +171,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "List the routes and files here.",
         example: "ls",
         takes: Takes::Nothing,
-        output: true,
+        gives: Gives::Items(Kinds::PLACES),
     },
     Command {
         verb: Verb::Go,
@@ -137,8 +179,8 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "go <place>",
         summary: "Move to a host through a route.",
         example: "go market",
-        takes: Takes::Optional,
-        output: false,
+        takes: Takes::Optional(Kinds::ROUTES),
+        gives: Gives::Nothing,
     },
     Command {
         verb: Verb::Back,
@@ -147,7 +189,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Move back one hop. cd .. does the same.",
         example: "back",
         takes: Takes::Nothing,
-        output: false,
+        gives: Gives::Nothing,
     },
     Command {
         verb: Verb::Read,
@@ -155,8 +197,8 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "read <file>",
         summary: "Show the text of a file here or on your rig.",
         example: "read motd.txt",
-        takes: Takes::Optional,
-        output: true,
+        takes: Takes::Optional(Kinds::FILES),
+        gives: Gives::Items(Kinds::LINES),
     },
     Command {
         verb: Verb::Download,
@@ -164,8 +206,8 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "download <file>",
         summary: "Copy a file from this host to your rig.",
         example: "download motd.txt",
-        takes: Takes::Optional,
-        output: false,
+        takes: Takes::Optional(Kinds::FILES),
+        gives: Gives::Nothing,
     },
     Command {
         verb: Verb::Inventory,
@@ -174,7 +216,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Show the files on your rig.",
         example: "inventory",
         takes: Takes::Nothing,
-        output: true,
+        gives: Gives::Items(Kinds::FILES),
     },
     Command {
         verb: Verb::Status,
@@ -183,7 +225,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Show your trace, integrity, cycles, and RAM.",
         example: "status",
         takes: Takes::Nothing,
-        output: true,
+        gives: Gives::Items(Kinds::LINES),
     },
     Command {
         verb: Verb::Jackout,
@@ -192,7 +234,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Drop the link to the target at once. It costs integrity.",
         example: "jackout",
         takes: Takes::Nothing,
-        output: false,
+        gives: Gives::Nothing,
     },
     Command {
         verb: Verb::Repair,
@@ -201,7 +243,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Restore your integrity. This works only at home.",
         example: "repair",
         takes: Takes::Nothing,
-        output: false,
+        gives: Gives::Nothing,
     },
     Command {
         verb: Verb::Scan,
@@ -210,7 +252,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Find the ICE on this host.",
         example: "scan",
         takes: Takes::Nothing,
-        output: true,
+        gives: Gives::Items(Kinds::ICE),
     },
     Command {
         verb: Verb::Probe,
@@ -218,8 +260,8 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "probe <ice>",
         summary: "Find the weak point of an ICE.",
         example: "probe sentry",
-        takes: Takes::Optional,
-        output: true,
+        takes: Takes::Optional(Kinds::ICE),
+        gives: Gives::Items(Kinds::ICE),
     },
     Command {
         verb: Verb::Crack,
@@ -227,8 +269,8 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "crack <ice>",
         summary: "Attack an ICE. At zero integrity, the ICE breaks.",
         example: "crack sentry",
-        takes: Takes::Optional,
-        output: false,
+        takes: Takes::Optional(Kinds::ICE),
+        gives: Gives::Nothing,
     },
     Command {
         verb: Verb::Scrub,
@@ -237,7 +279,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Delete your log lines to lower the trace.",
         example: "scrub",
         takes: Takes::Nothing,
-        output: false,
+        gives: Gives::Nothing,
     },
     Command {
         verb: Verb::Patch,
@@ -246,7 +288,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Repair some integrity during a run.",
         example: "patch",
         takes: Takes::Nothing,
-        output: false,
+        gives: Gives::Nothing,
     },
     Command {
         verb: Verb::Grep,
@@ -254,8 +296,8 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "grep <pattern>",
         summary: "Keep only the items that contain the pattern.",
         example: "ls | grep txt",
-        takes: Takes::Required,
-        output: true,
+        takes: Takes::Required(Kinds::ANY),
+        gives: Gives::Same,
     },
     Command {
         verb: Verb::Say,
@@ -264,7 +306,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Talk to everyone on this host.",
         example: "say hello",
         takes: Takes::Nothing,
-        output: false,
+        gives: Gives::Nothing,
     },
     Command {
         verb: Verb::Help,
@@ -273,7 +315,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Show help for all commands or for one command.",
         example: "help go",
         takes: Takes::Nothing,
-        output: true,
+        gives: Gives::Items(Kinds::LINES),
     },
     Command {
         verb: Verb::Available,
@@ -282,7 +324,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Show the commands that you can use here.",
         example: "?",
         takes: Takes::Nothing,
-        output: true,
+        gives: Gives::Items(Kinds::LINES),
     },
 ];
 
@@ -306,23 +348,33 @@ pub(crate) fn find(name: &str) -> Option<&'static Command> {
 }
 
 pub(crate) fn check(commands: &[&Command]) -> Result<(), String> {
-    let mut piped = false;
+    let mut flow: Option<(Kinds, &str)> = None;
     for (index, command) in commands.iter().enumerate() {
         let name = command.name();
-        if !command.output && index + 1 < commands.len() {
-            return Err(format!("{name} gives no output to a pipe."));
-        }
-        match (command.takes, piped) {
-            (Takes::Nothing, true) => return Err(format!("{name} takes no input from a pipe.")),
-            (Takes::Required, false) => {
+        match (command.takes, flow) {
+            (Takes::Nothing, Some(_)) => return Err(format!("{name} takes no input from a pipe.")),
+            (Takes::Required(_), None) => {
                 let example = command.example;
                 return Err(format!(
                     "{name} needs input from a pipe. Example: {example}"
                 ));
             }
+            (Takes::Optional(wanted) | Takes::Required(wanted), Some((kinds, from)))
+                if !wanted.overlaps(kinds) =>
+            {
+                let (wanted, kinds) = (wanted.describe(), kinds.describe());
+                return Err(format!("{name} needs {wanted}, but {from} gives {kinds}."));
+            }
             _ => {}
         }
-        piped = true;
+        flow = match command.gives {
+            Gives::Nothing if index + 1 < commands.len() => {
+                return Err(format!("{name} gives no output to a pipe."));
+            }
+            Gives::Nothing => Some((Kinds::NONE, name)),
+            Gives::Items(kinds) => Some((kinds, name)),
+            Gives::Same => flow,
+        };
     }
     Ok(())
 }
