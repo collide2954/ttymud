@@ -12,6 +12,14 @@ pub(crate) fn contractions(text: &str) -> Vec<&str> {
         .collect()
 }
 
+pub(crate) fn lowercase_words(text: &str) -> Vec<String> {
+    text.split(|c: char| !c.is_alphanumeric() && !is_apostrophe(c))
+        .map(|word| word.trim_matches(is_apostrophe))
+        .filter(|word| !word.is_empty())
+        .map(str::to_lowercase)
+        .collect()
+}
+
 fn is_apostrophe(c: char) -> bool {
     c == '\'' || c == '\u{2019}'
 }

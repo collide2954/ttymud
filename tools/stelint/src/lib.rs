@@ -1,8 +1,10 @@
 mod markdown;
 mod sentence;
+mod vocabulary;
 mod words;
 
 use markdown::{Block, Kind};
+pub use vocabulary::Rules;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Issue {
@@ -13,11 +15,12 @@ pub struct Issue {
 const PARAGRAPH_LIMIT: usize = 6;
 
 #[must_use]
-pub fn check(markdown: &str) -> Vec<Issue> {
+pub fn check(markdown: &str, rules: &Rules) -> Vec<Issue> {
     let mut issues = Vec::new();
     for block in markdown::blocks(markdown) {
         semicolons(&block, &mut issues);
         contractions(&block, &mut issues);
+        unapproved(&block, rules, &mut issues);
         if block.kind == Kind::Prose {
             let sentences = sentence::sentences(&block.text);
             long_sentences(&block, &sentences, &mut issues);
@@ -38,6 +41,15 @@ fn contractions(block: &Block, issues: &mut Vec<Issue>) {
         issues.push(issue(
             block,
             format!("contraction \"{word}\": write the full words"),
+        ));
+    }
+}
+
+fn unapproved(block: &Block, rules: &Rules, issues: &mut Vec<Issue>) {
+    for (word, replacement) in rules.unapproved(&block.text) {
+        issues.push(issue(
+            block,
+            format!("unapproved word \"{word}\": use {replacement}"),
         ));
     }
 }
@@ -75,10 +87,29 @@ fn issue(block: &Block, message: String) -> Issue {
 
 #[cfg(test)]
 mod tests {
-    use super::check;
+    use super::{Issue, Rules, check};
+
+    const STYLE_TABLE: &str = "\
+| Do not use | Use |
+| --- | --- |
+| `ensure` | make sure |
+| `prior to` | before |
+| `may`, `might` | can |
+";
 
     fn messages(text: &str) -> Vec<String> {
-        check(text).into_iter().map(|issue| issue.message).collect()
+        messages_with(&Rules::default(), text)
+    }
+
+    fn banned(text: &str) -> Vec<String> {
+        messages_with(&Rules::from_style_guide(STYLE_TABLE), text)
+    }
+
+    fn messages_with(rules: &Rules, text: &str) -> Vec<String> {
+        check(text, rules)
+            .into_iter()
+            .map(|issue| issue.message)
+            .collect()
     }
 
     fn assert_clean(text: &str) {
@@ -177,9 +208,59 @@ mod tests {
     }
 
     #[test]
+    fn unapproved_word_fails_with_its_replacement() {
+        assert_eq!(
+            banned("Ensure that it runs."),
+            ["unapproved word \"ensure\": use make sure"]
+        );
+    }
+
+    #[test]
+    fn inflected_forms_fail() {
+        assert_eq!(
+            banned("It ensures this. It ensured that."),
+            [
+                "unapproved word \"ensures\": use make sure",
+                "unapproved word \"ensured\": use make sure",
+            ]
+        );
+    }
+
+    #[test]
+    fn unapproved_phrase_fails() {
+        assert_eq!(
+            banned("Do it prior to the run."),
+            ["unapproved word \"prior to\": use before"]
+        );
+    }
+
+    #[test]
+    fn each_word_in_a_row_fails() {
+        assert_eq!(
+            banned("It may or might work."),
+            [
+                "unapproved word \"may\": use can",
+                "unapproved word \"might\": use can",
+            ]
+        );
+    }
+
+    #[test]
+    fn code_and_similar_words_pass() {
+        assert_eq!(banned("Type `ensure` for the mayor."), Vec::<String>::new());
+    }
+
+    #[test]
+    fn text_without_the_table_gives_no_rules() {
+        let rules = Rules::from_style_guide("No table here.");
+        assert!(rules.is_empty());
+        assert_eq!(check("Ensure it.", &rules), Vec::<Issue>::new());
+    }
+
+    #[test]
     fn issue_gives_the_first_line_of_its_paragraph() {
         let text = format!("Short.\n\n{}\n{}.", words(13), words(13));
-        let issues = check(&text);
+        let issues = check(&text, &Rules::default());
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].line, 3);
     }

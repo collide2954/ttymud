@@ -97,7 +97,7 @@ fn is_separator(row: &str) -> bool {
     row.chars().all(|c| matches!(c, '|' | '-' | ':' | ' '))
 }
 
-fn cells(row: &str) -> Vec<String> {
+pub(crate) fn cells(row: &str) -> Vec<String> {
     let mut found = Vec::new();
     let mut cell = String::new();
     let mut chars = row.chars().peekable();
@@ -134,25 +134,50 @@ fn list_item(text: &str) -> Option<&str> {
     rest.strip_prefix(". ").or_else(|| rest.strip_prefix(") "))
 }
 
-fn inline(raw: &str) -> String {
+pub(crate) fn inline(raw: &str) -> String {
     let text = links(&code_spans(raw)).replace('*', "");
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn code_spans(text: &str) -> String {
-    let mut out = String::new();
+enum Piece<'a> {
+    Text(&'a str),
+    Code(&'a str),
+}
+
+fn pieces(text: &str) -> Vec<Piece<'_>> {
+    let mut found = Vec::new();
     let mut rest = text;
     while let Some(start) = rest.find('`') {
         let after = &rest[start + 1..];
         let Some(end) = after.find('`') else {
             break;
         };
-        out.push_str(&rest[..start]);
-        out.push_str("CODE");
+        found.push(Piece::Text(&rest[..start]));
+        found.push(Piece::Code(&after[..end]));
         rest = &after[end + 1..];
     }
-    out.push_str(rest);
-    out
+    found.push(Piece::Text(rest));
+    found
+}
+
+fn code_spans(text: &str) -> String {
+    pieces(text)
+        .into_iter()
+        .map(|piece| match piece {
+            Piece::Text(text) => text,
+            Piece::Code(_) => "CODE",
+        })
+        .collect()
+}
+
+pub(crate) fn code_span_contents(text: &str) -> Vec<&str> {
+    pieces(text)
+        .into_iter()
+        .filter_map(|piece| match piece {
+            Piece::Code(code) => Some(code),
+            Piece::Text(_) => None,
+        })
+        .collect()
 }
 
 fn links(text: &str) -> String {
@@ -175,7 +200,7 @@ fn links(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Block, Kind, blocks};
+    use super::{Block, Kind, blocks, code_span_contents};
 
     fn texts(markdown: &str) -> Vec<String> {
         blocks(markdown)
@@ -259,6 +284,11 @@ mod tests {
             }
         );
         assert_eq!((found[1].line, found[1].kind), (3, Kind::Prose));
+    }
+
+    #[test]
+    fn code_span_contents_come_out_in_order() {
+        assert_eq!(code_span_contents("`a` and `b c`."), ["a", "b c"]);
     }
 
     #[test]
