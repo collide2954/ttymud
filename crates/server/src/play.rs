@@ -5,15 +5,15 @@ use std::time::Instant;
 
 use ttymud_game::{Output, PlayerId, World};
 
-use crate::port_ostra;
 use crate::ticker::{TICK, Ticker};
+use crate::{port_ostra, seed};
 
 pub fn play(
     name: &str,
     input: impl BufRead + Send + 'static,
     mut output: impl Write,
 ) -> io::Result<()> {
-    let mut world = port_ostra()?;
+    let mut world = port_ostra(seed())?;
     let (player, joined) = world.join(name);
     let city = world.city();
     writeln!(

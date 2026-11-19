@@ -3,6 +3,7 @@ mod content;
 mod ice;
 mod matching;
 mod parse;
+mod random;
 #[cfg(test)]
 mod testing;
 mod world;

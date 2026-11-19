@@ -107,7 +107,7 @@ fn init(dir: &Path) -> io::Result<()> {
 
 fn run(dir: &Path, listen: &str) -> io::Result<()> {
     let keys = ttymud_server::load_keys(dir).map_err(|error| missing_key(dir, error))?;
-    let world = ttymud_server::port_ostra()?;
+    let world = ttymud_server::port_ostra(ttymud_server::seed())?;
     let listener = TcpListener::bind(listen)?;
     println!("{} is open on {}.", world.city(), listener.local_addr()?);
     println!("Fingerprint: {}", keys.public().fingerprint());

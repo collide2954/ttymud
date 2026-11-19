@@ -3,7 +3,7 @@ use crate::{Content, Output, PlayerId, World};
 pub(crate) const CITY: &str = include_str!("../tests/scenarios/city.ini");
 
 pub(crate) fn world() -> World {
-    World::new(Content::parse(CITY).unwrap())
+    World::new(Content::parse(CITY).unwrap(), 0)
 }
 
 pub(crate) fn plain(outputs: &[Output]) -> Vec<String> {

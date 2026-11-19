@@ -18,6 +18,7 @@ use crate::commands::{self, Command, Item, Verb};
 use crate::content::{Content, File, IceDef};
 use crate::matching::{self, Found};
 use crate::parse::{self, ParseError, Stage};
+use crate::random::Random;
 
 pub use chat::is_chat;
 pub use complete::Completion;
@@ -73,6 +74,7 @@ pub struct World {
     players: BTreeMap<PlayerId, Player>,
     next_player: u64,
     outbox: Vec<Output>,
+    random: Random,
 }
 
 #[derive(Default)]
@@ -92,7 +94,7 @@ impl Step {
 
 impl World {
     #[must_use]
-    pub fn new(content: Content) -> Self {
+    pub fn new(content: Content, seed: u64) -> Self {
         let ids: Vec<String> = content.hosts.iter().map(|host| host.id.clone()).collect();
         let find = |id: &str| HostId(ids.iter().position(|known| known == id).unwrap_or(0));
         let network_ids: Vec<&str> = content
@@ -142,6 +144,7 @@ impl World {
             players: BTreeMap::new(),
             next_player: 0,
             outbox: Vec::new(),
+            random: Random::new(seed),
         }
     }
 

@@ -7,7 +7,7 @@ use ttymud_game::{Content, World};
 type Mismatch = (String, Vec<String>, Vec<String>);
 
 fn replay(content: &Content, transcript: &str) -> Vec<String> {
-    let mut world = World::new(content.clone());
+    let mut world = World::new(content.clone(), 0);
     let (player, joined) = world.join("ghost");
     let mut lines: Vec<String> = joined.iter().map(|out| out.message.plain()).collect();
     for command in transcript

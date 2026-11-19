@@ -170,7 +170,7 @@ mod tests {
     use crate::port_ostra;
 
     fn game() -> Game {
-        Game::new(port_ostra().unwrap())
+        Game::new(port_ostra(0).unwrap())
     }
 
     fn key() -> PublicKey {

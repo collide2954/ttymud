@@ -2,7 +2,7 @@ use ttymud_text::{Kind, Message, Style};
 
 use super::run::MAX_TRACE;
 use super::{Host, HostId, NetworkId, PlayerId, World};
-use crate::ice::{Action, IceKind};
+use crate::ice::{Action, Effect, IceKind};
 
 const ALERT_TRACE: u32 = 10;
 
@@ -105,13 +105,18 @@ impl World {
                 ice.host = here;
                 shown.push(ice.named().text(" follows you."));
             }
-            let Some(intent) = &mut ice.intent else {
+            if let Some(intent) = &mut ice.intent {
+                intent.ticks = intent.ticks.saturating_sub(1);
+                if intent.ticks == 0 {
+                    fired.push((index, intent.action));
+                    ice.intent = None;
+                }
                 continue;
-            };
-            intent.ticks = intent.ticks.saturating_sub(1);
-            if intent.ticks == 0 {
-                fired.push((index, intent.action));
-                ice.intent = None;
+            }
+            let actions = ice.kind.actions();
+            if ice.awake && ice.host == here && !actions.is_empty() {
+                let action = actions[self.random.below(actions.len())];
+                shown.push(ice.compile(action));
             }
         }
         for (index, action) in fired {
@@ -139,11 +144,11 @@ impl World {
             return Vec::new();
         };
         let source = run.ice[index].named();
-        match action {
-            Action::Alert => {
+        match action.effect() {
+            Effect::Alert => {
                 let alert = source
                     .text(" sends an ")
-                    .span(Style::Danger, "ALERT")
+                    .span(Style::Danger, action.name())
                     .text(".");
                 let mut woken = Vec::new();
                 for ice in &mut run.ice {
@@ -153,16 +158,32 @@ impl World {
                         woken.push(ice.named().text(" wakes up and hunts you."));
                     }
                 }
-                if !woken.is_empty() {
-                    return std::iter::once(alert).chain(woken).collect();
+                if woken.is_empty() {
+                    self.trace_hit(player, alert, ALERT_TRACE)
+                } else {
+                    std::iter::once(alert).chain(woken).collect()
                 }
-                let before = run.trace;
-                let after = (before + ALERT_TRACE).min(MAX_TRACE);
-                let mut shown = vec![alert.text(format!(" Trace: {before}% -> {after}%."))];
-                shown.extend(self.raise_trace(player, ALERT_TRACE));
-                shown
+            }
+            Effect::Trace(amount) => {
+                let hit = source
+                    .text(" fires ")
+                    .span(Style::Danger, action.name())
+                    .text(".");
+                self.trace_hit(player, hit, amount)
             }
         }
+    }
+
+    fn trace_hit(&mut self, player: PlayerId, line: Message, amount: u32) -> Vec<Message> {
+        let before = self
+            .players
+            .get(&player)
+            .and_then(|state| state.run.as_ref())
+            .map_or(0, |run| run.trace);
+        let after = (before + amount).min(MAX_TRACE);
+        let mut shown = vec![line.text(format!(" Trace: {before}% -> {after}%."))];
+        shown.extend(self.raise_trace(player, amount));
+        shown
     }
 
     pub(super) fn guard(&self, player: PlayerId, target: HostId) -> Result<(), Message> {
@@ -276,14 +297,40 @@ mod tests {
     #[test]
     fn a_hunting_hound_follows_you() {
         assert_eq!(
-            at_gate(&["scan", "~3", "go core", "~"]),
-            ["Unknown ICE follows you."]
+            at_gate(&["scan", "~3", "go core", "~"])[0],
+            "Unknown ICE follows you."
         );
     }
 
     #[test]
     fn a_second_alert_raises_the_trace() {
         let shown = at_gate(&["scan", "~3", "scan", "~3"]);
-        assert_eq!(shown, ["sentry sends an ALERT. Trace: 8% -> 18%."]);
+        assert!(
+            shown.contains(&"sentry sends an ALERT. Trace: 8% -> 18%.".to_owned()),
+            "{shown:?}"
+        );
+    }
+
+    #[test]
+    fn a_hunting_hound_telegraphs_its_attack() {
+        let shown = at_gate(&["scan", "~3", "~"]);
+        let [line] = shown.as_slice() else {
+            panic!("{shown:?}");
+        };
+        let burst = line == "Unknown ICE starts to compile TRACE BURST (2 ticks).";
+        let deep = line == "Unknown ICE starts to compile DEEP TRACE (4 ticks).";
+        assert!(burst || deep, "{line}");
+    }
+
+    #[test]
+    fn a_hunting_hound_raises_the_trace() {
+        let (_, prompt) = walk(&["go back-room", "go gate", "scan", "~3", "~10"]);
+        let trace: u32 = prompt
+            .as_deref()
+            .and_then(|prompt| prompt.strip_prefix("[trace "))
+            .and_then(|rest| rest.split('%').next())
+            .and_then(|number| number.parse().ok())
+            .unwrap_or(0);
+        assert!(trace > 4, "{prompt:?}");
     }
 }
