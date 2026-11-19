@@ -21,6 +21,10 @@ impl Rig {
             files: Vec::new(),
         }
     }
+
+    pub(super) fn tick(&mut self) {
+        self.cycles = (self.cycles + 1).min(MAX_CYCLES);
+    }
 }
 
 impl World {
@@ -37,7 +41,26 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::run;
+    use crate::testing::{joined, plain, run};
+    use crate::{PlayerId, World};
+
+    fn cycles(world: &mut World, player: PlayerId) -> Vec<String> {
+        plain(&world.command(player, "status | grep cycles"))
+    }
+
+    #[test]
+    fn each_tick_gives_back_one_cycle_up_to_the_maximum() {
+        let (mut world, player) = joined();
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.cycles = 2;
+        }
+        assert_eq!(cycles(&mut world, player), ["Cycles: 2/4"]);
+        world.tick();
+        assert_eq!(cycles(&mut world, player), ["Cycles: 3/4"]);
+        world.tick();
+        world.tick();
+        assert_eq!(cycles(&mut world, player), ["Cycles: 4/4"]);
+    }
 
     #[test]
     fn status_shows_the_rig() {

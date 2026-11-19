@@ -130,6 +130,13 @@ impl World {
         self.deliver(player, messages)
     }
 
+    pub fn tick(&mut self) -> Vec<Output> {
+        for state in self.players.values_mut() {
+            state.rig.tick();
+        }
+        std::mem::take(&mut self.outbox)
+    }
+
     pub fn leave(&mut self, player: PlayerId) -> Vec<Output> {
         let Some(state) = self.players.remove(&player) else {
             return Vec::new();
