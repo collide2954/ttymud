@@ -1,7 +1,7 @@
 use std::io::{self, BufRead, Write};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use ttymud_game::{Output, PlayerId, World};
 
@@ -11,7 +11,16 @@ use crate::{port_ostra, seed};
 pub fn play(
     name: &str,
     input: impl BufRead + Send + 'static,
+    output: impl Write,
+) -> io::Result<()> {
+    session(name, input, output, TICK)
+}
+
+fn session(
+    name: &str,
+    input: impl BufRead + Send + 'static,
     mut output: impl Write,
+    every: Duration,
 ) -> io::Result<()> {
     let mut world = port_ostra(seed())?;
     let (player, joined) = world.join(name);
@@ -23,7 +32,7 @@ pub fn play(
     show(&mut output, &joined)?;
     prompt(&mut output, &world, player)?;
     let lines = read(input)?;
-    let mut ticker = Ticker::new(TICK, Instant::now());
+    let mut ticker = Ticker::new(every, Instant::now());
     loop {
         match lines.recv_timeout(ticker.left(Instant::now())) {
             Ok(line) => {
@@ -40,6 +49,7 @@ pub fn play(
         if ticker.due(Instant::now()) {
             let outputs = world.tick();
             if !outputs.is_empty() {
+                writeln!(output)?;
                 show(&mut output, &outputs)?;
                 prompt(&mut output, &world, player)?;
             }
@@ -75,9 +85,32 @@ fn prompt(output: &mut impl Write, world: &World, player: PlayerId) -> io::Resul
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
+    use std::io::{BufReader, Cursor, Write};
+    use std::thread;
+    use std::time::Duration;
 
-    use super::play as run;
+    use super::{play as run, session};
+
+    #[test]
+    fn text_from_a_tick_starts_on_a_new_line() {
+        let (reader, mut writer) = std::io::pipe().unwrap();
+        let typist = thread::spawn(move || {
+            writer
+                .write_all(b"go safehouse\ngo smile-gw\nscan\n")
+                .unwrap();
+            thread::sleep(Duration::from_millis(400));
+            writer.write_all(b"quit\n").unwrap();
+        });
+        let mut output = Vec::new();
+        let every = Duration::from_millis(20);
+        session("nyx", BufReader::new(reader), &mut output, every).unwrap();
+        typist.join().unwrap();
+        let text = String::from_utf8(output).unwrap();
+        assert!(
+            text.contains("nyx@smile-gw $ \nsentry sends an ALERT."),
+            "{text}"
+        );
+    }
 
     fn play(input: &str) -> String {
         let mut output = Vec::new();
