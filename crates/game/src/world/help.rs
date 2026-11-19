@@ -35,7 +35,7 @@ impl World {
         let names = COMMANDS
             .iter()
             .filter(|command| match command.verb {
-                Verb::Go => !host.routes.is_empty(),
+                Verb::Go => !self.routes(here, player).is_empty(),
                 Verb::Back => hops > 1,
                 Verb::Jackout => running,
                 verb if verb.program().is_some() => {
@@ -44,7 +44,7 @@ impl World {
                 Verb::Repair | Verb::Load | Verb::Unload | Verb::Unstash => self.home == Some(here),
                 Verb::Contract => hired,
                 Verb::Shop | Verb::Buy | Verb::Sell => self.is_shop(here),
-                Verb::Jobs => self.has_fixer(here),
+                Verb::Jobs | Verb::Accept => self.has_fixer(here),
                 Verb::Read => readable,
                 Verb::Download => !host.files.is_empty(),
                 Verb::Available => false,

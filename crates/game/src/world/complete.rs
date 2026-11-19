@@ -38,7 +38,7 @@ impl World {
         };
         let here = self.here(player);
         match (command.verb, words.len()) {
-            (Verb::Go, 1) => self.route_names(here),
+            (Verb::Go, 1) => self.route_names(here, player),
             (Verb::Help, 1) => {
                 let mut names = command_names(every);
                 names.extend(topics::TOPICS);

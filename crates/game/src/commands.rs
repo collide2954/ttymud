@@ -18,6 +18,7 @@ pub(crate) enum Verb {
     Unstash,
     Contract,
     Jobs,
+    Accept,
     Shop,
     Buy,
     Sell,
@@ -312,6 +313,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         example: "jobs",
         takes: Takes::Nothing,
         gives: Gives::Items(Kinds::LINES),
+    },
+    Command {
+        verb: Verb::Accept,
+        names: &["accept"],
+        usage: "accept <number>",
+        summary: "Take a job from a fixer here.",
+        example: "accept 1",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
     },
     Command {
         verb: Verb::Shop,

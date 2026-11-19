@@ -63,6 +63,7 @@ struct NetworkId(usize);
 struct Network {
     name: String,
     security: Security,
+    entries: Vec<HostId>,
 }
 
 #[derive(Debug)]
@@ -74,6 +75,7 @@ struct Host {
     routes: Vec<HostId>,
     files: Vec<File>,
     ice: Vec<IceDef>,
+    security: Option<Security>,
 }
 
 #[derive(Debug)]
@@ -139,6 +141,7 @@ pub struct World {
     corps: Vec<CorpDef>,
     templates: Vec<TemplateDef>,
     fixers: Vec<Fixer>,
+    postings: BTreeMap<(u64, usize, u64), usize>,
     players: BTreeMap<PlayerId, Player>,
     accounts: BTreeMap<String, Account>,
     dirty: BTreeSet<String>,
@@ -197,6 +200,7 @@ impl World {
                 routes: Vec::new(),
                 files: def.files,
                 ice: def.ice,
+                security: None,
             });
         }
         for (from, to) in links {
@@ -226,6 +230,7 @@ impl World {
             .map(|network| Network {
                 name: network.name,
                 security: network.security,
+                entries: Vec::new(),
             })
             .collect();
         let shops = shop::shops(content.shops, find);
@@ -244,6 +249,7 @@ impl World {
             corps: content.corps,
             templates: content.templates,
             fixers,
+            postings: BTreeMap::new(),
             networks,
             hosts,
             players: BTreeMap::new(),
@@ -416,12 +422,12 @@ impl World {
                 no_args(command, args)?;
                 Ok(Step {
                     shown: self.scene(here, player),
-                    items: self.items(here),
+                    items: self.items(here, player),
                 })
             }
             Verb::List => {
                 no_args(command, args)?;
-                let items = self.items(here);
+                let items = self.items(here, player);
                 Ok(Step {
                     shown: listing(&items),
                     items,
@@ -460,6 +466,7 @@ impl World {
                 no_args(command, args)?;
                 self.jobs(player)
             }
+            Verb::Accept => self.accept(player, args),
             Verb::Sell => self.sell(player, args, input),
             Verb::Load => self.load(player, args),
             Verb::Unload => self.unload(player, args),
@@ -509,30 +516,37 @@ impl World {
             .unwrap_or(self.start)
     }
 
-    fn items(&self, id: HostId) -> Vec<Item> {
-        let host = &self.hosts[id.0];
-        let routes = host
-            .routes
-            .iter()
+    fn routes(&self, id: HostId, player: PlayerId) -> Vec<HostId> {
+        let mut routes = self.hosts[id.0].routes.clone();
+        if self.home == Some(id) {
+            routes.extend(self.job_entries(player));
+        }
+        routes
+    }
+
+    fn items(&self, id: HostId, player: PlayerId) -> Vec<Item> {
+        let routes = self
+            .routes(id, player)
+            .into_iter()
             .map(|route| Item::Route(self.hosts[route.0].id.clone()));
-        let files = host.files.iter().cloned().map(Item::File);
+        let files = self.hosts[id.0].files.iter().cloned().map(Item::File);
         routes.chain(files).collect()
     }
 
-    fn route_names(&self, id: HostId) -> Vec<&str> {
-        self.hosts[id.0]
-            .routes
-            .iter()
+    fn route_names(&self, id: HostId, player: PlayerId) -> Vec<&str> {
+        self.routes(id, player)
+            .into_iter()
             .map(|route| self.hosts[route.0].id.as_str())
             .collect()
     }
 
     fn scene(&self, id: HostId, viewer: PlayerId) -> Vec<Message> {
         let host = &self.hosts[id.0];
+        let routes = self.route_names(id, viewer);
         let mut scene = vec![
             Message::new(Kind::Game).span(Style::Title, &host.name),
             Message::game(&host.description),
-            listed(Message::game("Routes: "), Style::Host, self.route_names(id)),
+            listed(Message::game("Routes: "), Style::Host, routes),
         ];
         if !host.files.is_empty() {
             let files = host.files.iter().map(|file| file.name.as_str());

@@ -16,7 +16,7 @@ impl World {
             ([place], None) => place.clone(),
             ([], Some(items)) => piped_route(items)?,
             ([], None) => {
-                let routes = self.route_names(self.here(player));
+                let routes = self.route_names(self.here(player), player);
                 return Err(usage("go <place>", Thing::Route, &routes));
             }
             (_, Some(_)) => {
@@ -56,14 +56,11 @@ impl World {
 
     fn route(&self, player: PlayerId, place: &str) -> Result<HostId, Message> {
         let here = self.here(player);
-        let names = self.route_names(here);
+        let routes = self.routes(here, player);
+        let names = self.route_names(here, player);
         let name = choose(Thing::Route, place, &names)?;
-        Ok(self.hosts[here.0]
-            .routes
-            .iter()
-            .copied()
-            .find(|route| self.hosts[route.0].id == name)
-            .unwrap_or(here))
+        let index = names.iter().position(|&known| known == name);
+        Ok(index.map_or(here, |index| routes[index]))
     }
 
     fn move_to(&mut self, player: PlayerId, target: HostId) {

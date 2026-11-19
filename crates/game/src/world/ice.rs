@@ -73,7 +73,14 @@ impl Ice {
 }
 
 pub(super) fn deploy(hosts: &[Host], network: NetworkId) -> Vec<Ice> {
-    let find = |id: &str| hosts.iter().position(|host| host.id == id).map(HostId);
+    let find = |id: &str| {
+        let position = |inside: bool| {
+            hosts
+                .iter()
+                .position(|host| host.id == id && (!inside || host.network == Some(network)))
+        };
+        position(true).or_else(|| position(false)).map(HostId)
+    };
     hosts
         .iter()
         .enumerate()
@@ -285,7 +292,11 @@ impl World {
 
 #[cfg(test)]
 mod tests {
+    use super::deploy;
+    use crate::content::IceDef;
+    use crate::ice::IceKind;
     use crate::testing::{joined, plain, step, walk};
+    use crate::world::{Host, HostId, NetworkId};
 
     const ARCHIVE: [&str; 4] = ["go back-room", "go gate", "go core", "go archive"];
 
@@ -358,6 +369,32 @@ mod tests {
             at_gate(&["scan", "go vault"]),
             ["warden blocks the route to vault."]
         );
+    }
+
+    #[test]
+    fn a_warden_guards_a_host_of_its_own_network() {
+        let host = |id: &str, network: usize, ice: Vec<IceDef>| Host {
+            id: id.to_owned(),
+            name: String::new(),
+            description: String::new(),
+            network: Some(NetworkId(network)),
+            routes: Vec::new(),
+            files: Vec::new(),
+            ice,
+            security: None,
+        };
+        let warden = IceDef {
+            name: "warden".to_owned(),
+            kind: IceKind::Warden,
+            version: 1,
+            guards: Some("db".to_owned()),
+        };
+        let hosts = [
+            host("db", 0, vec![]),
+            host("lan", 1, vec![warden]),
+            host("db", 1, vec![]),
+        ];
+        assert_eq!(deploy(&hosts, NetworkId(1))[0].guards, Some(HostId(2)));
     }
 
     #[test]

@@ -142,6 +142,7 @@ impl World {
     }
 
     pub(super) fn raise_trace(&mut self, player: PlayerId, amount: u32) -> Vec<Message> {
+        let here = self.here(player);
         let Some(run) = self
             .players
             .get_mut(&player)
@@ -154,7 +155,8 @@ impl World {
             return Vec::new();
         }
         let network = &self.networks[run.network.0];
-        let heat = network.security.heat();
+        let security = self.hosts[here.0].security.unwrap_or(network.security);
+        let heat = security.heat();
         let name = &network.name;
         let mut shown = vec![Message::game(format!(
             "{name} traces you. The link drops, and you lose the loot of this run."
