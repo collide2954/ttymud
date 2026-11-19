@@ -4,7 +4,7 @@ This document tells how the TTYmud client shows the game in a terminal. It also 
 
 ## Layers
 
-The client has layers. Each layer adds features to the layer below it. The client uses the highest layer that the terminal supports. The player can select a lower layer at any time.
+The client has display layers. Each layer adds features to the layer below it. The client uses the highest layer that the terminal supports. The player can select a lower layer with the `--layer` option or in the settings file.
 
 | Layer | Features | Necessary terminal features |
 | --- | --- | --- |
@@ -30,45 +30,61 @@ When the input and the output are terminals, the client edits the input line loc
 - Left, Right, Home, End, Backspace, and Delete.
 - Ctrl+A, Ctrl+E, Ctrl+B, Ctrl+F, Ctrl+W, Ctrl+U, and Ctrl+K, as in a shell.
 - Up and Down, or Ctrl+P and Ctrl+N, for the command history.
-- Tab to complete commands, routes, files, programs, ICE, shop items, and help topics. Later, Tab will also complete handles.
+- Tab to complete commands, routes, files, programs, ICE, shop items, help topics, channels, and handles.
 - Ctrl+C to clear the line, and Ctrl+D to delete a character. On an empty line, these keys quit.
 
 A long input line moves to the side, so that the cursor stays on the screen. The `--line` option selects line mode in a terminal. The [player guide](../player.md) gives all the keys.
 
 ## Color mode
 
-The client finds the color depth of the terminal: no color, 16 colors, 256 colors, or true color. It uses the best palette for that depth. It obeys the `NO_COLOR` environment variable. Color never gives information alone. A word or a symbol always gives the same information.
+The client finds the color depth of the terminal: no color, 16 colors, 256 colors, or true color. Text uses the 16 colors of the terminal theme. As a result, text looks correct on light themes and on dark themes. In the HUD, 256 colors and true color give finer shades to the bars and the borders.
+
+The client obeys the `NO_COLOR` environment variable. Color never gives information alone. A word or a symbol always gives the same information.
 
 ## HUD mode
 
 The HUD uses the full terminal window:
 
-    ┌ arcadia-db · LAN · user ──────── trace ▓▓▓░░░░ 31% ┐
-    │ The ledger server hums behind two firewalls.       │
-    │ Sentry v2 watches port 8443.                       │
-    │ > probe sentry | crack                             │
-    │   crack: overflow lands. Sentry integrity 40 -> 12 │
-    │ Sentry v2 starts to compile TRACE BURST (2 ticks)  │
-    ├ #relay ────────────────────────────────────────────┤
-    │ <nyx> arcadia patched crack v2. anyone got v3?     │
-    ├────────────────────────────────────────────────────┤
-    │ ghost@arcadia-db $ _                               │
-    └ integ 82 · heat ▲▲△△△ · ram 6/8 GB · cycles ●●●○ ──┘
+    ┌ arcadia-db · Arcadia Health · user ───── trace ▓▓▓░░░░░░░ 31% ┐
+    │ The ledger server hums behind two firewalls.                  │
+    │ Sentry v2 watches port 8443.                                  │
+    │ $ probe sentry | crack                                        │
+    │ crack: overflow lands. Sentry integrity 40 -> 12              │
+    │ Sentry v2 starts to compile TRACE BURST (2 ticks)             │
+    ├ chat ─────────────────────────────────────────────────────────┤
+    │ [ostra] <nyx> arcadia patched crack v2. anyone got v3?        │
+    ├───────────────────────────────────────────────────────────────┤
+    │ ghost@arcadia-db $ _                                          │
+    └ integ 82 · heat ▲▲△△△ · ram 6/8 GB · cycles ●●●○ · 1250 cr ───┘
 
-The HUD changes its layout when the window size changes. If the window is too small, the client goes back to line mode.
+The HUD has these parts:
+
+- The top bar shows the host. During a run, it also shows the network, the access, and the trace.
+- The output pane shows the game text. It keeps the last 1,000 lines.
+- The chat pane shows `say` messages, channel messages, and private messages.
+- The input line shows the prompt and the line editor.
+- The bottom bar shows the integrity, the heat, the RAM, the cycles, and the credits.
+
+PgUp and PgDn scroll the output pane. When the pane shows older text, the line below the pane shows "more below", and new text does not move the pane. A new command moves the pane back to the newest text.
+
+The HUD changes its layout when the window size changes. A window with fewer than 60 columns gets no side borders. A window with fewer than 20 rows gets no chat pane, and the chat goes into the output pane. If the window is smaller than 40 columns or 10 rows, the HUD asks for a larger window.
+
+The HUD uses the alternate screen of the terminal. When the client stops, the terminal shows its earlier text again.
 
 ## Terminal detection
 
 The client examines these items:
 
-- The `TERM`, `COLORTERM`, and `NO_COLOR` environment variables.
-- The locale, to find if the terminal can show UTF-8.
+- The `TERM` environment variable. A `dumb` terminal gets line mode.
+- The `COLORTERM`, `NO_COLOR`, and `WT_SESSION` environment variables, for the color depth.
+- The locale in `LC_ALL`, `LC_CTYPE`, or `LANG`, to find if the terminal can show UTF-8.
 - On Windows, the console mode, to find if the console supports virtual terminal sequences.
-- The window size.
 
-If the terminal cannot show UTF-8, the client uses ASCII for all symbols and lines. The player can set each item with a command-line option or in the configuration file:
+If the terminal cannot show UTF-8, the client uses ASCII for all symbols and lines. The player can set each item with a command-line option or in the settings file:
 
-    ttymud --layer line --color none --ascii
+    ttymud connect ostra.example.net --layer color --color 256 --ascii
+
+The settings file is `settings.ini` in the configuration directory. An option on the command line has priority over the file. The client never uses a layer that the terminal cannot show.
 
 ## Text from the server
 
@@ -84,7 +100,7 @@ TTYmud supports screen readers.
 
 - Line mode does not redraw the screen and does not show animations.
 - The prompt and the status use words, not only symbols.
-- The `verbose` setting tells the client to write important changes of state as text lines, for example "Trace is now 50 percent."
+- The `verbose` setting tells the client to write important changes of state as text lines, for example "Trace is now 50 percent." The client writes a line when a run starts or ends, and when the trace, the access, the integrity, or the heat changes.
 - When the `verbose` setting is on, each telegraph starts with the word "Alert". As a result, a screen reader user can recognize a telegraph immediately.
 
 ## First run
