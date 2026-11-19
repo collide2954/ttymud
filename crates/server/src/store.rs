@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::thread;
 
+use crate::identity::KEYS;
+
 const ACCOUNTS: &str = "accounts";
 const BURNS: &str = "burns.ini";
 const WORLD: &str = "world.ini";
@@ -87,7 +89,7 @@ pub(crate) fn write(dir: &Path, path: &str, text: &str) -> io::Result<()> {
 }
 
 fn target(dir: &Path, path: &str) -> Option<PathBuf> {
-    if [BURNS, WORLD, MODERATORS, AUDIT, REPORTS, BANS].contains(&path) {
+    if [BURNS, WORLD, MODERATORS, AUDIT, REPORTS, BANS, KEYS].contains(&path) {
         return Some(dir.join(path));
     }
     let name = path.strip_prefix("accounts/")?.strip_suffix(".ini")?;

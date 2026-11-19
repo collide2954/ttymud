@@ -126,12 +126,13 @@ fn init(dir: &Path) -> io::Result<()> {
 fn run(dir: &Path, listen: &str) -> io::Result<()> {
     let keys = ttymud_server::load_keys(dir).map_err(|error| missing_key(dir, error))?;
     let world = ttymud_server::load_world(dir)?;
+    let identity = ttymud_server::load_identity(dir)?;
     let store = ttymud_server::Store::start(dir)?;
     let listener = TcpListener::bind(listen)?;
     println!("{} is open on {}.", world.city(), listener.local_addr()?);
     println!("Fingerprint: {}", keys.public().fingerprint());
     println!("Accounts: {}", world.account_count());
-    ttymud_server::serve(&listener, keys, world, Some(store))
+    ttymud_server::serve(&listener, keys, world, identity, Some(store))
 }
 
 fn missing_key(dir: &Path, error: io::Error) -> io::Error {

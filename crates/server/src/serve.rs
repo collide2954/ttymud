@@ -6,6 +6,7 @@ use std::thread;
 use ttymud_game::World;
 use ttymud_net::Keys;
 
+use crate::identity::Identity;
 use crate::limits::{Admission, Limits, MAX_CONNECTIONS, MAX_PER_ADDRESS};
 use crate::store::Store;
 use crate::{game, session};
@@ -14,13 +15,14 @@ pub fn serve(
     listener: &TcpListener,
     keys: Keys,
     world: World,
+    identity: Identity,
     store: Option<Store>,
 ) -> io::Result<()> {
     let (events, inbox) = mpsc::channel();
     let saves = store.map(Store::sender);
     thread::Builder::new()
         .name("game".to_owned())
-        .spawn(move || game::run(world, &inbox, saves))?;
+        .spawn(move || game::run(world, identity, &inbox, saves))?;
     let keys = Arc::new(keys);
     let limits = Arc::new(Mutex::new(Limits::new(MAX_CONNECTIONS, MAX_PER_ADDRESS)));
     for (connection, stream) in (1_u64..).zip(listener.incoming()) {

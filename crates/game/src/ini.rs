@@ -1,19 +1,20 @@
 use crate::content::ContentError;
 
-pub(crate) struct Section<'a> {
-    pub(crate) kind: &'a str,
-    pub(crate) id: &'a str,
-    pub(crate) line: usize,
-    pub(crate) pairs: Vec<Pair<'a>>,
+pub struct Section<'a> {
+    pub kind: &'a str,
+    pub id: &'a str,
+    pub line: usize,
+    pub pairs: Vec<Pair<'a>>,
 }
 
-pub(crate) struct Pair<'a> {
-    pub(crate) key: &'a str,
-    pub(crate) value: &'a str,
-    pub(crate) line: usize,
+pub struct Pair<'a> {
+    pub key: &'a str,
+    pub value: &'a str,
+    pub line: usize,
 }
 
-pub(crate) fn read(text: &str) -> (Vec<Section<'_>>, Vec<ContentError>) {
+#[must_use]
+pub fn read(text: &str) -> (Vec<Section<'_>>, Vec<ContentError>) {
     let mut sections: Vec<Section<'_>> = Vec::new();
     let mut errors = Vec::new();
     let mut error = |line, message: String| errors.push(ContentError { line, message });

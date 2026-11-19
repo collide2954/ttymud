@@ -1,6 +1,7 @@
 mod city;
 mod data;
 mod game;
+mod identity;
 mod limits;
 mod moderate;
 mod play;
@@ -13,6 +14,7 @@ mod ticker;
 
 pub use city::{load_world, port_ostra};
 pub use data::{init, load_keys};
+pub use identity::{Identity, load_identity};
 pub use moderate::{Moderation, moderate};
 pub use play::play;
 pub use serve::serve;

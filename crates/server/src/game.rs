@@ -1,3 +1,5 @@
+mod account;
+
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::mpsc::{self, RecvTimeoutError};
@@ -5,12 +7,17 @@ use std::time::Instant;
 
 use ttymud_game::{BANNED, Completion, Output, PlayerId, World};
 use ttymud_net::PublicKey;
+use ttymud_text::Message;
 use ttymud_wire::ServerMessage;
 
 use crate::city::now;
+use crate::identity::Identity;
 use crate::ticker::{TICK, Ticker};
 
 const TAKEN_OVER: &str = "You connected from another place.";
+const REVOKED: &str = "Your account revoked this key.";
+const LINK_HINT: &str =
+    "If you have an account on a different device, type link <code> or recover <code>.";
 
 pub(crate) enum Event {
     Join {
@@ -36,6 +43,7 @@ pub(crate) type Saves = mpsc::Sender<(String, String)>;
 
 pub(crate) struct Game {
     world: World,
+    identity: Identity,
     connections: HashMap<u64, PlayerId>,
     links: HashMap<PlayerId, Link>,
     store: Option<Saves>,
@@ -44,11 +52,18 @@ pub(crate) struct Game {
 struct Link {
     connection: u64,
     key: PublicKey,
+    account: String,
+    address: IpAddr,
     outbox: mpsc::Sender<ServerMessage>,
 }
 
-pub(crate) fn run(world: World, inbox: &mpsc::Receiver<Event>, store: Option<Saves>) {
-    let mut game = Game::new(world, store);
+pub(crate) fn run(
+    world: World,
+    identity: Identity,
+    inbox: &mpsc::Receiver<Event>,
+    store: Option<Saves>,
+) {
+    let mut game = Game::new(world, identity, store);
     let mut ticker = Ticker::new(TICK, Instant::now());
     loop {
         match inbox.recv_timeout(ticker.left(Instant::now())) {
@@ -67,9 +82,10 @@ pub(crate) fn name_for(key: PublicKey) -> String {
 }
 
 impl Game {
-    pub(crate) fn new(world: World, store: Option<Saves>) -> Self {
+    pub(crate) fn new(world: World, identity: Identity, store: Option<Saves>) -> Self {
         Self {
             world,
+            identity,
             connections: HashMap::new(),
             links: HashMap::new(),
             store,
@@ -104,7 +120,8 @@ impl Game {
     }
 
     fn save(&mut self) {
-        let saves = self.world.saves();
+        let mut saves = self.world.saves();
+        saves.extend(self.identity.save());
         if let Some(store) = &self.store {
             for save in saves {
                 let _ = store.send(save);
@@ -119,41 +136,63 @@ impl Game {
         address: IpAddr,
         outbox: mpsc::Sender<ServerMessage>,
     ) {
-        if self.world.banned(&key.to_hex(), Some(address)) {
+        let Some(account) = self.identity.account_of(&key.to_hex()) else {
+            let _ = outbox.send(ServerMessage::Close(REVOKED.to_owned()));
+            return;
+        };
+        if self.world.banned(&account, Some(address)) {
             let _ = outbox.send(ServerMessage::Close(BANNED.to_owned()));
             return;
         }
-        let earlier = self.links.iter().find(|(_, link)| link.key == key);
+        let player = self.start(Link {
+            connection,
+            key,
+            account,
+            address,
+            outbox,
+        });
+        self.prompt(player);
+    }
+
+    fn start(&mut self, link: Link) -> PlayerId {
+        let earlier = self
+            .links
+            .iter()
+            .find(|(_, known)| known.account == link.account);
         if let Some(player) = earlier.map(|(&player, _)| player) {
             self.close(player, TAKEN_OVER.to_owned());
         }
-        let (player, outputs) = self.world.connect(&key.to_hex());
-        self.world.set_address(player, address);
+        let (player, outputs) = self.world.connect(&link.account);
+        self.world.set_address(player, link.address);
         let name = self
             .world
             .handle(player)
-            .map_or_else(|| name_for(key), str::to_owned);
+            .map_or_else(|| name_for(link.key), str::to_owned);
         let city = self.world.city().to_owned();
-        let _ = outbox.send(ServerMessage::Welcome { city, name });
-        self.connections.insert(connection, player);
-        self.links.insert(
-            player,
-            Link {
-                connection,
-                key,
-                outbox,
-            },
-        );
+        let _ = link.outbox.send(ServerMessage::Welcome { city, name });
+        self.connections.insert(link.connection, player);
+        self.links.insert(player, link);
         self.deliver(outputs, Some(player));
-        self.prompt(player);
+        if self.world.handle(player).is_none() {
+            self.show(player, vec![Message::game(LINK_HINT)]);
+        }
+        player
     }
 
     fn command(&mut self, connection: u64, line: &str) {
         let Some(&player) = self.connections.get(&connection) else {
             return;
         };
+        if let Some(player) = self.account_command(player, line) {
+            self.prompt(player);
+            return;
+        }
+        let named = self.world.handle(player).is_some();
         let outputs = self.world.command(player, line);
         self.deliver(outputs, Some(player));
+        if !named && self.world.handle(player).is_some() {
+            self.first_recovery(player);
+        }
         self.prompt(player);
     }
 
@@ -202,6 +241,12 @@ impl Game {
         }
     }
 
+    fn show(&self, player: PlayerId, shown: Vec<Message>) {
+        for message in shown {
+            self.send(player, ServerMessage::Text(message));
+        }
+    }
+
     fn send(&self, player: PlayerId, message: ServerMessage) {
         if let Some(link) = self.links.get(&player) {
             let _ = link.outbox.send(message);
@@ -219,6 +264,7 @@ mod tests {
     use ttymud_wire::ServerMessage;
 
     use super::{Event, Game};
+    use crate::identity::Identity;
     use crate::port_ostra;
 
     const LAB: &str = "[city lab]\nname = Lab\nstart = hub\n[host hub]\nname = Hub\ndesc = A hub.\n\
@@ -226,7 +272,116 @@ mod tests {
                        network = net\nroute = hub\n[ice gate/sentry]\ntype = sentry\n";
 
     fn game() -> Game {
-        Game::new(port_ostra(0).unwrap(), None)
+        with_world(port_ostra(0).unwrap())
+    }
+
+    fn with_world(world: World) -> Game {
+        Game::new(world, Identity::default(), None)
+    }
+
+    fn found(messages: &[ServerMessage], start: &str) -> Option<String> {
+        let mut shown = texts(messages).into_iter();
+        shown.find_map(|line| line.strip_prefix(start).map(str::to_owned))
+    }
+
+    fn welcome(name: &str) -> ServerMessage {
+        ServerMessage::Welcome {
+            city: "Port Ostra".to_owned(),
+            name: name.to_owned(),
+        }
+    }
+
+    #[test]
+    fn a_new_handle_gets_a_recovery_code_that_brings_the_account_back() {
+        let mut game = game();
+        let first = join(&mut game, 1, key());
+        command(&mut game, 1, "ghost");
+        command(&mut game, 1, "breaker");
+        let code = found(&drain(&first), "Your recovery code: ").unwrap_or_default();
+        assert_eq!(code.len(), 39);
+        game.handle(Event::Leave { connection: 1 });
+        let second = join(&mut game, 2, key());
+        assert!(
+            texts(&drain(&second)).contains(
+                &"If you have an account on a different device, type link <code> or recover <code>."
+                    .to_owned()
+            )
+        );
+        command(&mut game, 2, "recover 0000-0000");
+        assert_eq!(
+            texts(&drain(&second)),
+            ["That recovery code does not work."]
+        );
+        command(&mut game, 2, &format!("recover {}", code.to_uppercase()));
+        let messages = drain(&second);
+        assert!(messages.contains(&welcome("ghost")));
+        let shown = texts(&messages);
+        assert_eq!(shown[0], "You recovered your account.");
+        assert!(shown.contains(&"Welcome back, ghost.".to_owned()));
+        let fresh = found(&messages, "Your recovery code: ").unwrap_or_default();
+        assert_ne!(fresh, code);
+        game.handle(Event::Leave { connection: 2 });
+        let third = join(&mut game, 3, key());
+        drain(&third);
+        command(&mut game, 3, &format!("recover {code}"));
+        assert_eq!(texts(&drain(&third)), ["That recovery code does not work."]);
+    }
+
+    #[test]
+    fn a_link_code_adds_a_device_and_keys_and_revoke_manage_it() {
+        let mut game = game();
+        let (old, new) = (key(), key());
+        let first = join(&mut game, 1, old);
+        command(&mut game, 1, "ghost");
+        command(&mut game, 1, "breaker");
+        drain(&first);
+        command(&mut game, 1, "link");
+        let code = found(&drain(&first), "Your link code: ").unwrap_or_default();
+        let second = join(&mut game, 2, new);
+        drain(&second);
+        command(&mut game, 2, "link 1234-5678");
+        assert_eq!(
+            texts(&drain(&second)),
+            ["That link code does not work. Type link on your other device to make a new code."]
+        );
+        command(&mut game, 2, &format!("link {code}"));
+        let messages = drain(&second);
+        assert_eq!(
+            texts(&messages)[0],
+            "This device is now linked to your account."
+        );
+        assert!(messages.contains(&welcome("ghost")));
+        let taken = ServerMessage::Close("You connected from another place.".to_owned());
+        assert_eq!(drain(&first).last(), Some(&taken));
+        command(&mut game, 2, "keys");
+        assert_eq!(
+            texts(&drain(&second)),
+            [
+                "Keys of your account:".to_owned(),
+                format!("1. {}", old.fingerprint()),
+                format!("2. {} (this device)", new.fingerprint()),
+                "Type revoke <number> to remove a key.".to_owned(),
+            ]
+        );
+        let mut said = |line: &str| {
+            command(&mut game, 2, line);
+            texts(&drain(&second))
+        };
+        assert_eq!(
+            said("revoke 2"),
+            ["You cannot revoke the key of this device."]
+        );
+        assert_eq!(said("revoke 3"), ["No key 3. Type keys to see the keys."]);
+        assert_eq!(said("keys now"), ["keys takes no arguments."]);
+        assert_eq!(
+            said("revoke 1"),
+            [format!(
+                "You revoke key 1, {}. That device cannot connect now.",
+                old.fingerprint()
+            )]
+        );
+        let revoked = ServerMessage::Close("Your account revoked this key.".to_owned());
+        assert_eq!(drain(&join(&mut game, 3, old)), [revoked]);
     }
 
     fn key() -> PublicKey {
@@ -377,7 +532,7 @@ mod tests {
         let mut world = port_ostra(0).unwrap();
         let file = format!("[moderator {}]\n", moderator.to_hex());
         world.restore("moderators.ini", &file).unwrap();
-        let mut game = Game::new(world, None);
+        let mut game = with_world(world);
         let first = join(&mut game, 1, moderator);
         command(&mut game, 1, "ghost");
         command(&mut game, 1, "breaker");
@@ -420,7 +575,7 @@ mod tests {
 
     #[test]
     fn a_tick_with_news_sends_the_text_and_a_refresh() {
-        let mut game = Game::new(World::new(Content::parse(LAB).unwrap(), 0), None);
+        let mut game = with_world(World::new(Content::parse(LAB).unwrap(), 0));
         let mailbox = hacker(&mut game, 1, "ghost");
         command(&mut game, 1, "go gate");
         command(&mut game, 1, "scan");
@@ -449,7 +604,7 @@ mod tests {
     #[test]
     fn changes_go_to_the_store() {
         let (saves, stored) = mpsc::channel();
-        let mut game = Game::new(port_ostra(0).unwrap(), Some(saves));
+        let mut game = Game::new(port_ostra(0).unwrap(), Identity::default(), Some(saves));
         let key = key();
         let _mailbox = join(&mut game, 1, key);
         command(&mut game, 1, "ghost");
@@ -459,6 +614,7 @@ mod tests {
             paths.contains(&format!("accounts/{}.ini", key.to_hex())),
             "{paths:?}"
         );
+        assert!(paths.contains(&"keys.ini".to_owned()), "{paths:?}");
     }
 
     #[test]

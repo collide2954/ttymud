@@ -4,7 +4,7 @@ mod contract;
 mod date;
 mod heat;
 mod ice;
-mod ini;
+pub mod ini;
 mod kits;
 mod matching;
 mod parse;
