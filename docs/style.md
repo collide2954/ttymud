@@ -15,31 +15,31 @@ TTYmud documents do not use the words in the left column. Use the words in the r
 
 | Do not use | Use |
 | --- | --- |
-| additional | more |
-| approximately | about |
-| assist | help |
-| attempt | try |
-| commence, initiate | start |
-| demonstrate, indicate | show |
-| ensure | make sure |
-| may, might | can |
-| numerous | many |
-| perform | do |
-| prior to | before |
-| provide | give, supply |
-| require | must, necessary |
-| should | must, or an instruction |
-| subsequent to | after |
-| sufficient | enough |
-| terminate | stop |
-| therefore, thus | as a result |
-| utilize | use |
+| `additional` | more |
+| `approximately` | about |
+| `assist` | help |
+| `attempt` | try |
+| `commence`, `initiate` | start |
+| `demonstrate`, `indicate` | show |
+| `ensure` | make sure |
+| `may`, `might` | can |
+| `numerous` | many |
+| `perform` | do |
+| `prior to` | before |
+| `provide` | give, supply |
+| `require` | must, necessary |
+| `should` | must, or an instruction |
+| `subsequent` | after, next |
+| `sufficient` | enough |
+| `terminate` | stop |
+| `therefore`, `thus` | as a result |
+| `utilize` | use |
 
 ## Sentences
 
 - Write a maximum of 20 words in a procedural sentence.
 - Write a maximum of 25 words in a descriptive sentence.
-- Do not use contractions. Write "do not", not "don't".
+- Do not use contractions. Write `do not`, not `don't`.
 - Do not use semicolons. Write two sentences.
 - Use the active voice.
 - Do not omit words to make a sentence shorter. Keep the articles "a", "an", and "the".
