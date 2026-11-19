@@ -30,15 +30,22 @@ impl Event {
         Self::ALL.into_iter().find(|event| event.word() == word)
     }
 
+    const PROGRAMS: [(Verb, Self); 5] = [
+        (Verb::Scan, Self::Scan),
+        (Verb::Probe, Self::Probe),
+        (Verb::Crack, Self::Crack),
+        (Verb::Scrub, Self::Scrub),
+        (Verb::Patch, Self::Patch),
+    ];
+
     pub(crate) fn of(verb: Verb) -> Option<Self> {
-        match verb {
-            Verb::Scan => Some(Self::Scan),
-            Verb::Probe => Some(Self::Probe),
-            Verb::Crack => Some(Self::Crack),
-            Verb::Scrub => Some(Self::Scrub),
-            Verb::Patch => Some(Self::Patch),
-            _ => None,
-        }
+        let found = Self::PROGRAMS.iter().find(|&&(program, _)| program == verb);
+        found.map(|&(_, event)| event)
+    }
+
+    pub(crate) fn program(self) -> Option<Verb> {
+        let found = Self::PROGRAMS.iter().find(|&&(_, event)| event == self);
+        found.map(|&(program, _)| program)
     }
 
     fn word(self) -> &'static str {
@@ -71,5 +78,11 @@ mod tests {
     fn programs_give_their_own_event() {
         assert_eq!(Event::of(Verb::Crack), Some(Event::Crack));
         assert_eq!(Event::of(Verb::Look), None);
+    }
+
+    #[test]
+    fn program_events_name_their_program() {
+        assert_eq!(Event::Scrub.program(), Some(Verb::Scrub));
+        assert_eq!(Event::Exit.program(), None);
     }
 }

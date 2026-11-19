@@ -81,14 +81,26 @@ impl World {
         }
     }
 
+    fn next_step(&self, player: PlayerId) -> Option<&str> {
+        let state = self.players.get(&player)?;
+        let job = state.contract?;
+        let steps = self.contracts.get(job.contract)?.steps.iter();
+        let (_, hint) = steps.skip(job.progress).find(|(event, _)| {
+            event
+                .program()
+                .is_none_or(|program| state.know.contains(&program))
+        })?;
+        Some(hint)
+    }
+
     pub(super) fn hint(&mut self, player: PlayerId) -> Option<Message> {
         let job = self.players.get_mut(&player)?.contract.as_mut()?;
-        let (_, hint) = self.contracts.get(job.contract)?.steps.get(job.progress)?;
         job.idle += 1;
         if job.idle < HINT_TICKS || job.hinted {
             return None;
         }
         job.hinted = true;
+        let hint = self.next_step(player)?;
         Some(Message::game(format!("Hint: {hint}")))
     }
 
@@ -133,7 +145,7 @@ impl World {
     }
 
     pub(super) fn contract(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
-        let Some((contract, job)) = self.contract_of(player) else {
+        let Some((contract, _)) = self.contract_of(player) else {
             return Ok(Step::show(vec![Message::game("You have no contract.")]));
         };
         match args {
@@ -146,7 +158,7 @@ impl World {
                         .span(Style::File, &contract.goal)
                         .text(", then leave the network with a clean exit."),
                 ];
-                if let Some((_, hint)) = contract.steps.get(job.progress) {
+                if let Some(hint) = self.next_step(player) {
                     shown.push(Message::game(format!("Next: {hint}")));
                 }
                 Ok(lines(shown))
@@ -167,8 +179,8 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::{hired, hired_world, plain, run, step};
-    use crate::{PlayerId, World};
+    use crate::testing::{CITY, JOB, hired, hired_world, plain, run, step};
+    use crate::{Content, PlayerId, World};
 
     #[test]
     fn a_new_player_gets_the_offer_of_the_fixer() {
@@ -299,6 +311,33 @@ mod tests {
         assert_eq!(
             plain(&world.command(player, "contract"))[0],
             "Contract from Pell"
+        );
+    }
+
+    fn breaker_with_a_scrub_step() -> (World, PlayerId) {
+        let job = JOB.replace(
+            "step = scan: Type scan to find the ICE.",
+            "step = scrub: Type scrub.",
+        );
+        let city = CITY.replace("home = back-room", "home = back-room\ncontract = lab-job");
+        let mut world = World::new(Content::parse(&format!("{city}{job}")).unwrap(), 0);
+        let (player, _) = world.connect("a");
+        for line in ["nyx", "breaker", "go back-room", "go gate"] {
+            world.command(player, line);
+        }
+        (world, player)
+    }
+
+    #[test]
+    fn a_step_for_a_program_that_the_handle_does_not_know_is_skipped() {
+        let (mut world, player) = breaker_with_a_scrub_step();
+        assert_eq!(
+            next(&mut world, player).as_deref(),
+            Some("Next: Go to core and type download data.db.")
+        );
+        assert_eq!(
+            plain(&step(&mut world, player, "~15")),
+            ["Hint: Go to core and type download data.db."]
         );
     }
 
