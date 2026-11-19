@@ -250,7 +250,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         verb: Verb::Repair,
         names: &["repair"],
         usage: "repair",
-        summary: "Restore your integrity. This works only at home.",
+        summary: "Restore your integrity at home. Up to 50 is free. Above 50, each point costs 2 cr.",
         example: "repair",
         takes: Takes::Nothing,
         gives: Gives::Nothing,

@@ -154,6 +154,14 @@ mod tests {
     }
 
     #[test]
+    fn help_for_repair_gives_the_price() {
+        assert_eq!(
+            run("help repair")[1],
+            "Restore your integrity at home. Up to 50 is free. Above 50, each point costs 2 cr."
+        );
+    }
+
+    #[test]
     fn help_for_status_names_the_heat() {
         assert_eq!(
             run("help status")[1],

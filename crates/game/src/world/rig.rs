@@ -9,6 +9,8 @@ pub(super) const MAX_INTEGRITY: u32 = 100;
 const MAX_CYCLES: u32 = 4;
 pub(super) const RAM: u32 = 8;
 const PATCH: u32 = 20;
+const FREE_REPAIR: u32 = 50;
+const REPAIR_PRICE: u32 = 2;
 const LOADS: [Verb; 5] = [
     Verb::Scan,
     Verb::Probe,
@@ -78,17 +80,35 @@ impl World {
 
     pub(super) fn repair(&mut self, player: PlayerId) -> Result<Step, Message> {
         self.at_home(player, "repair your rig")?;
-        let Some(rig) = self.players.get_mut(&player).map(|state| &mut state.rig) else {
+        let Some(state) = self.players.get_mut(&player) else {
             return Ok(Step::default());
         };
-        let before = rig.integrity;
+        let before = state.rig.integrity;
         if before == MAX_INTEGRITY {
             return Ok(Step::show(vec![Message::game("Your rig needs no repair.")]));
         }
-        rig.integrity = MAX_INTEGRITY;
-        Ok(Step::show(vec![Message::game(format!(
-            "You repair your rig. Integrity: {before} -> {MAX_INTEGRITY}."
-        ))]))
+        let price = format!("Above {FREE_REPAIR} integrity, each point costs {REPAIR_PRICE} cr.");
+        let free = before.max(FREE_REPAIR);
+        let after = (free + state.credits / REPAIR_PRICE).min(MAX_INTEGRITY);
+        if after == before {
+            let credits = state.credits;
+            return Err(Message::error(format!("{price} You have {credits} cr.")));
+        }
+        let cost = (after - free) * REPAIR_PRICE;
+        state.credits -= cost;
+        state.rig.integrity = after;
+        let repaired = format!("You repair your rig. Integrity: {before} -> {after}.");
+        let mut shown = vec![Message::game(match cost {
+            0 => repaired,
+            cost => format!("{repaired} It costs {cost} cr."),
+        })];
+        if after < MAX_INTEGRITY {
+            let more = (MAX_INTEGRITY - after) * REPAIR_PRICE;
+            shown.push(Message::game(format!(
+                "A full repair needs {more} cr more. {price}"
+            )));
+        }
+        Ok(Step::show(shown))
     }
 
     pub(super) fn status(&self, player: PlayerId) -> Step {
@@ -144,15 +164,60 @@ mod tests {
         assert_eq!(cycles(&mut world, player), ["Cycles: 4/4"]);
     }
 
+    fn damaged(integrity: u32, credits: u32) -> (World, PlayerId) {
+        let (mut world, player) = joined();
+        world.command(player, "go back-room");
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.integrity = integrity;
+            state.credits = credits;
+        }
+        (world, player)
+    }
+
     #[test]
-    fn repair_at_home_restores_full_integrity() {
-        let lines = ["go back-room", "go gate", "jackout", "repair"];
+    fn a_repair_to_50_integrity_is_free() {
+        let (mut world, player) = damaged(20, 0);
         assert_eq!(
-            walk(&lines).0,
-            ["You repair your rig. Integrity: 80 -> 100."]
+            plain(&world.command(player, "repair")),
+            [
+                "You repair your rig. Integrity: 20 -> 50.",
+                "A full repair needs 100 cr more. Above 50 integrity, each point costs 2 cr.",
+            ]
         );
-        let lines = [&lines[..], &["status | grep integrity"]].concat();
-        assert_eq!(walk(&lines).0, ["Integrity: 100/100"]);
+    }
+
+    #[test]
+    fn each_point_above_50_integrity_costs_2_credits() {
+        let (mut world, player) = damaged(80, 100);
+        assert_eq!(
+            plain(&world.command(player, "repair")),
+            ["You repair your rig. Integrity: 80 -> 100. It costs 40 cr."]
+        );
+        assert_eq!(
+            plain(&world.command(player, "status | grep credits")),
+            ["Credits: 60 cr"]
+        );
+    }
+
+    #[test]
+    fn a_repair_uses_the_credits_that_you_have() {
+        let (mut world, player) = damaged(40, 31);
+        assert_eq!(
+            plain(&world.command(player, "repair")),
+            [
+                "You repair your rig. Integrity: 40 -> 65. It costs 30 cr.",
+                "A full repair needs 70 cr more. Above 50 integrity, each point costs 2 cr.",
+            ]
+        );
+    }
+
+    #[test]
+    fn without_credits_a_rig_above_50_integrity_stays_as_it_is() {
+        let (mut world, player) = damaged(80, 1);
+        assert_eq!(
+            plain(&world.command(player, "repair")),
+            ["Above 50 integrity, each point costs 2 cr. You have 1 cr."]
+        );
     }
 
     #[test]
