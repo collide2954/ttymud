@@ -101,6 +101,7 @@ impl World {
             shown.push(Message::game(format!("Trace: {}% in {network}", run.trace)));
         }
         shown.push(Message::game(format!("Heat: {}/{MAX_HEAT}", state.heat)));
+        shown.push(Message::game(format!("Credits: {} cr", state.credits)));
         let rig = &state.rig;
         shown.push(Message::game(format!(
             "Integrity: {}/{MAX_INTEGRITY}",
@@ -196,6 +197,7 @@ mod tests {
             run("status"),
             [
                 "Heat: 0/5",
+                "Credits: 0 cr",
                 "Integrity: 100/100",
                 "Cycles: 4/4",
                 "RAM: 8/8 GB",

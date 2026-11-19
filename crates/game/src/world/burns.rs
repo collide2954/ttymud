@@ -34,6 +34,7 @@ impl World {
         state.phase = Phase::Naming;
         state.rig = Rig::new();
         state.heat = 0;
+        state.credits = 0;
         state.run = None;
         state.contract = None;
         state.kit = None;
@@ -206,6 +207,21 @@ mod tests {
         assert_eq!(
             plain(&world.command(player, "load mask")),
             ["You load mask. RAM: 8/8 GB."]
+        );
+    }
+
+    #[test]
+    fn a_burn_takes_the_credits() {
+        let (mut world, player) = hot("ghost");
+        if let Some(state) = world.players.get_mut(&player) {
+            state.credits = 500;
+        }
+        for line in ["scan", "zer0", "breaker"] {
+            world.command(player, line);
+        }
+        assert_eq!(
+            plain(&world.command(player, "status | grep credits")),
+            ["Credits: 0 cr"]
         );
     }
 

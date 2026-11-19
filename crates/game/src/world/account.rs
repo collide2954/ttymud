@@ -29,6 +29,7 @@ pub(super) struct Saved {
     pub(super) heat: u32,
     pub(super) cooled: u64,
     pub(super) integrity: u32,
+    pub(super) credits: u32,
     pub(super) files: Vec<File>,
     pub(super) loads: Vec<Verb>,
     pub(super) contract: Option<Job>,
@@ -49,6 +50,7 @@ impl World {
         state.heat = saved.heat;
         state.cooled = saved.cooled;
         state.rig.integrity = saved.integrity;
+        state.credits = saved.credits;
         state.rig.files = saved.files;
         state.rig.loads = saved.loads;
         state.contract = saved.contract;
@@ -187,6 +189,7 @@ impl World {
             heat: state.heat,
             cooled: state.cooled,
             integrity: state.rig.integrity,
+            credits: state.credits,
             files: state.rig.files.clone(),
             loads: state.rig.loads.clone(),
             contract: state.contract,
@@ -348,7 +351,10 @@ mod tests {
         world.leave(player);
         let (player, _) = world.connect("a");
         let status = plain(&world.command(player, "status"));
-        assert_eq!(status[..2], ["Heat: 1/5", "Integrity: 80/100"]);
+        assert_eq!(
+            status[..3],
+            ["Heat: 1/5", "Credits: 0 cr", "Integrity: 80/100"]
+        );
     }
 
     #[test]

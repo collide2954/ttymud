@@ -85,6 +85,7 @@ struct Player {
     kit: Option<&'static Kit>,
     heat: u32,
     cooled: u64,
+    credits: u32,
     stash: Vec<File>,
 }
 
@@ -95,6 +96,7 @@ impl Player {
             chain: vec![at],
             heat: 0,
             cooled: 0,
+            credits: 0,
             stash: Vec::new(),
             rig: Rig::new(),
             know: commands::programs()

@@ -95,6 +95,7 @@ impl World {
             text.pair("heat", &handle.heat.to_string());
             text.pair("cooled", &handle.cooled.to_string());
             text.pair("integrity", &handle.integrity.to_string());
+            text.pair("credits", &handle.credits.to_string());
             for &verb in &handle.loads {
                 text.pair("load", commands::name_of(verb));
             }
@@ -204,8 +205,10 @@ impl World {
         let (mut heat, mut cooled, mut integrity): (Option<u32>, Option<u64>, Option<u32>) =
             (None, None, None);
         let (mut contract, mut step, mut loads) = (None, 0, Vec::new());
+        let mut credits = 0;
         for pair in &section.pairs {
             match pair.key {
+                "credits" => credits = number(pair, errors).unwrap_or(0),
                 "kit" => {
                     kit = KITS.iter().find(|kit| kit.id == pair.value);
                     if kit.is_none() {
@@ -240,6 +243,7 @@ impl World {
             heat: heat?.min(MAX_HEAT),
             cooled: cooled?,
             integrity: integrity?.min(MAX_INTEGRITY),
+            credits,
             files: Vec::new(),
             loads,
             contract: contract.map(|index| Job::resume(index, step)),
@@ -416,6 +420,7 @@ mod tests {
             "heat = 0",
             "cooled = 0",
             "integrity = 100",
+            "credits = 0",
             "load = scan",
             "load = probe",
             "load = crack",
@@ -442,6 +447,7 @@ mod tests {
             state.heat = 2;
             state.cooled = 7;
             state.rig.integrity = 61;
+            state.credits = 120;
         }
         world.leave(player);
         let saves = world.saves();
@@ -452,7 +458,10 @@ mod tests {
         let (player, outputs) = fresh.connect("a");
         assert_eq!(plain(&outputs)[0], "Welcome back, nyx.");
         let status = plain(&fresh.command(player, "status"));
-        assert_eq!(status[..2], ["Heat: 2/5", "Integrity: 61/100"]);
+        assert_eq!(
+            status[..3],
+            ["Heat: 2/5", "Credits: 120 cr", "Integrity: 61/100"]
+        );
         assert_eq!(
             plain(&fresh.command(player, "stash")),
             ["Your stash: motd.txt"]
@@ -498,6 +507,19 @@ mod tests {
             fresh.restore(path, text).unwrap();
         }
         fresh
+    }
+
+    #[test]
+    fn an_account_from_before_credits_has_no_credits() {
+        let mut world = world();
+        let text =
+            "[account a]\n[handle nyx]\nkit = ghost\nheat = 0\ncooled = 0\nintegrity = 100\n";
+        world.restore("accounts/a.ini", text).unwrap();
+        let (player, _) = world.connect("a");
+        assert_eq!(
+            plain(&world.command(player, "status | grep credits")),
+            ["Credits: 0 cr"]
+        );
     }
 
     #[test]
