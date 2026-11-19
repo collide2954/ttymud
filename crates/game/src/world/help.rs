@@ -1,7 +1,7 @@
 use ttymud_text::{Kind, Message, Style};
 
-use super::{PlayerId, Step, World, hint, listed};
-use crate::commands::{self, COMMANDS, Command, Item, Verb};
+use super::{PlayerId, Step, World, hint, lines, listed};
+use crate::commands::{self, COMMANDS, Command, Verb};
 
 pub(super) const TOPICS: &[&str] = &["pipes", "pipelines"];
 const COLUMN: usize = 18;
@@ -45,14 +45,6 @@ impl World {
         let message = Message::game("Here you can use: ");
         lines(vec![listed(message, Style::Command, names)])
     }
-}
-
-fn lines(shown: Vec<Message>) -> Step {
-    let items = shown
-        .iter()
-        .map(|message| Item::Line(message.plain()))
-        .collect();
-    Step { shown, items }
 }
 
 fn overview() -> Vec<Message> {
@@ -166,7 +158,7 @@ mod tests {
     fn question_mark_lists_what_works_here() {
         assert_eq!(
             run("?"),
-            ["Here you can use: look, ls, go, read, download, inventory, grep, say, help"]
+            ["Here you can use: look, ls, go, read, download, inventory, status, grep, say, help"]
         );
     }
 
@@ -174,7 +166,7 @@ mod tests {
     fn question_mark_adds_back_after_a_move() {
         assert_eq!(
             walk(&["go back-room", "?"]).0,
-            ["Here you can use: look, ls, go, back, inventory, grep, say, help"]
+            ["Here you can use: look, ls, go, back, inventory, status, grep, say, help"]
         );
     }
 }

@@ -57,7 +57,7 @@ impl World {
         let shown = match self.players.get_mut(&player) {
             Some(state) => files
                 .into_iter()
-                .map(|file| store(&mut state.rig, file))
+                .map(|file| store(&mut state.rig.files, file))
                 .collect(),
             None => Vec::new(),
         };
@@ -72,7 +72,7 @@ impl World {
             .players
             .get(&player)
             .into_iter()
-            .flat_map(|state| state.rig.iter().cloned().map(Item::File))
+            .flat_map(|state| state.rig.files.iter().cloned().map(Item::File))
             .collect();
         let shown = if items.is_empty() {
             vec![Message::game("Your rig has no files.")]
@@ -85,7 +85,7 @@ impl World {
     pub(super) fn readable(&self, player: PlayerId) -> Vec<&File> {
         let host = &self.hosts[self.here(player).0].files;
         let rig: &[File] = match self.players.get(&player) {
-            Some(state) => &state.rig,
+            Some(state) => &state.rig.files,
             None => &[],
         };
         let carried = rig

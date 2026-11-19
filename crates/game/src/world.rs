@@ -5,6 +5,7 @@ mod grep;
 mod help;
 mod movement;
 mod presence;
+mod rig;
 
 use std::collections::BTreeMap;
 
@@ -17,6 +18,7 @@ use crate::parse::{self, ParseError, Stage};
 
 pub use chat::is_chat;
 pub use complete::Completion;
+use rig::Rig;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PlayerId(u64);
@@ -43,7 +45,7 @@ struct Host {
 struct Player {
     name: String,
     chain: Vec<HostId>,
-    rig: Vec<File>,
+    rig: Rig,
 }
 
 #[derive(Debug)]
@@ -56,6 +58,7 @@ pub struct World {
     outbox: Vec<Output>,
 }
 
+#[derive(Default)]
 struct Step {
     shown: Vec<Message>,
     items: Vec<Item>,
@@ -104,7 +107,7 @@ impl World {
             Player {
                 name: name.to_owned(),
                 chain: vec![self.start],
-                rig: Vec::new(),
+                rig: Rig::new(),
             },
         );
         self.notify(self.start, player, &presence::named(name, " connects."));
@@ -215,6 +218,10 @@ impl World {
                 no_args(command, args)?;
                 Ok(self.inventory(player))
             }
+            Verb::Status => {
+                no_args(command, args)?;
+                Ok(self.status(player))
+            }
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Help => help::help(args),
@@ -276,6 +283,14 @@ fn no_args(command: &Command, args: &[String]) -> Result<(), Message> {
         let name = command.name();
         Err(Message::error(format!("{name} takes no arguments.")))
     }
+}
+
+fn lines(shown: Vec<Message>) -> Step {
+    let items = shown
+        .iter()
+        .map(|message| Item::Line(message.plain()))
+        .collect();
+    Step { shown, items }
 }
 
 fn listing(items: &[Item]) -> Vec<Message> {
