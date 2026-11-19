@@ -45,6 +45,16 @@ pub struct Content {
     pub(crate) shops: Vec<ShopDef>,
     pub(crate) corps: Vec<CorpDef>,
     pub(crate) templates: Vec<TemplateDef>,
+    pub(crate) fixers: Vec<FixerDef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FixerDef {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) host: String,
+    pub(crate) corps: Vec<String>,
+    pub(crate) max_heat: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

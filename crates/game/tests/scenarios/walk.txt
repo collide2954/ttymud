@@ -18,6 +18,7 @@ The Bazaar
 Everything is for sale.
 Routes: relay, market
 Files: burn-list.txt
+Fixers here: Pell. Type jobs to see their work.
 > back
 The Night Market
 Stalls sell cracked firmware.

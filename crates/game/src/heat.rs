@@ -1,7 +1,7 @@
 pub(crate) const MAX_HEAT: u32 = 5;
 pub(crate) const COOLDOWN: u64 = 86_400;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Security {
     Low,
     Medium,

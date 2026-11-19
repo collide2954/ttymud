@@ -2,7 +2,7 @@ use ttymud_text::{Message, Style};
 
 use super::{HostId, Player, PlayerId, Step, Thing, World, choose, lines, listed, usage};
 use crate::commands::{self, Item, Verb};
-use crate::content::File;
+use crate::content::{File, ShopDef};
 
 #[derive(Debug)]
 pub(super) struct Shop {
@@ -10,6 +10,17 @@ pub(super) struct Shop {
     pub(super) programs: Vec<(Verb, u32)>,
     pub(super) ram: Vec<(u32, u32)>,
     pub(super) cpu: Vec<(u32, u32)>,
+}
+
+pub(super) fn shops(defs: Vec<ShopDef>, find: impl Fn(&str) -> HostId) -> Vec<Shop> {
+    defs.into_iter()
+        .map(|def| Shop {
+            host: find(&def.host),
+            programs: def.programs,
+            ram: def.ram,
+            cpu: def.cpu,
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, Copy)]

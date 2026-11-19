@@ -10,6 +10,7 @@ impl Reader {
         self.check_city();
         self.check_contracts();
         self.check_templates();
+        self.check_fixers();
         self.errors.sort_by_key(|error| error.line);
         if !self.errors.is_empty() {
             return Err(self.errors);
@@ -35,6 +36,7 @@ impl Reader {
                 .into_iter()
                 .map(|(template, _)| template)
                 .collect(),
+            fixers: self.fixers.into_iter().map(|(fixer, _)| fixer).collect(),
         })
     }
 

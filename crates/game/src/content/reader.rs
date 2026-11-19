@@ -1,5 +1,7 @@
+use super::targets::FixerLines;
 use super::{
-    ContentError, ContractDef, CorpDef, File, HostDef, IceDef, NetworkDef, ShopDef, TemplateDef,
+    ContentError, ContractDef, CorpDef, File, FixerDef, HostDef, IceDef, NetworkDef, ShopDef,
+    TemplateDef,
 };
 use crate::contract::Event;
 use crate::heat::Security;
@@ -32,6 +34,7 @@ pub(super) struct Reader {
     pub(super) shops: Vec<(ShopDef, usize)>,
     pub(super) corps: Vec<(CorpDef, usize)>,
     pub(super) templates: Vec<(TemplateDef, usize)>,
+    pub(super) fixers: Vec<(FixerDef, FixerLines)>,
 }
 
 impl Reader {
@@ -65,6 +68,7 @@ impl Reader {
             "shop" => self.shop(section),
             "corp" => self.corp(section),
             "template" => self.template(section),
+            "fixer" => self.fixer(section),
             other => self.error(section.line, format!("unknown section type: {other}")),
         }
     }
@@ -318,7 +322,7 @@ impl Reader {
         found
     }
 
-    fn optional(&mut self, section: &Section<'_>, key: &str) -> Option<(String, usize)> {
+    pub(super) fn optional(&mut self, section: &Section<'_>, key: &str) -> Option<(String, usize)> {
         let mut found = section.pairs.iter().filter(|pair| pair.key == key);
         let first = found.next()?;
         if let Some(repeat) = found.next() {

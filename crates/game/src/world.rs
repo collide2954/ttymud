@@ -8,6 +8,7 @@ mod grep;
 mod heat;
 mod help;
 mod ice;
+mod jobs;
 mod movement;
 mod presence;
 mod programs;
@@ -25,7 +26,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use ttymud_text::{Kind, Message, Style, sanitize};
 
 use crate::commands::{self, Command, Item, Verb};
-use crate::content::{Content, File, IceDef};
+use crate::content::{Content, CorpDef, File, IceDef, TemplateDef};
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::kits::Kit;
@@ -38,6 +39,7 @@ use burns::Burn;
 pub use chat::is_chat;
 pub use complete::Completion;
 use contract::{Contract, Job};
+use jobs::Fixer;
 use rig::Rig;
 use run::Run;
 use shop::Shop;
@@ -134,6 +136,9 @@ pub struct World {
     contracts: Vec<Contract>,
     offer: Option<usize>,
     shops: Vec<Shop>,
+    corps: Vec<CorpDef>,
+    templates: Vec<TemplateDef>,
+    fixers: Vec<Fixer>,
     players: BTreeMap<PlayerId, Player>,
     accounts: BTreeMap<String, Account>,
     dirty: BTreeSet<String>,
@@ -223,16 +228,8 @@ impl World {
                 security: network.security,
             })
             .collect();
-        let shops = content
-            .shops
-            .into_iter()
-            .map(|def| Shop {
-                host: find(&def.host),
-                programs: def.programs,
-                ram: def.ram,
-                cpu: def.cpu,
-            })
-            .collect();
+        let shops = shop::shops(content.shops, find);
+        let fixers = jobs::fixers(content.fixers, &content.corps, find);
         let mut world = Self {
             city: content.city,
             city_id: content.id,
@@ -244,6 +241,9 @@ impl World {
             contracts,
             offer,
             shops,
+            corps: content.corps,
+            templates: content.templates,
+            fixers,
             networks,
             hosts,
             players: BTreeMap::new(),
@@ -456,6 +456,10 @@ impl World {
                 self.shop(player)
             }
             Verb::Buy => self.buy(player, args),
+            Verb::Jobs => {
+                no_args(command, args)?;
+                self.jobs(player)
+            }
             Verb::Sell => self.sell(player, args, input),
             Verb::Load => self.load(player, args),
             Verb::Unload => self.unload(player, args),
@@ -540,6 +544,7 @@ impl World {
                 .text(" to see what it sells.");
             scene.push(shop);
         }
+        scene.extend(self.fixer_line(id));
         scene.extend(self.ice_line(id, viewer));
         let present: Vec<&str> = self.others(id, viewer).map(|(_, name)| name).collect();
         if !present.is_empty() {

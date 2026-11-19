@@ -1,4 +1,6 @@
-use super::{Content, ContractDef, CorpDef, File, IceDef, NetworkDef, ShopDef, TemplateDef};
+use super::{
+    Content, ContractDef, CorpDef, File, FixerDef, IceDef, NetworkDef, ShopDef, TemplateDef,
+};
 use crate::commands::Verb;
 use crate::contract::Event;
 use crate::heat::Security;
@@ -142,6 +144,44 @@ fn a_template_makes_hosts_for_one_layer() {
         files: vec![File::new("motd.txt", vec!["Hi.".to_owned()])],
     };
     assert_eq!(Content::parse(&text).unwrap().templates, [template]);
+}
+
+const CORPS: &str = "\
+[corp lo]\nname = Lo\nbudget = low\ndata = a.db: A.\n\
+[corp hi]\nname = Hi\nbudget = high\ndata = b.db: B.\n";
+
+#[test]
+fn a_fixer_works_against_corps_from_a_host() {
+    let text = format!(
+        "{NET}{TEMPLATES}{CORPS}[fixer pell]\nname = Pell\nhost = a\ncorp = lo\ncorp = hi\nmax-heat = 3\n"
+    );
+    let fixer = FixerDef {
+        id: "pell".to_owned(),
+        name: "Pell".to_owned(),
+        host: "a".to_owned(),
+        corps: vec!["lo".to_owned(), "hi".to_owned()],
+        max_heat: Some(3),
+    };
+    assert_eq!(Content::parse(&text).unwrap().fixers, [fixer]);
+}
+
+#[test]
+fn bad_fixers_fail() {
+    let text = format!(
+        "{NET}{TEMPLATES}{CORPS}[fixer x]\nname = X\nhost = b\ncorp = hi\ncorp = nope\nmax-heat = hot\n\
+         [fixer y]\nname = Y\nhost = z\n"
+    );
+    assert_eq!(
+        errors(&text),
+        [
+            "line 39: fixer x needs a corp with a low budget for new handles",
+            "line 41: fixer x is on a host in a network: b",
+            "line 43: fixer x works against an unknown corp: nope",
+            "line 44: bad max-heat: hot (use a number from 0 to 4)",
+            "line 45: fixer y has no corp",
+            "line 47: fixer y is on an unknown host: z",
+        ]
+    );
 }
 
 #[test]

@@ -1,10 +1,98 @@
 use super::reader::{Name, Reader};
-use super::{CorpDef, File, TemplateDef};
-use crate::heat::Security;
+use super::{CorpDef, File, FixerDef, TemplateDef};
+use crate::heat::{MAX_HEAT, Security};
 use crate::ini::{Pair, Section};
 use crate::target::Layer;
 
+pub(super) struct FixerLines {
+    section: usize,
+    host: usize,
+    corps: Vec<usize>,
+}
+
 impl Reader {
+    pub(super) fn fixer(&mut self, section: &Section<'_>) {
+        let id = section.id;
+        if self.fixers.iter().any(|(fixer, _)| fixer.id == id) {
+            self.error(
+                section.line,
+                format!("fixer {id} is defined more than once"),
+            );
+            return;
+        }
+        self.allow(section, &["name", "host", "corp", "max-heat"]);
+        self.check_name(section.line, id, Name::Plain);
+        let name = self.single(section, "name").unwrap_or_default().0;
+        let (host, host_line) = self.single(section, "host").unwrap_or_default();
+        let corps: Vec<&Pair<'_>> = section
+            .pairs
+            .iter()
+            .filter(|pair| pair.key == "corp")
+            .collect();
+        if corps.is_empty() {
+            self.error(section.line, format!("fixer {id} has no corp"));
+        }
+        let max_heat = self.optional(section, "max-heat").and_then(|(word, line)| {
+            let heat = word.parse().ok().filter(|&heat| heat < MAX_HEAT);
+            if heat.is_none() {
+                let most = MAX_HEAT - 1;
+                self.error(
+                    line,
+                    format!("bad max-heat: {word} (use a number from 0 to {most})"),
+                );
+            }
+            heat
+        });
+        let lines = FixerLines {
+            section: section.line,
+            host: host_line,
+            corps: corps.iter().map(|pair| pair.line).collect(),
+        };
+        let fixer = FixerDef {
+            id: id.to_owned(),
+            name,
+            host,
+            corps: corps.iter().map(|pair| pair.value.to_owned()).collect(),
+            max_heat,
+        };
+        self.fixers.push((fixer, lines));
+    }
+
+    pub(super) fn check_fixers(&mut self) {
+        let mut problems = Vec::new();
+        for (fixer, lines) in &self.fixers {
+            let (id, host) = (&fixer.id, &fixer.host);
+            if !host.is_empty() && !self.has_host(host) {
+                problems.push((
+                    lines.host,
+                    format!("fixer {id} is on an unknown host: {host}"),
+                ));
+            } else if self.network_of(host).is_some() {
+                problems.push((
+                    lines.host,
+                    format!("fixer {id} is on a host in a network: {host}"),
+                ));
+            }
+            let mut known = Vec::new();
+            for (corp, &line) in fixer.corps.iter().zip(&lines.corps) {
+                match self.corps.iter().find(|(def, _)| &def.id == corp) {
+                    Some((def, _)) => known.push(def.budget),
+                    None => problems.push((
+                        line,
+                        format!("fixer {id} works against an unknown corp: {corp}"),
+                    )),
+                }
+            }
+            if !known.is_empty() && !known.contains(&Security::Low) {
+                let message = format!("fixer {id} needs a corp with a low budget for new handles");
+                problems.push((lines.section, message));
+            }
+        }
+        for (line, message) in problems {
+            self.error(line, message);
+        }
+    }
+
     pub(super) fn corp(&mut self, section: &Section<'_>) {
         let id = section.id;
         if self.corps.iter().any(|(corp, _)| corp.id == id) {
