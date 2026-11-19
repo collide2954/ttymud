@@ -8,6 +8,7 @@ pub(crate) enum Verb {
     Back,
     Read,
     Download,
+    Inventory,
     Grep,
 }
 
@@ -92,6 +93,13 @@ pub(crate) const COMMANDS: &[Command] = &[
         example: "download motd.txt",
         takes: Takes::Optional,
         output: false,
+    },
+    Command {
+        verb: Verb::Inventory,
+        names: &["inventory", "inv", "i"],
+        example: "inventory",
+        takes: Takes::Nothing,
+        output: true,
     },
     Command {
         verb: Verb::Grep,

@@ -173,6 +173,10 @@ impl World {
             }
             Verb::Read => self.read(player, args, input),
             Verb::Download => self.download(player, args, input),
+            Verb::Inventory => {
+                no_args(command, args)?;
+                Ok(self.inventory(player))
+            }
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
         }
     }

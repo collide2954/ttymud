@@ -1,6 +1,6 @@
 use ttymud_text::{Kind, Message, Style};
 
-use super::{PlayerId, Step, Thing, World, choose, usage};
+use super::{PlayerId, Step, Thing, World, choose, listing, usage};
 use crate::commands::Item;
 use crate::content::File;
 
@@ -65,6 +65,21 @@ impl World {
             shown,
             items: Vec::new(),
         })
+    }
+
+    pub(super) fn inventory(&self, player: PlayerId) -> Step {
+        let items: Vec<Item> = self
+            .players
+            .get(&player)
+            .into_iter()
+            .flat_map(|state| state.rig.iter().cloned().map(Item::File))
+            .collect();
+        let shown = if items.is_empty() {
+            vec![Message::game("Your rig has no files.")]
+        } else {
+            listing(&items)
+        };
+        Step { shown, items }
     }
 
     fn readable(&self, player: PlayerId) -> Vec<&File> {
@@ -253,6 +268,31 @@ mod tests {
         assert_eq!(
             run("download"),
             ["Usage: download <file>. Files: motd.txt, rules.txt"]
+        );
+    }
+
+    #[test]
+    fn inventory_lists_the_files_on_the_rig() {
+        assert_eq!(walk(&["download motd.txt", "inventory"]).0, ["motd.txt"]);
+    }
+
+    #[test]
+    fn inv_and_i_are_other_names_for_inventory() {
+        for name in ["inv", "i"] {
+            assert_eq!(walk(&["get motd.txt", name]).0, ["motd.txt"], "{name}");
+        }
+    }
+
+    #[test]
+    fn an_empty_rig_says_so() {
+        assert_eq!(run("inventory"), ["Your rig has no files."]);
+    }
+
+    #[test]
+    fn inventory_pipes_its_files() {
+        assert_eq!(
+            walk(&["get motd.txt", "go market", "inv | read"]).0,
+            ["Welcome to the Relay.", "Be polite."]
         );
     }
 
