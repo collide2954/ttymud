@@ -2,10 +2,10 @@ use ttymud_text::{Message, Style};
 
 use super::ice::{Ice, deploy};
 use super::{HostId, NetworkId, PlayerId, Step, World};
-use crate::ice::IceKind;
+use crate::ice::{Action, IceKind};
 
 const SHOCK: u32 = 20;
-const MAX_TRACE: u32 = 100;
+pub(super) const MAX_TRACE: u32 = 100;
 const CRASH: &str = "Your rig crashes, and you lose the loot of this run.";
 
 #[derive(Debug)]
@@ -62,16 +62,26 @@ impl World {
         let here = self.here(player);
         let Some(run) = self
             .players
-            .get(&player)
-            .and_then(|state| state.run.as_ref())
+            .get_mut(&player)
+            .and_then(|state| state.run.as_mut())
         else {
             return Vec::new();
         };
-        let watched = run
-            .ice
-            .iter()
-            .any(|ice| ice.host == here && ice.kind == IceKind::Sentry && !ice.broken());
-        self.raise_trace(player, if watched { noise * 2 } else { noise })
+        if noise == 0 {
+            return Vec::new();
+        }
+        let mut shown = Vec::new();
+        let mut watched = false;
+        for ice in &mut run.ice {
+            if ice.host == here && ice.kind == IceKind::Sentry && !ice.broken() {
+                watched = true;
+                if ice.intent.is_none() {
+                    shown.push(ice.compile(Action::Alert));
+                }
+            }
+        }
+        shown.extend(self.raise_trace(player, if watched { noise * 2 } else { noise }));
+        shown
     }
 
     pub(super) fn raise_trace(&mut self, player: PlayerId, amount: u32) -> Vec<Message> {

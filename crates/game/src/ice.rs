@@ -1,4 +1,23 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Action {
+    Alert,
+}
+
+impl Action {
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            Self::Alert => "ALERT",
+        }
+    }
+
+    pub(crate) fn ticks(self) -> u32 {
+        match self {
+            Self::Alert => 3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum IceKind {
     Sentry,
     Warden,

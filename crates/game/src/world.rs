@@ -178,10 +178,17 @@ impl World {
     }
 
     pub fn tick(&mut self) -> Vec<Output> {
-        for state in self.players.values_mut() {
-            state.rig.tick();
+        let players: Vec<PlayerId> = self.players.keys().copied().collect();
+        let mut outputs = Vec::new();
+        for player in players {
+            if let Some(state) = self.players.get_mut(&player) {
+                state.rig.tick();
+            }
+            let shown = self.tick_ice(player);
+            outputs.extend(address(player, shown));
         }
-        std::mem::take(&mut self.outbox)
+        outputs.append(&mut self.outbox);
+        outputs
     }
 
     pub fn leave(&mut self, player: PlayerId) -> Vec<Output> {
