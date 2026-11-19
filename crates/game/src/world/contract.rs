@@ -4,6 +4,8 @@ use super::{NetworkId, PlayerId, Step, World, lines};
 use crate::contract::Event;
 
 const HINT_TICKS: u32 = 15;
+const FEE_HEAT: u32 = 4;
+const FEE_PERCENT: u32 = 25;
 
 #[derive(Debug)]
 pub(super) struct Contract {
@@ -125,20 +127,33 @@ impl World {
         };
         state.rig.files.remove(goal);
         state.contract = None;
-        state.credits += contract.pay;
+        let fee = if state.heat >= FEE_HEAT {
+            contract.pay * FEE_PERCENT / 100
+        } else {
+            0
+        };
+        let pay = contract.pay - fee;
+        state.credits += pay;
         let fixer = |rest: String| {
             Message::game("")
                 .span(Style::Player, &contract.fixer)
                 .text(rest)
         };
-        let taken = match contract.pay {
+        let taken = match pay {
             0 => format!(" takes {}.", contract.goal),
             pay => format!(" takes {} and pays you {pay} cr.", contract.goal),
         };
-        vec![
+        let mut shown = vec![
             fixer(": Clean work. The contract is complete.".to_owned()),
             fixer(taken),
-        ]
+        ];
+        if fee > 0 {
+            let heat = state.heat;
+            shown.push(fixer(format!(
+                " keeps {fee} cr of the pay because your heat is {heat}."
+            )));
+        }
+        shown
     }
 
     pub(super) fn offer(&self, player: PlayerId) -> Vec<Message> {
@@ -318,6 +333,28 @@ mod tests {
         assert_eq!(
             plain(&world.command(player, "contract")),
             ["You have no contract."]
+        );
+    }
+
+    #[test]
+    fn at_heat_4_the_fixer_keeps_a_fee() {
+        let (mut world, player) = hired();
+        if let Some(state) = world.players.get_mut(&player) {
+            state.heat = 4;
+        }
+        for line in ["go back-room", "go gate", "go core", "get data.db", "back"] {
+            world.command(player, line);
+        }
+        assert_eq!(
+            plain(&world.command(player, "back"))[2..4],
+            [
+                "Pell takes data.db and pays you 75 cr.",
+                "Pell keeps 25 cr of the pay because your heat is 4.",
+            ]
+        );
+        assert_eq!(
+            plain(&world.command(player, "status | grep credits")),
+            ["Credits: 75 cr"]
         );
     }
 
