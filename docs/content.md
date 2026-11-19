@@ -1,6 +1,6 @@
 # Content files
 
-A content file describes a city: its hosts and routes, the files on the hosts, the target networks, their ICE, and the contracts. This document gives the format. Port Ostra, the default city, uses this format. A later version of the server will also read content files from its data directory.
+A content file describes a city: its hosts and routes, the files on the hosts, the target networks, their ICE, and the contracts. It also gives the fixers, the shops, and the corporations and host templates for generated targets. This document gives the format. Port Ostra, the default city, uses this format. A later version of the server will also read content files from its data directory.
 
 ## Format
 
@@ -32,7 +32,7 @@ Each content file has one city section.
 
 ### Network
 
-A network section makes one target network. A run starts when a player goes from a hub host to a host in a network.
+A network section makes one target network by hand. A run starts when a player goes from a hub host to a host in a network.
 
 | Key | Count | Meaning |
 | --- | --- | --- |
@@ -54,7 +54,7 @@ A route connects two hosts in both directions. As a result, you write each route
 
 ### File
 
-A file section puts one file on a host. The section name has the form `<host>/<file>`, for example `[file relay/motd.txt]`.
+A file section puts one file on a host or on a template. The section name has the form `<host>/<file>`, for example `[file relay/motd.txt]`.
 
 | Key | Count | Meaning |
 | --- | --- | --- |
@@ -74,13 +74,14 @@ The [gameplay](design/gameplay.md#ice-in-version-01) document tells what each ty
 
 ### Contract
 
-A contract section makes one contract. The `contract` key of the city section gives a contract to each new player.
+A contract section makes one contract by hand. The `contract` key of the city section gives a contract to each new handle.
 
 | Key | Count | Meaning |
 | --- | --- | --- |
-| `fixer` | 1 | The name of the fixer who gives the contract. |
+| `fixer` | 1 | The fixer section of the fixer who gives the contract. |
 | `network` | 1 | The target network. |
 | `goal` | 1 | The name of a file in the target network. A clean exit with this file completes the contract. |
+| `pay` | 0 or 1 | The credits that the fixer pays for the contract. The default is 0. |
 | `offer` | 1 or more | One line of the offer. A new handle sees the offer after it selects a starter kit. |
 | `step` | 0 or more | One step of the contract: an event, a colon, and a hint. |
 
@@ -93,6 +94,55 @@ A step teaches one command. The `contract` command shows the hint of the next st
 | `scan`, `probe`, `crack`, `scrub`, `patch` | The player runs the program. |
 | `download` | The player downloads the goal file. |
 | `exit` | The player leaves the network of the contract with a clean exit. |
+
+### Fixer
+
+A fixer section makes one fixer. Each day, a fixer posts 3 jobs against its corps. Players see the jobs on the host of the fixer.
+
+| Key | Count | Meaning |
+| --- | --- | --- |
+| `name` | 1 | The name of the fixer that players see. |
+| `host` | 1 | The hub host where the fixer is. |
+| `corp` | 0 or more | A corp section. The fixer posts jobs against this corporation. |
+| `max-heat` | 0 or 1 | A number from 0 to 4. The fixer refuses handles with more heat. |
+
+A fixer with corps must have a corp with a low budget. As a result, a new handle can always find work. A fixer without corps gives only the contracts of the content file.
+
+### Corp
+
+A corp section makes one corporation. The server makes a new target network for each job against the corporation.
+
+| Key | Count | Meaning |
+| --- | --- | --- |
+| `name` | 1 | The name of the corporation that players see. |
+| `budget` | 1 | `low`, `medium`, `high`, or `top`. The budget sets the security levels, the ICE, the pay, and the necessary reputation. |
+| `data` | 1 or more | One data file: a file name, a colon, and a line, for example `data = claims.db: Ten years of claims.` |
+
+The server puts the data files on the LAN hosts and the core hosts of a target. One of the files is the goal of the job. The [world](design/world.md#targets) document tells how the server makes a target.
+
+### Template
+
+A template section describes one type of host for the targets. The server makes the hosts of a target from the templates.
+
+| Key | Count | Meaning |
+| --- | --- | --- |
+| `layer` | 1 | `edge`, `lan`, or `core`. |
+| `name` | 1 | The name of the host type, for example `VPN Gateway`. The server puts the name of the corporation before it. |
+| `desc` | 1 | The description of the host. |
+
+A file section can put a file on a template, for example `[file vpn/banner.txt]`. Each host from the template gets the file. If the content file has corps, each layer must have at least one template. A template cannot have the name of a host.
+
+### Shop
+
+A shop section opens a shop on a hub host. The section name is the name of the host, for example `[shop night-market]`. Each shop also has a fence that buys stolen data.
+
+| Key | Count | Meaning |
+| --- | --- | --- |
+| `program` | 0 or more | A program and its price in credits, for example `program = mask 400`. |
+| `ram` | 0 or more | A RAM size in GB and its price, for example `ram = 12 900`. Each size must be more than the size before it. |
+| `cpu` | 0 or more | A number of cycles and its price, for example `cpu = 5 1200`. Each number must be more than the number before it. |
+
+The shop sells a program only to a handle whose account does not know it. It sells only the next RAM size and the next CPU.
 
 ## Example
 
@@ -113,6 +163,10 @@ A step teaches one command. The `contract` command shows the hint of the next st
     desc = A quiet node that the city forgot to index.
     route = smile-gw
 
+    [shop relay]
+    program = mask 400
+    ram = 12 900
+
     [network smile-dental]
     name = Bright Smile Dental
     security = low
@@ -131,15 +185,41 @@ A step teaches one command. The `contract` command shows the hint of the next st
     [fixer pell]
     name = Pell
     host = relay
+    corp = mosaic
 
     [contract first-job]
     fixer = pell
     network = smile-dental
     goal = patients.db
+    pay = 250
     offer = A client wants the patient files of a dentist.
     step = enter: Type go smile-gw to connect.
     step = download: Type download patients.db.
     step = exit: Type back to leave the network.
+
+    [corp mosaic]
+    name = Mosaic Media
+    budget = low
+    data = drafts.db: Next week of headlines.
+    data = payroll.db: What each reporter earns.
+
+    [template vpn]
+    layer = edge
+    name = VPN Gateway
+    desc = The remote door for staff who work from home.
+
+    [template share]
+    layer = lan
+    name = File Share
+    desc = Shared folders for every team.
+
+    [template db]
+    layer = core
+    name = Database Server
+    desc = The main database of the company.
+
+    [file vpn/banner.txt]
+    line = Authorized users only.
 
 ## Checks
 
@@ -149,17 +229,22 @@ The server checks a content file before it uses the file. It finds these errors 
 - Unknown section types and unknown keys.
 - Keys that are missing or that occur too many times.
 - Names that contain other characters.
-- Two hosts, two files, two ICE on one host, two networks, or two contracts with the same name.
+- Two sections of the same type with the same name, and two files or two ICE with the same name on one host.
 - Routes and files on unknown hosts, and routes from a host to itself.
 - A start host that does not exist.
 - Hosts that players cannot reach from the start host.
-- A home host or a burns host that does not exist, or that is in a network.
+- A home host, a burns host, a fixer host, or a shop host that does not exist, or that is in a network.
 - Networks without hosts, hosts in unknown networks, and routes between two networks.
-- Unknown security levels.
+- Unknown security levels, budgets, and layers.
 - ICE on unknown hosts or on hub hosts, unknown ICE types, and bad versions.
 - Wardens without a `guards` key, other ICE with a `guards` key, and wardens that guard no route.
-- Contracts for unknown networks, and goals that are not files in the network.
+- Contracts with an unknown fixer or for an unknown network, and goals that are not files in the network.
 - Unknown events and steps without a hint.
 - A `contract` key in the city section that names an unknown contract.
+- Fixers against unknown corps, and fixers without a corp with a low budget.
+- Corps without data, data lines without a colon, and corps without a template for each layer.
+- Templates with the name of a host.
+- Unknown programs in a shop, bad prices, and RAM or CPU steps that do not go up.
+- Bad values for `pay` and `max-heat`.
 
 The server shows all errors at the same time. As a result, you can correct all of them in one step.

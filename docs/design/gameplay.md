@@ -1,6 +1,6 @@
 # Gameplay
 
-This document gives the rules of play: hosts, commands, pipelines, danger, ICE, programs, roles, and progression. The numbers are first values. Tests and play will change them.
+This document gives the rules of play: hosts, access, commands, pipelines, danger, ICE, programs, roles, money, jobs, and progression. The numbers are first values. Tests and play will change them.
 
 ## Hosts
 
@@ -21,6 +21,14 @@ A handle has a privilege level on each host. A higher privilege level lets the h
 | user | Read most files. Run local recon. |
 | admin | Read the logs. Stop sensors. Add accounts. |
 | root | Install a backdoor. Delete all logs. Use the host as a proxy. |
+
+### Access in version 0.1
+
+In version 0.1, there are three access levels: guest, user, and admin. You arrive on each host of a target as guest. In a generated target, the data files on LAN hosts need user access, and all files on core hosts need admin access. The networks that an author makes by hand have no locked files.
+
+To raise your access, read the credentials that the company left in its network. A credentials file on an edge host gives user access in the whole network. A second credentials file on a LAN host needs user access, and it gives admin access. You can read a credentials file on its host or from your rig. Your access goes back to guest when the run ends.
+
+The `exploit` program raises your access on one host by one level. It makes much noise, so use it when you cannot find the credentials. The `look` and `ls` commands mark each file that needs more access, for example `payroll.db (needs user)`.
 
 ## Movement
 
@@ -52,15 +60,20 @@ Commands look like shell commands. Many commands have a shell name and a MUD nam
 | `grep <pattern>` | | Keep only the items that contain the pattern. |
 | `help [command]` | `man` | Show help for all commands or for one command. |
 | `?` | | Show the commands that you can use here. |
-| `status` | `st` | Show heat, trace, integrity, cycles, RAM, and the programs in RAM. |
+| `status` | `st` | Show trace, access, heat, credits, integrity, cycles, RAM, and the programs in RAM. |
 | `say <text>` | `'` | Talk to all players on the same host. |
 | `jackout` | | Disconnect from the target immediately. |
-| `repair` | | Restore all integrity. This command works only at your home host. |
+| `repair` | | Restore integrity at your home host. A repair up to 50 integrity is free. |
 | `load <program>` | | Put a program into RAM. This command works only at your home host. |
 | `unload <program>` | | Remove a program from RAM. This command works only at your home host. |
 | `stash [file]` | | Show your stash. At your home host, move a file from your rig into the stash. |
 | `unstash <file>` | | Move a file from your stash to your rig. This command works only at your home host. |
 | `contract [drop]` | `job` | Show your contract and its next step, or stop the contract. |
+| `jobs` | | Show the jobs of the fixers on this host. |
+| `accept <number>` | | Take a job from a fixer on this host. |
+| `shop` | | Show what the shop on this host sells. |
+| `buy <item>` | | Buy a program, more RAM, or a faster CPU at a shop. |
+| `sell <file>` | | Sell stolen data to the fence of a shop. |
 
 The programs are also commands. The [programs](#programs) section gives them.
 
@@ -104,9 +117,9 @@ The trace does not increase while you wait. The pressure comes from ICE. Later, 
 
 **Integrity** is the health of your rig, from 100 to 0. Black ICE attacks decrease integrity. The `patch` program repairs some integrity during a run. When integrity gets to 0, your rig crashes.
 
-At your home host, the `repair` command restores all integrity. In version 0.1, a repair is free. Later, a repair costs credits.
+At your home host, the `repair` command restores integrity. A repair up to 50 integrity is free. Each point above 50 costs 2 credits. If you do not have enough credits, the repair stops at the integrity that you can pay for.
 
-**Heat** shows how much the police know about your handle, from 0 to 5. Each trace adds heat. The security level of the target network sets the quantity of heat. The [world](world.md) document gives the security levels.
+**Heat** shows how much the police know about your handle, from 0 to 5. Each trace adds heat. The security level of the host where the trace gets to 100% sets the quantity of heat. In a network that an author makes by hand, all hosts have the security level of the network. The [world](world.md) document gives the security levels.
 
 | Security level | Heat for one trace |
 | --- | --- |
@@ -120,13 +133,13 @@ Heat decreases by 1 for each 24 hours of real time without new heat. New heat st
 Heat also has effects before a burn:
 
 - At heat 3 or more, the SOC of a target recognizes you faster. In version 0.1, the ALERT of a Sentry takes 2 ticks, not 3.
-- At heat 4 or more, fixers ask for a higher fee, and some fixers do not give you contracts. This effect comes in M5.
+- At heat 4 or more, fixers keep 25% of the pay as a fee. Some fixers do not give jobs to handles with too much heat. In Port Ostra, Wren does not work with handles at heat 4 or more.
 
 ## How a run ends
 
 | End | Cause | Result |
 | --- | --- | --- |
-| Clean exit | You leave through the host where you came in. | You keep the loot. You get no heat. |
+| Clean exit | You leave through the host where you came in. | You keep the loot. You get no heat. If the goal file of your contract is on your rig, the contract is complete. |
 | Jack out | You use `jackout`, or you disconnect from the server. | You disconnect immediately and keep the loot. Your rig loses 20 integrity. If the trace is 75% or more, you get 1 heat. |
 | Traced | The trace gets to 100%. | You disconnect and lose the loot of this run. The security level of the target sets your heat. |
 | Crash | The integrity gets to 0. | You disconnect and lose the loot of this run. You must repair the rig. You get no heat. |
@@ -197,7 +210,7 @@ Built-in commands, for example `look` and `say`, do not use RAM or cycles.
 
 ### Programs in version 0.1
 
-In version 0.1, each rig has 8 GB of RAM. Your starter kit fills the RAM with five programs. To load a different program, unload a program first. You can load only the programs that your account knows.
+In version 0.1, a new rig has 8 GB of RAM, and its CPU holds 4 cycles. A shop sells more RAM and faster CPUs. Your starter kit fills the RAM with five programs. To load a different program, unload a program first. You can load only the programs that your account knows.
 
 | Program | RAM | Cycles | Noise | Action |
 | --- | --- | --- | --- | --- |
@@ -210,8 +223,9 @@ In version 0.1, each rig has 8 GB of RAM. Your starter kit fills the RAM with fi
 | `mask` | 2 GB | 2 | 0 | For 5 ticks, ICE does not see your noise, and noise adds only half the trace. |
 | `proxy` | 2 GB | 3 | 1 | Until the run ends, ICE attacks on your trace do half damage. |
 | `pretext` | 2 GB | 2 | 2 | It tricks a Warden. Until the run ends, the Warden lets you through. |
+| `exploit` | 2 GB | 3 | 3 | It raises your access on this host by one level. |
 
-A rig has a maximum of 4 cycles. It gets 1 cycle on each tick. The programs work only in a target network. In a target network, a download also makes 2 noise.
+A new rig holds a maximum of 4 cycles. It gets 1 cycle on each tick. The programs work only in a target network. In a target network, a download also makes 2 noise.
 
 A command line that runs programs costs 1 more cycle for the setup. If the programs make noise, the connection adds 1 more noise. As a result, `probe sentry | crack` costs 4 cycles and makes 4 noise. The same two commands on two lines cost 5 cycles and make 5 noise.
 
@@ -219,7 +233,7 @@ If you do not have enough cycles, the command does not run. It costs nothing.
 
 ## Roles
 
-TTYmud has no classes. The programs in your RAM set your role. A new handle selects one starter kit. The kit fills the RAM with the programs for one role. A handle can load only the programs that its account knows. Later, handles will buy and compile more programs.
+TTYmud has no classes. The programs in your RAM set your role. A new handle selects one starter kit, and the kit fills the RAM with the programs for one role. A handle can load only the programs that its account knows. A shop sells the other programs. Later, handles will also compile programs.
 
 | Kit | Role | Programs |
 | --- | --- | --- |
@@ -230,13 +244,48 @@ TTYmud has no classes. The programs in your RAM set your role. A new handle sele
 
 In a crew, the roles will help each other. For example, a Ghost will scrub logs for the crew, and a Breaker will pull ICE attacks away from the crew. Crews come in M9.
 
+## Money
+
+The currency is the credit (cr). Each handle has its own credits, and a new handle starts with 0 cr. Type `status` to see your credits.
+
+- **Contracts pay.** The fixer pays when you make a clean exit with the goal file. The fixer keeps the goal file.
+- **The fence buys stolen data.** A data file from a LAN host gives 40 cr. A data file from a core host gives 100 cr. The budget of the company multiplies the price by 1, 2, 4, or 8. The fence buys each file one time in each job.
+- **A shop sells programs and hardware.** A program goes into the know-how of your account. A burn takes the hardware, but not the know-how.
+- **Repairs cost credits** above 50 integrity.
+
+The content file sets the prices of a shop. These are the prices in Port Ostra:
+
+| Item | Price |
+| --- | --- |
+| `scrub`, `patch` | 300 cr |
+| `firewall`, `mask`, `pretext` | 400 cr |
+| `proxy` | 500 cr |
+| `exploit` | 800 cr |
+| RAM: 12 GB, then 16 GB | 900 cr, then 1800 cr |
+| CPU: 5 cycles, then 6 cycles | 1200 cr, then 2400 cr |
+
+## Jobs
+
+Fixers post jobs on a job board. Each day of UTC time, each fixer posts 3 jobs against the companies that the fixer works with. All players see the same jobs. Each run is a private copy of the network, so many players can do the same job.
+
+Type `jobs` on the host of a fixer to see the board. Type `accept <number>` to take a job. You can have one contract at a time. When you take a job, the routes into its network start at your home host. A job has no time limit. You cannot take a job again on the day that you finish it.
+
+| Budget of the company | Pay | Necessary reputation |
+| --- | --- | --- |
+| Low | About 300 cr | 0 |
+| Medium | About 700 cr | 2 |
+| High | About 1500 cr | 5 |
+| Top | About 3000 cr | 9 |
+
+The pay of a job can be up to 20% more or less. Each clean contract adds 1 reputation with its fixer. The first job of each fixer is always against its company with the lowest budget. As a result, a new handle can always find work.
+
 ## Progression
 
 There are no levels. A handle gets stronger in three ways.
 
-1. **Rig.** Better hardware. The CPU gives more cycles. RAM holds more programs. The NIC makes downloads faster. Storage holds more loot.
+1. **Rig.** Better hardware. The CPU gives more cycles, and RAM holds more programs. The NIC makes downloads faster. Storage holds more loot. In version 0.1, a shop sells RAM and CPUs.
 2. **Software.** Higher program versions and better mods. You find, buy, or compile programs. A patch increases the minor version, for example from v2.1 to v2.2. A blueprint and parts let you compile a new major version, for example v3.0.
-3. **Reputation.** Each faction keeps a reputation value for your handle. Higher reputation opens harder targets, better contracts, and better vendors.
+3. **Reputation.** Each faction keeps a reputation value for your handle. Higher reputation opens harder targets, better contracts, and better vendors. In version 0.1, each fixer keeps a reputation value for your handle.
 
 ## Burn and legacy
 
@@ -244,7 +293,7 @@ When the heat gets to 5, the handle burns. Then these events occur:
 
 - The handle goes on the burn list of the server. Nobody can use the name again on that server.
 - The police seize the rig and its files. Later, the items will go to the evidence auction.
-- The handle loses its contract. Later, it will also lose its credits, reputation, and contacts.
+- The handle loses its credits, its reputation with each fixer, and its contract. Later, it will also lose its contacts.
 
 The burn list is the file `burn-list.txt` on a hub host. In Port Ostra, the file is on the Newsstand. It gives each burned handle and the date of the burn.
 
