@@ -1,4 +1,5 @@
 mod config;
+mod editor;
 mod known;
 mod line;
 mod link;
@@ -7,6 +8,7 @@ mod render;
 mod testing;
 
 pub use config::{Identity, config_dir, identity};
+pub use editor::{Action, Editor, Key};
 pub use known::{DEFAULT_PORT, KnownServers, Trust, normalize};
 pub use line::{Ending, line_mode};
 pub use link::{ConnectError, Link, connect};
