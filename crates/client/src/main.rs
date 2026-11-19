@@ -149,8 +149,8 @@ fn connect(options: &Options) -> Result<Ending, String> {
             };
             ttymud::edit_mode(link, plain)
         }
-        Layer::Hud if chosen.layer == Some(Layer::Hud) => ttymud::hud_mode(link, settings),
-        Layer::Color | Layer::Hud => ttymud::edit_mode(link, settings),
+        Layer::Color => ttymud::edit_mode(link, settings),
+        Layer::Hud => ttymud::hud_mode(link, settings),
     };
     ending.map_err(|error| error.to_string())
 }
