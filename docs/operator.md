@@ -1,0 +1,72 @@
+# Operator guide
+
+This guide tells you how to run a TTYmud server. A server runs one city. In version 0.1, the server runs the default city, Port Ostra.
+
+## Build the server
+
+Install Rust with [rustup](https://rustup.rs). Then use this command to build the server:
+
+    cargo build --release -p ttymud-server
+
+The binary is `target/release/ttymud-server`. On Windows, the binary is `target\release\ttymud-server.exe`.
+
+## Make a data directory
+
+The server keeps its data in a data directory. Use this command to make one:
+
+    ttymud-server init ostra-data
+
+The command makes the directory and a new server key in the file `server.key`. Then it shows the fingerprint of the key. If the directory already has a key, the command does not change the key. It only shows the fingerprint again.
+
+On Unix, the key file has the permissions 0600.
+
+> CAUTION: Keep the file `server.key` secret. A person with this file can pretend to be your server.
+
+## Start the server
+
+Use this command to start the server:
+
+    ttymud-server run ostra-data
+
+By default, the server accepts connections on all IPv4 interfaces, on port 7331. To use a different address or port, use the `--listen` option:
+
+    ttymud-server run ostra-data --listen 127.0.0.1:7400
+
+When the server starts, it shows the name of the city, its address, and the fingerprint of its key. To stop the server, push Ctrl+C.
+
+## Publish the fingerprint
+
+At the first connection to a server, the client shows the fingerprint of the server key. The player must compare it with a fingerprint from you. Publish the fingerprint in a place that your players trust, for example your web site.
+
+If the key of a server changes, each client that knows the server stops with a warning. Do not change the key without a good reason. If you must change the key, tell your players before you change it.
+
+## Open the port
+
+Players connect with TCP to port 7331, or to the port that you set with `--listen`. If the server is behind a firewall or a router, open that port for TCP.
+
+## Limits
+
+The server has these limits:
+
+- A maximum of 256 connections at the same time.
+- A maximum of 8 connections from one IP address.
+- A maximum of 10 seconds for each handshake.
+- Rate limits for commands and chat. The [protocol](protocol.md) document gives the values.
+
+## Privacy
+
+The connections are encrypted, but the server can read all text that players send, also chat. Tell your players this. The server does not write chat to disk. It keeps the IP address of each connection in memory only.
+
+## Game data
+
+In version 0.1, the server does not save the game state. When a player disconnects, the player loses the files on the rig. When the server stops, all players lose their files.
+
+To make a backup, copy the data directory. At this time, the data directory contains only the server key.
+
+## Try the city offline
+
+Use this command to walk Port Ostra alone, without a network:
+
+    ttymud-server play
+
+To use a different name, give the name after `play`. Type `quit` to stop.
