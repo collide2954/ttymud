@@ -302,6 +302,7 @@ impl World {
                 no_args(command, args)?;
                 self.scan(player)
             }
+            Verb::Probe => self.probe(player, args, input),
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Help => help::help(args),
@@ -406,6 +407,7 @@ fn listed<'a>(
 enum Thing {
     Route,
     File,
+    Ice,
 }
 
 impl Thing {
@@ -413,6 +415,7 @@ impl Thing {
         match self {
             Self::Route => Style::Host,
             Self::File => Style::File,
+            Self::Ice => Style::Ice,
         }
     }
 
@@ -420,6 +423,7 @@ impl Thing {
         match self {
             Self::Route => format!("No route to {word}"),
             Self::File => format!("No file named {word}"),
+            Self::Ice => format!("No ICE named {word}"),
         }
     }
 
@@ -427,6 +431,7 @@ impl Thing {
         match self {
             Self::Route => "Routes",
             Self::File => "Files",
+            Self::Ice => "ICE",
         }
     }
 }

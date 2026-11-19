@@ -13,6 +13,7 @@ pub(crate) enum Verb {
     Jackout,
     Repair,
     Scan,
+    Probe,
     Grep,
     Say,
     Help,
@@ -30,7 +31,7 @@ pub(crate) struct Program {
 impl Verb {
     pub(crate) fn program(self) -> Option<Program> {
         match self {
-            Self::Scan => Some(Program { ram: 1, cycles: 1 }),
+            Self::Scan | Self::Probe => Some(Program { ram: 1, cycles: 1 }),
             _ => None,
         }
     }
@@ -176,6 +177,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Find the ICE on this host.",
         example: "scan",
         takes: Takes::Nothing,
+        output: true,
+    },
+    Command {
+        verb: Verb::Probe,
+        names: &["probe"],
+        usage: "probe <ice>",
+        summary: "Find the weak point of an ICE.",
+        example: "probe sentry",
+        takes: Takes::Optional,
         output: true,
     },
     Command {

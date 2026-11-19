@@ -1,6 +1,7 @@
 use ttymud_text::{Kind, Message, Style};
 
-use super::{PlayerId, Step, World};
+use super::run::Run;
+use super::{PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::{self, Command, Item};
 
 impl World {
@@ -64,6 +65,91 @@ impl World {
         }
         Ok(step)
     }
+
+    pub(super) fn probe(
+        &self,
+        player: PlayerId,
+        args: &[String],
+        input: Option<Vec<Item>>,
+    ) -> Result<Step, Message> {
+        let names = self.targets(player, "probe", args, input)?;
+        let here = self.here(player);
+        let mut step = Step::default();
+        let Some(run) = self.run_of(player) else {
+            return Ok(step);
+        };
+        for ice in run
+            .ice
+            .iter()
+            .filter(|ice| ice.host == here && names.contains(&ice.name))
+        {
+            let state = format!(
+                ": {}, integrity {}/{}. Weak point: {}.",
+                ice.title(),
+                ice.integrity,
+                ice.max(),
+                ice.kind.weakness()
+            );
+            step.shown.push(
+                Message::new(Kind::Game)
+                    .span(Style::Ice, &ice.name)
+                    .text(state),
+            );
+            step.items.push(Item::Ice(ice.name.clone()));
+        }
+        Ok(step)
+    }
+
+    fn run_of(&self, player: PlayerId) -> Option<&Run> {
+        self.players.get(&player)?.run.as_ref()
+    }
+
+    fn targets(
+        &self,
+        player: PlayerId,
+        command: &str,
+        args: &[String],
+        input: Option<Vec<Item>>,
+    ) -> Result<Vec<String>, Message> {
+        let here = self.here(player);
+        let known: Vec<&str> = self
+            .run_of(player)
+            .into_iter()
+            .flat_map(|run| &run.ice)
+            .filter(|ice| ice.host == here && ice.known)
+            .map(|ice| ice.name.as_str())
+            .collect();
+        match (args, input) {
+            ([], Some(items)) => {
+                let names: Vec<String> = items
+                    .into_iter()
+                    .filter_map(|item| match item {
+                        Item::Ice(name) => Some(name),
+                        Item::Route(_) | Item::File(_) | Item::Line(_) => None,
+                    })
+                    .collect();
+                if names.is_empty() {
+                    return Err(Message::error(format!(
+                        "{command} needs ICE, but the input has none."
+                    )));
+                }
+                Ok(names)
+            }
+            (_, Some(_)) => Err(Message::error(format!(
+                "{command} takes an ICE or a pipe, not both."
+            ))),
+            ([], None) => Err(usage(&format!("{command} <ice>"), Thing::Ice, &known)),
+            ([word, ..], None) if known.is_empty() => {
+                Err(Message::error(format!("No ICE named {word}. Type "))
+                    .span(Style::Command, "scan")
+                    .text(" to find ICE."))
+            }
+            (words, None) => words
+                .iter()
+                .map(|word| choose(Thing::Ice, word, &known).map(str::to_owned))
+                .collect(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -126,6 +212,39 @@ mod tests {
             at_gate(&["scan", "scan", "scan"]),
             ["scan needs 2 cycles, but you have 0. You get 1 cycle on each tick."]
         );
+    }
+
+    #[test]
+    fn probe_finds_the_weak_point_of_an_ice() {
+        assert_eq!(
+            at_gate(&["scan", "probe sentry"]),
+            ["sentry: Sentry v1, integrity 20/20. Weak point: it trusts old signatures."]
+        );
+    }
+
+    #[test]
+    fn probe_takes_the_ice_from_a_scan() {
+        let shown = at_gate(&["scan | probe"]);
+        assert_eq!(shown.len(), 2, "{shown:?}");
+        assert!(shown[1].starts_with("warden: Warden v1"), "{shown:?}");
+    }
+
+    #[test]
+    fn probe_needs_ice_that_you_know() {
+        assert_eq!(
+            at_gate(&["probe sentry"]),
+            ["No ICE named sentry. Type scan to find ICE."]
+        );
+        assert_eq!(
+            at_gate(&["scan", "probe"]),
+            ["Usage: probe <ice>. ICE: sentry, warden"]
+        );
+    }
+
+    #[test]
+    fn a_program_that_fails_costs_nothing() {
+        let shown = at_gate(&["probe sentry", "status | grep cycles"]);
+        assert_eq!(shown, ["Cycles: 4/4"]);
     }
 
     #[test]

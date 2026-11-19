@@ -141,8 +141,8 @@ mod tests {
             [
                 "Integrity: 100/100",
                 "Cycles: 4/4",
-                "RAM: 1/8 GB",
-                "Programs: scan"
+                "RAM: 2/8 GB",
+                "Programs: scan, probe"
             ]
         );
     }

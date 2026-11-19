@@ -31,6 +31,15 @@ impl IceKind {
         }
     }
 
+    pub(crate) fn weakness(self) -> &'static str {
+        match self {
+            Self::Sentry => "it trusts old signatures",
+            Self::Warden => "its rule table has a hole",
+            Self::Hound => "it leaks its trace buffer",
+            Self::Scorch => "it does not check its heap",
+        }
+    }
+
     pub(crate) fn integrity(self, version: u32) -> u32 {
         let base = match self {
             Self::Sentry => 20,
