@@ -1,5 +1,6 @@
 mod checks;
 mod reader;
+mod shops;
 #[cfg(test)]
 mod tests;
 
@@ -7,6 +8,7 @@ use std::fmt;
 
 use reader::Reader;
 
+use crate::commands::Verb;
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::ice::IceKind;
@@ -38,6 +40,15 @@ pub struct Content {
     pub(crate) networks: Vec<NetworkDef>,
     pub(crate) hosts: Vec<HostDef>,
     pub(crate) contracts: Vec<ContractDef>,
+    pub(crate) shops: Vec<ShopDef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ShopDef {
+    pub(crate) host: String,
+    pub(crate) programs: Vec<(Verb, u32)>,
+    pub(crate) ram: Vec<(u32, u32)>,
+    pub(crate) cpu: Vec<(u32, u32)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

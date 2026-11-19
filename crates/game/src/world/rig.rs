@@ -4,10 +4,9 @@ use super::{PlayerId, Step, World, lines, listed};
 use crate::commands::{self, Verb};
 use crate::content::File;
 use crate::heat::MAX_HEAT;
+use crate::kits::{CYCLES, RAM};
 
 pub(super) const MAX_INTEGRITY: u32 = 100;
-const MAX_CYCLES: u32 = 4;
-pub(super) const RAM: u32 = 8;
 const PATCH: u32 = 20;
 const FREE_REPAIR: u32 = 50;
 const REPAIR_PRICE: u32 = 2;
@@ -31,7 +30,7 @@ impl Rig {
     pub(super) fn new() -> Self {
         Self {
             integrity: MAX_INTEGRITY,
-            cycles: MAX_CYCLES,
+            cycles: CYCLES,
             files: Vec::new(),
             loads: LOADS.to_vec(),
         }
@@ -52,7 +51,7 @@ impl Rig {
     }
 
     pub(super) fn tick(&mut self) {
-        self.cycles = (self.cycles + 1).min(MAX_CYCLES);
+        self.cycles = (self.cycles + 1).min(CYCLES);
     }
 }
 
@@ -127,10 +126,7 @@ impl World {
             "Integrity: {}/{MAX_INTEGRITY}",
             rig.integrity
         )));
-        shown.push(Message::game(format!(
-            "Cycles: {}/{MAX_CYCLES}",
-            rig.cycles
-        )));
+        shown.push(Message::game(format!("Cycles: {}/{CYCLES}", rig.cycles)));
         shown.push(Message::game(format!("RAM: {}/{RAM} GB", rig.used())));
         shown.push(listed(
             Message::game("Programs: "),

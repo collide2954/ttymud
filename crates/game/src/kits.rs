@@ -1,6 +1,9 @@
 use crate::commands::Verb;
 use crate::matching::{self, Found};
 
+pub(crate) const RAM: u32 = 8;
+pub(crate) const CYCLES: u32 = 4;
+
 #[derive(Debug)]
 pub(crate) struct Kit {
     pub(crate) id: &'static str,
@@ -65,7 +68,7 @@ pub(crate) fn find(word: &str) -> Option<&'static Kit> {
 
 #[cfg(test)]
 mod tests {
-    use super::{KITS, find};
+    use super::{KITS, RAM, find};
     use crate::commands::Verb;
 
     #[test]
@@ -77,7 +80,7 @@ mod tests {
                 .filter_map(|verb| verb.program())
                 .map(|program| program.ram)
                 .sum();
-            assert_eq!(used, 8, "{}", kit.id);
+            assert_eq!(used, RAM, "{}", kit.id);
         }
     }
 

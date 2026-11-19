@@ -1,4 +1,5 @@
-use super::{Content, ContractDef, File, IceDef, NetworkDef};
+use super::{Content, ContractDef, File, IceDef, NetworkDef, ShopDef};
+use crate::commands::Verb;
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::ice::IceKind;
@@ -67,6 +68,39 @@ fn a_network_has_a_security_level() {
     assert_eq!(
         errors(&text),
         ["line 9: unknown security level: extreme (use low, medium, high, or top)"]
+    );
+}
+
+#[test]
+fn a_shop_sells_programs_and_hardware() {
+    let text =
+        format!("{NET}[shop a]\nprogram = mask 400\nram = 12 900\nram = 16 1800\ncpu = 5 1200\n");
+    let shop = ShopDef {
+        host: "a".to_owned(),
+        programs: vec![(Verb::Mask, 400)],
+        ram: vec![(12, 900), (16, 1800)],
+        cpu: vec![(5, 1200)],
+    };
+    assert_eq!(Content::parse(&text).unwrap().shops, [shop]);
+}
+
+#[test]
+fn bad_shops_fail() {
+    let text = format!(
+        "{NET}[shop x]\n[shop b]\n[shop a]\nprogram = nuke 5\nprogram = mask\n\
+         ram = 6 100\ncpu = 5 lots\n[shop a]\n"
+    );
+    assert_eq!(
+        errors(&text),
+        [
+            "line 19: shop is an unknown host: x",
+            "line 20: shop is in a network: b",
+            "line 22: unknown program: nuke",
+            "line 23: program needs a name and a price, for example program = mask 400",
+            "line 24: each ram step must be more than 8 GB: 6",
+            "line 25: bad price: lots (use a number of credits)",
+            "line 26: shop a is defined more than once",
+        ]
     );
 }
 

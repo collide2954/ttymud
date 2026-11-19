@@ -27,6 +27,7 @@ impl Reader {
                 .collect(),
             hosts: self.hosts.into_iter().map(|(host, _)| host).collect(),
             contracts: self.contracts.into_iter().map(|(def, ..)| def).collect(),
+            shops: self.shops.into_iter().map(|(shop, _)| shop).collect(),
         })
     }
 
@@ -161,7 +162,16 @@ impl Reader {
                 self.error(line, format!("start is an unknown host: {start}"));
             }
         }
-        for (key, value) in [("home", self.home.clone()), ("burns", self.burns.clone())] {
+        let shops = self
+            .shops
+            .iter()
+            .map(|(shop, line)| ("shop", Some((shop.host.clone(), *line))));
+        let places: Vec<(&str, Option<(String, usize)>)> =
+            [("home", self.home.clone()), ("burns", self.burns.clone())]
+                .into_iter()
+                .chain(shops)
+                .collect();
+        for (key, value) in places {
             let Some((host, line)) = value else {
                 continue;
             };

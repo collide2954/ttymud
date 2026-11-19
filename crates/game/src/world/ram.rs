@@ -1,8 +1,8 @@
 use ttymud_text::{Kind, Message, Style};
 
-use super::rig::RAM;
 use super::{PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::{self, Verb};
+use crate::kits::RAM;
 
 impl World {
     pub(super) fn at_home(&self, player: PlayerId, action: &str) -> Result<(), Message> {

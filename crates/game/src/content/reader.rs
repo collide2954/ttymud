@@ -1,11 +1,11 @@
-use super::{ContentError, ContractDef, File, HostDef, IceDef, NetworkDef};
+use super::{ContentError, ContractDef, File, HostDef, IceDef, NetworkDef, ShopDef};
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::ice::IceKind;
 use crate::ini::{self, Section};
 
 #[derive(Clone, Copy)]
-enum Name {
+pub(super) enum Name {
     Plain,
     File,
 }
@@ -27,6 +27,7 @@ pub(super) struct Reader {
     pub(super) routes: Vec<(String, String, usize)>,
     pub(super) files: Vec<(String, File, usize)>,
     pub(super) ice: Vec<(String, IceDef, usize)>,
+    pub(super) shops: Vec<(ShopDef, usize)>,
 }
 
 impl Reader {
@@ -57,6 +58,7 @@ impl Reader {
             "file" => self.file(section),
             "ice" => self.ice(section),
             "contract" => self.contract(section),
+            "shop" => self.shop(section),
             other => self.error(section.line, format!("unknown section type: {other}")),
         }
     }
@@ -295,7 +297,7 @@ impl Reader {
         self.files.push((host.to_owned(), file, section.line));
     }
 
-    fn allow(&mut self, section: &Section<'_>, keys: &[&str]) {
+    pub(super) fn allow(&mut self, section: &Section<'_>, keys: &[&str]) {
         for pair in &section.pairs {
             if !keys.contains(&pair.key) {
                 let (kind, id, key) = (section.kind, section.id, pair.key);
@@ -326,7 +328,7 @@ impl Reader {
         Some((first.value.to_owned(), first.line))
     }
 
-    fn check_name(&mut self, line: usize, name: &str, rule: Name) {
+    pub(super) fn check_name(&mut self, line: usize, name: &str, rule: Name) {
         let dots = matches!(rule, Name::File);
         let valid = !name.is_empty()
             && name.chars().all(|c| {
