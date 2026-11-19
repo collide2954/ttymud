@@ -53,21 +53,22 @@ impl World {
         })
     }
 
-    fn person_name(&self, key: &str) -> Option<String> {
+    pub(super) fn person_label<'a>(&'a self, key: &'a str) -> Option<&'a str> {
         if let Some(name) = key.strip_prefix('@') {
-            return Some(name.to_owned());
+            return Some(name);
         }
         let online = self
             .players
             .values()
             .find(|state| state.account.as_deref() == Some(key));
-        online.map(|state| state.name.clone()).or_else(|| {
-            self.accounts
-                .get(key)?
-                .handle
-                .as_ref()
-                .map(|handle| handle.name.clone())
+        online.map(|state| state.name.as_str()).or_else(|| {
+            let handle = self.accounts.get(key)?.handle.as_ref()?;
+            Some(handle.name.as_str())
         })
+    }
+
+    fn person_name(&self, key: &str) -> Option<String> {
+        self.person_label(key).map(str::to_owned)
     }
 
     pub(super) fn ignore(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {

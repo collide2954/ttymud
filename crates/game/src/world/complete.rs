@@ -64,7 +64,20 @@ impl World {
                 .map(|ice| ice.name.as_str())
                 .collect(),
             (Verb::Contract, 1) => vec!["drop"],
-            (Verb::Tell, 1) => self.online_names(),
+            (Verb::Tell | Verb::Ignore | Verb::Block, 1) => self.online_names(),
+            (Verb::Unignore | Verb::Unblock, 1) => {
+                let Some(state) = self.players.get(&player) else {
+                    return Vec::new();
+                };
+                let keys = if command.verb == Verb::Unblock {
+                    &state.blocks
+                } else {
+                    &state.ignores
+                };
+                keys.iter()
+                    .filter_map(|key| self.person_label(key))
+                    .collect()
+            }
             (Verb::Join | Verb::Leave, 1) => {
                 let joined = self
                     .players
@@ -241,6 +254,20 @@ mod tests {
         );
         assert_eq!(world.complete(player, "join t").names, ["trade"]);
         assert_eq!(world.complete(player, "leave ").names, ["city"]);
+    }
+
+    #[test]
+    fn ignore_completes_handles_and_unignore_completes_the_list() {
+        let (mut world, player) = joined();
+        world.join("nyx");
+        world.join("nora");
+        assert_eq!(world.complete(player, "block n").names, ["nyx", "nora"]);
+        world.command(player, "ignore nora");
+        assert_eq!(world.complete(player, "unignore ").names, ["nora"]);
+        assert_eq!(
+            world.complete(player, "unblock ").names,
+            Vec::<String>::new()
+        );
     }
 
     #[test]
