@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 ttymud-game.workspace = true
 ttymud-net.workspace = true
+ttymud-text.workspace = true
 ttymud-wire.workspace = true
 
 [lints]

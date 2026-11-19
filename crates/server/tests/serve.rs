@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used)]
 
+use std::io::{ErrorKind, Read};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::thread;
 use std::time::Duration;
@@ -118,6 +119,69 @@ fn others_see_a_disconnect() {
     assert_eq!(ghost.text(), format!("{name} connects."));
     drop(nyx);
     assert_eq!(ghost.text(), format!("{name} disconnects."));
+}
+
+fn count(client: &mut Client, sent: usize, slowed: &str) -> (usize, usize) {
+    let (mut answered, mut refused) = (0, 0);
+    while answered + refused < sent {
+        match client.next() {
+            ServerMessage::Prompt(_) => answered += 1,
+            ServerMessage::Text(text) if text.plain() == slowed => refused += 1,
+            ServerMessage::Text(_) => {}
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+    (answered, refused)
+}
+
+#[test]
+fn fast_commands_are_slowed_down() {
+    let (address, _) = start();
+    let (mut client, _) = Client::joined(address);
+    for _ in 0..30 {
+        client.send("?");
+    }
+    let (answered, refused) = count(
+        &mut client,
+        30,
+        "You are sending commands too fast. Wait a moment.",
+    );
+    assert!(answered >= 20, "{answered}");
+    assert!(refused >= 1, "{refused}");
+}
+
+#[test]
+fn fast_chat_is_slowed_down_sooner() {
+    let (address, _) = start();
+    let (mut client, _) = Client::joined(address);
+    for _ in 0..8 {
+        client.send("say hi");
+    }
+    let (answered, refused) = count(&mut client, 8, "You are talking too fast. Wait a moment.");
+    assert!(answered >= 5, "{answered}");
+    assert!(refused >= 1, "{refused}");
+}
+
+#[test]
+fn too_many_connections_from_one_address_are_refused() {
+    let (address, _) = start();
+    let held: Vec<TcpStream> = (0..8)
+        .map(|_| TcpStream::connect(address).unwrap())
+        .collect();
+    let mut ninth = TcpStream::connect(address).unwrap();
+    ninth
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let result = ninth.read(&mut [0; 1]);
+    drop(held);
+    let closed = match &result {
+        Ok(read) => *read == 0,
+        Err(error) => matches!(
+            error.kind(),
+            ErrorKind::ConnectionReset | ErrorKind::ConnectionAborted
+        ),
+    };
+    assert!(closed, "{result:?}");
 }
 
 #[test]

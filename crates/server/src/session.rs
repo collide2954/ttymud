@@ -1,12 +1,14 @@
 use std::net::{Shutdown, TcpStream};
 use std::sync::mpsc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ttymud_net::{Error, Keys, Sender};
+use ttymud_text::Message;
 use ttymud_wire::{ClientMessage, ServerMessage};
 
 use crate::game::Event;
+use crate::limits::Limiter;
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -31,6 +33,7 @@ fn serve(
     let control = stream.try_clone()?;
     let (mut receiver, sender) = session.split(stream.try_clone()?, stream);
     let (outbox, mailbox) = mpsc::channel();
+    let warnings = outbox.clone();
     let writer = thread::Builder::new()
         .name(format!("writer-{connection}"))
         .spawn(move || write_loop(sender, &mailbox, &control))?;
@@ -40,16 +43,22 @@ fn serve(
         outbox,
     };
     if events.send(joined).is_ok() {
+        let mut limiter = Limiter::new(Instant::now());
         while let Ok(bytes) = receiver.receive() {
             let Ok(ClientMessage::Command(line)) = ClientMessage::decode(&bytes) else {
                 break;
             };
+            if let Some(warning) = limiter.check(&line, Instant::now()) {
+                let _ = warnings.send(ServerMessage::Text(Message::error(warning)));
+                continue;
+            }
             if events.send(Event::Command { connection, line }).is_err() {
                 break;
             }
         }
         let _ = events.send(Event::Leave { connection });
     }
+    drop(warnings);
     let _ = writer.join();
     Ok(())
 }
