@@ -92,8 +92,11 @@ impl Game {
             self.send(player, ServerMessage::Close(TAKEN_OVER.to_owned()));
             self.leave(old);
         }
-        let name = name_for(key);
-        let (player, outputs) = self.world.join(&name);
+        let (player, outputs) = self.world.connect(&key.to_hex());
+        let name = self
+            .world
+            .handle(player)
+            .map_or_else(|| name_for(key), str::to_owned);
         let city = self.world.city().to_owned();
         let _ = outbox.send(ServerMessage::Welcome { city, name });
         self.connections.insert(connection, player);
@@ -177,40 +180,11 @@ mod tests {
     use ttymud_wire::ServerMessage;
 
     use super::{Event, Game};
+    use crate::port_ostra;
 
     const LAB: &str = "[city lab]\nname = Lab\nstart = hub\n[host hub]\nname = Hub\ndesc = A hub.\n\
                        [network net]\nname = Net\n[host gate]\nname = Gate\ndesc = A gate.\n\
                        network = net\nroute = hub\n[ice gate/sentry]\ntype = sentry\n";
-
-    #[test]
-    fn a_tick_with_news_sends_the_text_and_a_refresh() {
-        let mut game = Game::new(World::new(Content::parse(LAB).unwrap(), 0));
-        let key = key();
-        let mailbox = join(&mut game, 1, key);
-        command(&mut game, 1, "go gate");
-        command(&mut game, 1, "scan");
-        drain(&mailbox);
-        for _ in 0..3 {
-            game.tick();
-        }
-        let messages = drain(&mailbox);
-        assert_eq!(
-            texts(&messages),
-            ["sentry sends an ALERT. Trace: 4% -> 14%."]
-        );
-        let prompt = format!("[trace 14% integ 100] {}@gate $ ", name(key));
-        assert_eq!(messages.last(), Some(&ServerMessage::Refresh(prompt)));
-    }
-
-    #[test]
-    fn a_quiet_tick_sends_nothing() {
-        let mut game = game();
-        let mailbox = join(&mut game, 1, key());
-        drain(&mailbox);
-        game.tick();
-        assert_eq!(drain(&mailbox), Vec::<ServerMessage>::new());
-    }
-    use crate::port_ostra;
 
     fn game() -> Game {
         Game::new(port_ostra(0).unwrap())
@@ -220,7 +194,7 @@ mod tests {
         Keys::generate().unwrap().public()
     }
 
-    fn name(key: PublicKey) -> String {
+    fn anon(key: PublicKey) -> String {
         format!("anon-{}", &key.to_hex()[..8])
     }
 
@@ -231,6 +205,14 @@ mod tests {
             key,
             outbox,
         });
+        mailbox
+    }
+
+    fn hacker(game: &mut Game, connection: u64, name: &str) -> mpsc::Receiver<ServerMessage> {
+        let mailbox = join(game, connection, key());
+        command(game, connection, name);
+        command(game, connection, "breaker");
+        drain(&mailbox);
         mailbox
     }
 
@@ -256,63 +238,75 @@ mod tests {
     }
 
     #[test]
-    fn a_new_player_gets_a_welcome_the_scene_and_a_prompt() {
+    fn a_new_account_gets_a_welcome_and_chooses_a_handle() {
         let mut game = game();
         let key = key();
         let messages = drain(&join(&mut game, 1, key));
         let welcome = ServerMessage::Welcome {
             city: "Port Ostra".to_owned(),
-            name: name(key),
+            name: anon(key),
         };
         assert_eq!(messages[0], welcome);
-        assert_eq!(texts(&messages)[0], "The Relay");
-        let prompt = ServerMessage::Prompt(format!("{}@relay $ ", name(key)));
+        assert!(texts(&messages)[0].starts_with("You are new in Port Ostra."));
+        let prompt = ServerMessage::Prompt("handle: ".to_owned());
+        assert_eq!(messages.last(), Some(&prompt));
+    }
+
+    #[test]
+    fn a_returning_account_gets_a_welcome_with_its_handle() {
+        let mut game = game();
+        let key = key();
+        let first = join(&mut game, 1, key);
+        command(&mut game, 1, "ghost");
+        command(&mut game, 1, "ghost");
+        drain(&first);
+        game.handle(Event::Leave { connection: 1 });
+        let messages = drain(&join(&mut game, 2, key));
+        let welcome = ServerMessage::Welcome {
+            city: "Port Ostra".to_owned(),
+            name: "ghost".to_owned(),
+        };
+        assert_eq!(messages[0], welcome);
+        let prompt = ServerMessage::Prompt("ghost@safehouse $ ".to_owned());
         assert_eq!(messages.last(), Some(&prompt));
     }
 
     #[test]
     fn a_command_gets_its_output_and_a_new_prompt() {
         let mut game = game();
-        let key = key();
-        let mailbox = join(&mut game, 1, key);
-        drain(&mailbox);
+        let mailbox = hacker(&mut game, 1, "ghost");
         command(&mut game, 1, "go night-market");
         let messages = drain(&mailbox);
         assert_eq!(texts(&messages)[0], "The Night Market");
-        let prompt = ServerMessage::Prompt(format!("{}@night-market $ ", name(key)));
+        let prompt = ServerMessage::Prompt("ghost@night-market $ ".to_owned());
         assert_eq!(messages.last(), Some(&prompt));
     }
 
     #[test]
     fn players_hear_each_other() {
         let mut game = game();
-        let (ghost, nyx) = (key(), key());
-        let first = join(&mut game, 1, ghost);
-        let second = join(&mut game, 2, nyx);
+        let first = hacker(&mut game, 1, "ghost");
+        let second = hacker(&mut game, 2, "nyx");
         assert_eq!(
-            texts(&drain(&first)).last(),
-            Some(&format!("{} connects.", name(nyx)))
+            texts(&drain(&first)).last().map(String::as_str),
+            Some("nyx connects.")
         );
         drain(&second);
         command(&mut game, 2, "say hi");
         let heard = drain(&first);
-        assert_eq!(texts(&heard), [format!("<{}> hi", name(nyx))]);
-        let prompt = format!("{}@relay $ ", name(ghost));
+        assert_eq!(texts(&heard), ["<nyx> hi"]);
+        let prompt = "ghost@relay $ ".to_owned();
         assert_eq!(heard.last(), Some(&ServerMessage::Refresh(prompt)));
     }
 
     #[test]
     fn leaving_tells_the_others() {
         let mut game = game();
-        let (ghost, nyx) = (key(), key());
-        let first = join(&mut game, 1, ghost);
-        let _second = join(&mut game, 2, nyx);
+        let first = hacker(&mut game, 1, "ghost");
+        let _second = hacker(&mut game, 2, "nyx");
         drain(&first);
         game.handle(Event::Leave { connection: 2 });
-        assert_eq!(
-            texts(&drain(&first)),
-            [format!("{} disconnects.", name(nyx))]
-        );
+        assert_eq!(texts(&drain(&first)), ["nyx disconnects."]);
     }
 
     #[test]
@@ -327,6 +321,34 @@ mod tests {
         assert!(matches!(drain(&second)[0], ServerMessage::Welcome { .. }));
         command(&mut game, 1, "look");
         assert_eq!(drain(&first), Vec::<ServerMessage>::new());
+    }
+
+    #[test]
+    fn a_tick_with_news_sends_the_text_and_a_refresh() {
+        let mut game = Game::new(World::new(Content::parse(LAB).unwrap(), 0));
+        let mailbox = hacker(&mut game, 1, "ghost");
+        command(&mut game, 1, "go gate");
+        command(&mut game, 1, "scan");
+        drain(&mailbox);
+        for _ in 0..3 {
+            game.tick();
+        }
+        let messages = drain(&mailbox);
+        assert_eq!(
+            texts(&messages),
+            ["sentry sends an ALERT. Trace: 4% -> 14%."]
+        );
+        let prompt = "[trace 14% integ 100] ghost@gate $ ".to_owned();
+        assert_eq!(messages.last(), Some(&ServerMessage::Refresh(prompt)));
+    }
+
+    #[test]
+    fn a_quiet_tick_sends_nothing() {
+        let mut game = game();
+        let mailbox = join(&mut game, 1, key());
+        drain(&mailbox);
+        game.tick();
+        assert_eq!(drain(&mailbox), Vec::<ServerMessage>::new());
     }
 
     #[test]

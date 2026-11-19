@@ -45,11 +45,15 @@ impl Client {
         }
     }
 
-    fn joined(address: SocketAddr) -> (Self, String) {
+    fn joined(address: SocketAddr, name: &str) -> Self {
         let mut client = Self::connect(address);
-        let name = client.welcome();
+        client.welcome();
         client.until_prompt();
-        (client, name)
+        client.send(name);
+        client.until_prompt();
+        client.send("breaker");
+        client.until_prompt();
+        client
     }
 
     fn next(&mut self) -> ServerMessage {
@@ -92,18 +96,22 @@ impl Client {
 }
 
 #[test]
-fn a_client_gets_a_welcome_and_the_scene() {
+fn a_new_client_gets_a_welcome_and_makes_a_handle() {
     let (address, server) = start();
     let mut client = Client::connect(address);
     assert_eq!(client.server, server);
     assert!(client.welcome().starts_with("anon-"));
-    assert_eq!(client.until_prompt()[0], "The Relay");
+    assert!(client.until_prompt()[0].starts_with("You are new in Port Ostra."));
+    client.send("ghost");
+    assert_eq!(client.until_prompt()[0], "Choose a starter kit:");
+    client.send("breaker");
+    assert_eq!(client.until_prompt()[1], "The Relay");
 }
 
 #[test]
 fn commands_get_answers() {
     let (address, _) = start();
-    let (mut client, _) = Client::joined(address);
+    let mut client = Client::joined(address, "ghost");
     client.send("ls");
     assert!(client.until_prompt().contains(&"night-market/".to_owned()));
 }
@@ -111,28 +119,28 @@ fn commands_get_answers() {
 #[test]
 fn players_hear_each_other() {
     let (address, _) = start();
-    let (mut ghost, _) = Client::joined(address);
-    let (mut nyx, name) = Client::joined(address);
-    assert_eq!(ghost.text(), format!("{name} connects."));
+    let mut ghost = Client::joined(address, "ghost");
+    let mut nyx = Client::joined(address, "nyx");
+    assert_eq!(ghost.text(), "nyx connects.");
     nyx.send("say hello");
-    assert_eq!(nyx.until_prompt(), [format!("<{name}> hello")]);
-    assert_eq!(ghost.text(), format!("<{name}> hello"));
+    assert_eq!(nyx.until_prompt(), ["<nyx> hello"]);
+    assert_eq!(ghost.text(), "<nyx> hello");
 }
 
 #[test]
 fn others_see_a_disconnect() {
     let (address, _) = start();
-    let (mut ghost, _) = Client::joined(address);
-    let (nyx, name) = Client::joined(address);
-    assert_eq!(ghost.text(), format!("{name} connects."));
+    let mut ghost = Client::joined(address, "ghost");
+    let nyx = Client::joined(address, "nyx");
+    assert_eq!(ghost.text(), "nyx connects.");
     drop(nyx);
-    assert_eq!(ghost.text(), format!("{name} disconnects."));
+    assert_eq!(ghost.text(), "nyx disconnects.");
 }
 
 #[test]
 fn completion_requests_get_candidates() {
     let (address, _) = start();
-    let (mut client, _) = Client::joined(address);
+    let mut client = Client::joined(address, "ghost");
     let request = ClientMessage::Complete("go n".to_owned());
     client.sender.send(&request.encode()).unwrap();
     assert_eq!(
@@ -175,7 +183,7 @@ fn count(client: &mut Client, sent: usize, slowed: &str) -> (usize, usize) {
 #[test]
 fn fast_commands_are_slowed_down() {
     let (address, _) = start();
-    let (mut client, _) = Client::joined(address);
+    let mut client = Client::joined(address, "ghost");
     for _ in 0..30 {
         client.send("?");
     }
@@ -184,14 +192,14 @@ fn fast_commands_are_slowed_down() {
         30,
         "You are sending commands too fast. Wait a moment.",
     );
-    assert!(answered >= 20, "{answered}");
+    assert!(answered >= 18, "{answered}");
     assert!(refused >= 1, "{refused}");
 }
 
 #[test]
 fn fast_chat_is_slowed_down_sooner() {
     let (address, _) = start();
-    let (mut client, _) = Client::joined(address);
+    let mut client = Client::joined(address, "ghost");
     for _ in 0..8 {
         client.send("say hi");
     }
@@ -225,7 +233,7 @@ fn too_many_connections_from_one_address_are_refused() {
 #[test]
 fn a_bad_message_ends_the_connection() {
     let (address, _) = start();
-    let (mut client, _) = Client::joined(address);
+    let mut client = Client::joined(address, "ghost");
     client.sender.send(&[200, 1, 2]).unwrap();
     assert!(client.receiver.receive().is_err());
 }

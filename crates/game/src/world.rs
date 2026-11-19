@@ -1,3 +1,4 @@
+mod account;
 mod chat;
 mod complete;
 mod contract;
@@ -21,10 +22,12 @@ use ttymud_text::{Kind, Message, Style, sanitize};
 use crate::commands::{self, Command, Item, Verb};
 use crate::content::{Content, File, IceDef};
 use crate::contract::Event;
+use crate::kits::Kit;
 use crate::matching::{self, Found};
 use crate::parse::{self, ParseError, Stage};
 use crate::random::Random;
 
+use account::{Account, Phase};
 pub use chat::is_chat;
 pub use complete::Completion;
 use contract::{Contract, Job};
@@ -70,6 +73,27 @@ struct Player {
     know: Vec<Verb>,
     run: Option<Run>,
     contract: Option<Job>,
+    account: Option<String>,
+    phase: Phase,
+    kit: Option<&'static Kit>,
+}
+
+impl Player {
+    fn new(name: &str, at: HostId) -> Self {
+        Self {
+            name: name.to_owned(),
+            chain: vec![at],
+            rig: Rig::new(),
+            know: commands::programs()
+                .map(|(command, _)| command.verb)
+                .collect(),
+            run: None,
+            contract: None,
+            account: None,
+            phase: Phase::Playing,
+            kit: None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -82,6 +106,7 @@ pub struct World {
     contracts: Vec<Contract>,
     offer: Option<usize>,
     players: BTreeMap<PlayerId, Player>,
+    accounts: BTreeMap<String, Account>,
     next_player: u64,
     outbox: Vec<Output>,
     random: Random,
@@ -169,6 +194,7 @@ impl World {
             networks,
             hosts,
             players: BTreeMap::new(),
+            accounts: BTreeMap::new(),
             next_player: 0,
             outbox: Vec::new(),
             random: Random::new(seed),
@@ -176,32 +202,31 @@ impl World {
     }
 
     pub fn join(&mut self, name: &str) -> (PlayerId, Vec<Output>) {
-        let player = PlayerId(self.next_player);
-        self.next_player += 1;
-        self.players.insert(
-            player,
-            Player {
-                name: name.to_owned(),
-                chain: vec![self.start],
-                rig: Rig::new(),
-                know: commands::programs()
-                    .map(|(command, _)| command.verb)
-                    .collect(),
-                run: None,
-                contract: self.offer.map(Job::new),
-            },
-        );
+        let mut state = Player::new(name, self.start);
+        state.contract = self.offer.map(Job::new);
+        let player = self.add(state);
         self.notify(self.start, player, &presence::named(name, " connects."));
         let mut shown = self.scene(self.start, player);
         shown.extend(self.offer(player));
         (player, self.deliver(player, shown))
     }
 
+    fn add(&mut self, state: Player) -> PlayerId {
+        let player = PlayerId(self.next_player);
+        self.next_player += 1;
+        self.players.insert(player, state);
+        player
+    }
+
     pub fn command(&mut self, player: PlayerId, line: &str) -> Vec<Output> {
-        if !self.players.contains_key(&player) {
+        let Some(state) = self.players.get(&player) else {
             return Vec::new();
-        }
+        };
         let line = sanitize(line);
+        if state.phase != Phase::Playing {
+            let shown = self.create(player, line.trim());
+            return self.deliver(player, shown);
+        }
         if let Some(text) = chat::chat_text(&line) {
             return self.say(player, text);
         }
@@ -228,10 +253,11 @@ impl World {
     }
 
     pub fn leave(&mut self, player: PlayerId) -> Vec<Output> {
+        self.keep(player);
         let Some(state) = self.players.remove(&player) else {
             return Vec::new();
         };
-        if let Some(&host) = state.chain.last() {
+        if let (Phase::Playing, Some(&host)) = (&state.phase, state.chain.last()) {
             self.notify(host, player, &presence::named(&state.name, " disconnects."));
         }
         std::mem::take(&mut self.outbox)
@@ -251,6 +277,11 @@ impl World {
     #[must_use]
     pub fn prompt(&self, player: PlayerId) -> Option<String> {
         let state = self.players.get(&player)?;
+        match state.phase {
+            Phase::Naming => return Some("handle: ".to_owned()),
+            Phase::Kit(_) => return Some("kit: ".to_owned()),
+            Phase::Playing => {}
+        }
         let here = state.chain.last()?;
         let place = format!("{}@{} $ ", state.name, self.hosts[here.0].id);
         Some(match &state.run {

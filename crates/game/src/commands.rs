@@ -410,6 +410,13 @@ pub(crate) fn programs() -> impl Iterator<Item = (&'static Command, Program)> {
         .iter()
         .filter_map(|command| command.verb.program().map(|program| (command, program)))
 }
+pub(crate) fn name_of(verb: Verb) -> &'static str {
+    COMMANDS
+        .iter()
+        .find(|command| command.verb == verb)
+        .map_or("", Command::name)
+}
+
 pub(crate) fn find(name: &str) -> Option<&'static Command> {
     let name = name.to_lowercase();
     COMMANDS

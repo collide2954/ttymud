@@ -13,7 +13,7 @@ pub struct Completion {
 impl World {
     #[must_use]
     pub fn complete(&self, player: PlayerId, text: &str) -> Completion {
-        if !self.players.contains_key(&player) {
+        if self.handle(player).is_none() {
             return Completion::default();
         }
         let Some(Tail { words, word }) = parse::tail(&sanitize(text)) else {

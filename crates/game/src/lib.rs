@@ -2,6 +2,7 @@ mod commands;
 mod content;
 mod contract;
 mod ice;
+mod kits;
 mod matching;
 mod parse;
 mod random;

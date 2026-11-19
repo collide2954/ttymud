@@ -1,5 +1,6 @@
 use ttymud_text::{Kind, Message, Style};
 
+use super::account::Phase;
 use super::{HostId, Output, PlayerId, World};
 
 impl World {
@@ -12,7 +13,10 @@ impl World {
         self.players
             .iter()
             .filter(move |&(&id, state)| {
-                shared && id != except && state.chain.last() == Some(&host)
+                shared
+                    && id != except
+                    && state.phase == Phase::Playing
+                    && state.chain.last() == Some(&host)
             })
             .map(|(&id, state)| (id, state.name.as_str()))
     }
