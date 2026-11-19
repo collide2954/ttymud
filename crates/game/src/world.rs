@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 
 use ttymud_text::{Kind, Message, Style};
 
+use crate::commands::{self, Command, Verb};
 use crate::content::{Content, File};
+use crate::parse::{self, ParseError, Stage};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PlayerId(u64);
@@ -85,11 +87,84 @@ impl World {
         (player, address(player, self.scene(self.start)))
     }
 
+    pub fn command(&mut self, player: PlayerId, line: &str) -> Vec<Output> {
+        if !self.players.contains_key(&player) {
+            return Vec::new();
+        }
+        let messages = match parse::pipeline(line) {
+            Ok(stages) => self.run(player, &stages),
+            Err(error) => vec![parse_error(error)],
+        };
+        address(player, messages)
+    }
+
     #[must_use]
     pub fn prompt(&self, player: PlayerId) -> Option<String> {
         let player = self.players.get(&player)?;
         let here = player.chain.last()?;
         Some(format!("{}@{} $ ", player.name, self.hosts[here.0].id))
+    }
+
+    fn run(&mut self, player: PlayerId, stages: &[Stage]) -> Vec<Message> {
+        let mut found = Vec::with_capacity(stages.len());
+        for stage in stages {
+            let Some(command) = commands::find(&stage.name) else {
+                let name = &stage.name;
+                return vec![Message::error(format!("Unknown command: {name}."))];
+            };
+            found.push(command);
+        }
+        if let Some(command) = found.iter().skip(1).find(|command| !command.takes_input) {
+            let name = command.name();
+            return vec![Message::error(format!(
+                "{name} takes no input from a pipe."
+            ))];
+        }
+        let mut shown = Vec::new();
+        for (command, stage) in found.iter().zip(stages) {
+            match self.execute(player, command, &stage.args) {
+                Ok(messages) => shown = messages,
+                Err(message) => return vec![message],
+            }
+        }
+        shown
+    }
+
+    fn execute(
+        &self,
+        player: PlayerId,
+        command: &Command,
+        args: &[String],
+    ) -> Result<Vec<Message>, Message> {
+        if !args.is_empty() {
+            let name = command.name();
+            return Err(Message::error(format!("{name} takes no arguments.")));
+        }
+        let here = self.here(player);
+        Ok(match command.verb {
+            Verb::Look => self.scene(here),
+            Verb::List => self.listing(here),
+        })
+    }
+
+    fn here(&self, player: PlayerId) -> HostId {
+        self.players
+            .get(&player)
+            .and_then(|player| player.chain.last().copied())
+            .unwrap_or(self.start)
+    }
+
+    fn listing(&self, id: HostId) -> Vec<Message> {
+        let host = &self.hosts[id.0];
+        let routes = host.routes.iter().map(|route| {
+            let name = format!("{}/", self.hosts[route.0].id);
+            Message::new(Kind::Game).span(Style::Host, name)
+        });
+        let files = host
+            .files
+            .iter()
+            .map(|file| Message::new(Kind::Game).span(Style::File, &file.name));
+        routes.chain(files).collect()
     }
 
     fn scene(&self, id: HostId) -> Vec<Message> {
@@ -109,6 +184,13 @@ impl World {
         }
         scene
     }
+}
+
+fn parse_error(error: ParseError) -> Message {
+    Message::error(match error {
+        ParseError::OpenQuote => "A quote is not closed.",
+        ParseError::EmptyStage => "Each side of | needs a command.",
+    })
 }
 
 fn link(hosts: &mut [Host], from: HostId, to: HostId) {
@@ -140,7 +222,7 @@ fn listed<'a>(label: &str, style: Style, names: impl Iterator<Item = &'a str>) -
 
 #[cfg(test)]
 mod tests {
-    use ttymud_text::Style;
+    use ttymud_text::{Kind, Style};
 
     use super::PlayerId;
     use crate::testing::{plain, world};
@@ -188,5 +270,80 @@ mod tests {
     #[test]
     fn unknown_players_have_no_prompt() {
         assert_eq!(world().prompt(PlayerId(99)), None);
+    }
+
+    fn run(line: &str) -> Vec<String> {
+        let mut world = world();
+        let (player, _) = world.join("ghost");
+        plain(&world.command(player, line))
+    }
+
+    #[test]
+    fn look_shows_the_scene() {
+        let mut world = world();
+        let (player, joined) = world.join("ghost");
+        assert_eq!(world.command(player, "look"), joined);
+    }
+
+    #[test]
+    fn l_is_short_for_look() {
+        assert_eq!(run("l"), run("look"));
+    }
+
+    #[test]
+    fn command_names_ignore_case() {
+        assert_eq!(run("LOOK"), run("look"));
+    }
+
+    #[test]
+    fn ls_lists_routes_and_files() {
+        assert_eq!(
+            run("ls"),
+            ["market/", "back-room/", "bazaar/", "motd.txt", "rules.txt"]
+        );
+    }
+
+    #[test]
+    fn blank_lines_do_nothing() {
+        assert_eq!(run("   "), Vec::<String>::new());
+    }
+
+    #[test]
+    fn unknown_commands_fail() {
+        assert_eq!(run("xyzzy"), ["Unknown command: xyzzy."]);
+    }
+
+    #[test]
+    fn extra_arguments_fail() {
+        assert_eq!(run("ls -la"), ["ls takes no arguments."]);
+    }
+
+    #[test]
+    fn commands_without_input_reject_pipes() {
+        assert_eq!(run("look | ls"), ["ls takes no input from a pipe."]);
+    }
+
+    #[test]
+    fn a_bad_stage_stops_the_pipeline_before_it_runs() {
+        assert_eq!(run("look | xyzzy"), ["Unknown command: xyzzy."]);
+    }
+
+    #[test]
+    fn parse_errors_explain_the_problem() {
+        assert_eq!(run("look \"x"), ["A quote is not closed."]);
+        assert_eq!(run("ls |"), ["Each side of | needs a command."]);
+    }
+
+    #[test]
+    fn errors_have_the_error_kind() {
+        let mut world = world();
+        let (player, _) = world.join("ghost");
+        let outputs = world.command(player, "xyzzy");
+        assert_eq!(outputs[0].message.kind, Kind::Error);
+    }
+
+    #[test]
+    fn unknown_players_get_no_output() {
+        assert_eq!(world().command(PlayerId(9), "look"), Vec::new());
     }
 }

@@ -1,4 +1,6 @@
+mod commands;
 mod content;
+mod parse;
 #[cfg(test)]
 mod testing;
 mod world;
