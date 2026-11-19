@@ -34,6 +34,7 @@ struct Glyphs {
     cycle: char,
     spent: char,
     dot: char,
+    down: char,
 }
 
 static UNICODE: Glyphs = Glyphs {
@@ -49,6 +50,7 @@ static UNICODE: Glyphs = Glyphs {
     cycle: '●',
     spent: '○',
     dot: '·',
+    down: '▼',
 };
 
 static ASCII: Glyphs = Glyphs {
@@ -64,6 +66,7 @@ static ASCII: Glyphs = Glyphs {
     cycle: '*',
     spent: '.',
     dot: '|',
+    down: 'v',
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -119,6 +122,7 @@ pub(crate) struct Hud<W: Write> {
     start: usize,
     asked: Option<String>,
     lines: VecDeque<Message>,
+    scroll: usize,
     status: Option<Status>,
     shown: Option<Canvas>,
     closed: Option<String>,
@@ -138,6 +142,7 @@ impl<W: Write> Hud<W> {
             start: 0,
             asked: None,
             lines: VecDeque::new(),
+            scroll: 0,
             status: None,
             shown: None,
             closed: None,
@@ -149,10 +154,21 @@ impl<W: Write> Hud<W> {
     }
 
     fn add(&mut self, message: Message) {
+        if self.scroll > 0
+            && let Some(layout) = Layout::new(self.width, self.height)
+            && (layout.chat == 0 || message.kind != Kind::Chat)
+        {
+            self.scroll += wrap(&message, layout.inner()).len();
+        }
         self.lines.push_back(message);
         if self.lines.len() > KEEP {
             self.lines.pop_front();
         }
+    }
+
+    fn page(&self) -> usize {
+        Layout::new(self.width, self.height)
+            .map_or(1, |layout| layout.output.saturating_sub(1).max(1))
     }
 
     fn draw(&mut self) -> io::Result<()> {
@@ -176,20 +192,26 @@ impl<W: Write> Hud<W> {
         self.top_bar(canvas, layout);
         self.bottom_bar(canvas, layout);
         let chat = layout.chat > 0;
-        if chat {
-            let label = vec![(" chat ".to_owned(), Ink::Dim)];
-            bar(canvas, layout, layout.output + 1, &label, &[]);
-            let talk = self
-                .lines
-                .iter()
-                .filter(|message| message.kind == Kind::Chat);
-            pane(canvas, layout, talk, layout.output + 2, layout.chat);
-        }
         let game = self
             .lines
             .iter()
             .filter(|message| !chat || message.kind != Kind::Chat);
-        pane(canvas, layout, game, 1, layout.output);
+        self.scroll = pane(canvas, layout, game, 1, layout.output, self.scroll);
+        let mut label = Vec::new();
+        if chat {
+            label.push((" chat ".to_owned(), Ink::Dim));
+            let talk = self
+                .lines
+                .iter()
+                .filter(|message| message.kind == Kind::Chat);
+            pane(canvas, layout, talk, layout.output + 2, layout.chat, 0);
+        }
+        let mut more = Vec::new();
+        if self.scroll > 0 {
+            let down = self.glyphs.down;
+            more.push((format!(" {down} more below (PgDn) "), Ink::Strong));
+        }
+        bar(canvas, layout, layout.output + 1, &label, &more);
         self.input(canvas, layout)
     }
 
@@ -342,7 +364,13 @@ impl<W: Write> View for Hud<W> {
     }
 
     fn press(&mut self, key: Key) -> io::Result<Typed> {
+        match key {
+            Key::PageUp => self.scroll += self.page(),
+            Key::PageDown => self.scroll = self.scroll.saturating_sub(self.page()),
+            _ => {}
+        }
         let typed = match self.editor.press(key) {
+            Action::Nothing if matches!(key, Key::PageUp | Key::PageDown) => Typed::Nothing,
             Action::Nothing => return Ok(Typed::Nothing),
             Action::Complete(text) => {
                 self.asked = Some(text.clone());
@@ -353,7 +381,7 @@ impl<W: Write> View for Hud<W> {
             Action::Submit(line) => {
                 let echo = Message::game(self.prompt.clone()).span(Style::Command, line.clone());
                 self.add(echo);
-                self.start = 0;
+                (self.start, self.scroll) = (0, 0);
                 Typed::Line(line)
             }
         };
@@ -411,17 +439,19 @@ fn pane<'a>(
     messages: impl DoubleEndedIterator<Item = &'a Message>,
     top: usize,
     rows: usize,
-) {
+    scroll: usize,
+) -> usize {
     let width = layout.inner();
     let mut kept: Vec<Row> = Vec::new();
     for message in messages.rev() {
         kept.extend(wrap(message, width).into_iter().rev());
-        if kept.len() >= rows {
+        if kept.len() >= rows + scroll {
             break;
         }
     }
-    kept.truncate(rows);
-    for (index, row) in kept.iter().rev().enumerate() {
+    let scroll = scroll.min(kept.len().saturating_sub(rows));
+    let shown = kept.iter().skip(scroll).take(rows);
+    for (index, row) in shown.rev().enumerate() {
         let mut used = 0;
         for group in row.chunk_by(|a, b| a.1 == b.1) {
             let text: String = group.iter().map(|&(c, _)| c).collect();
@@ -429,6 +459,7 @@ fn pane<'a>(
             used += canvas.put(layout.left() + used, top + index, &text, group[0].1, room);
         }
     }
+    scroll
 }
 
 fn symbols(on: char, off: char, count: u32, total: u32) -> String {
@@ -613,6 +644,35 @@ mod tests {
         let rows = hud.rows();
         assert_eq!(rows[1], framed("$ go market"));
         assert_eq!(rows[18], framed("$"));
+    }
+
+    #[test]
+    fn page_up_and_page_down_scroll_the_output_and_new_text_waits_below() {
+        let mut hud = hud(70, 20);
+        for number in 1..=30 {
+            let line = Message::game(format!("line {number}"));
+            hud.show(Shown::Line(line)).unwrap();
+        }
+        assert_eq!(hud.rows()[11], framed("line 30"));
+        hud.press(Key::PageUp).unwrap();
+        assert_eq!(hud.rows()[11], framed("line 20"));
+        assert!(hud.rows()[12].ends_with(" ▼ more below (PgDn) ┤"));
+        hud.show(Shown::Line(Message::game("line 31"))).unwrap();
+        assert_eq!(hud.rows()[11], framed("line 20"));
+        let chat = Message::new(Kind::Chat).text("<nyx> hi");
+        hud.show(Shown::Line(chat)).unwrap();
+        assert_eq!(hud.rows()[11], framed("line 20"));
+        hud.press(Key::PageDown).unwrap();
+        hud.press(Key::PageDown).unwrap();
+        assert_eq!(hud.rows()[11], framed("line 31"));
+        assert!(!hud.rows()[12].contains("more below"));
+        for _ in 0..10 {
+            hud.press(Key::PageUp).unwrap();
+        }
+        assert_eq!(hud.rows()[1], framed("line 1"));
+        hud.press(Key::Char('x')).unwrap();
+        hud.press(Key::Enter).unwrap();
+        assert_eq!(hud.rows()[11], framed("x"));
     }
 
     #[test]

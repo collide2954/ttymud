@@ -103,6 +103,8 @@ fn to_key(event: KeyEvent) -> Option<Key> {
         KeyCode::End => Key::End,
         KeyCode::Up => Key::Up,
         KeyCode::Down => Key::Down,
+        KeyCode::PageUp => Key::PageUp,
+        KeyCode::PageDown => Key::PageDown,
         KeyCode::Tab => Key::Tab,
         _ => return None,
     };
@@ -153,6 +155,14 @@ mod tests {
         assert_eq!(press(KeyCode::Enter, KeyModifiers::NONE), Some(Key::Enter));
         assert_eq!(press(KeyCode::Left, KeyModifiers::NONE), Some(Key::Left));
         assert_eq!(press(KeyCode::Tab, KeyModifiers::NONE), Some(Key::Tab));
+        assert_eq!(
+            press(KeyCode::PageUp, KeyModifiers::NONE),
+            Some(Key::PageUp)
+        );
+        assert_eq!(
+            press(KeyCode::PageDown, KeyModifiers::NONE),
+            Some(Key::PageDown)
+        );
         assert_eq!(press(KeyCode::F(1), KeyModifiers::NONE), None);
     }
 
