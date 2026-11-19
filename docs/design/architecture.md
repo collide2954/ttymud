@@ -98,11 +98,15 @@ The world does not read the clock. Before each input and each tick, the caller g
 
 The `saves` function gives the save texts that changed since the last call, each with its path. When the server starts, the `restore` function reads each save text back.
 
-The caller calls `tick` every two seconds. On each tick, each rig gets a cycle, the ICE acts, and contracts give hints. The ICE selects its actions with a small random number generator from the seed. As a result, a test with the same seed gets the same result each time. Until M5, the server takes the seed from the clock.
+The caller calls `tick` every two seconds. On each tick, each rig gets a cycle, the ICE acts, and contracts give hints. The ICE selects its actions with a small random number generator from the seed. As a result, a test with the same seed gets the same result each time.
+
+The world also keeps a world seed. A new world saves it in `world.ini`, and `restore` reads it back. The job board and the target generator use only the world seed, the day, and the number of the job. As a result, they give the same targets after a restart. The server gives `World::new` a seed from the clock, so the ICE acts in a different order after each start.
+
+The target generator is a pure function in the `target` module. It takes a corp, the host templates, and a seed, and it gives the hosts, routes, ICE, files, and credentials of one network. The world makes the network only when a player accepts the job.
 
 ## Storage
 
-The server keeps all data in plain text files in its data directory. Each account has its own file in `accounts/`, with its handle. The burn list is in `burns.ini`. Later, each crew will have its own file. The storage thread writes a file in three steps:
+The server keeps all data in plain text files in its data directory. Each account has its own file in `accounts/`, with its handle. The burn list is in `burns.ini`, and the world seed is in `world.ini`. Later, each crew will have its own file. An account file keeps a job from the board as its fixer, its day, and its number, and the server makes the network again. The storage thread writes a file in three steps:
 
 1. It writes the data to a temporary file.
 2. It flushes the temporary file to the disk.
@@ -112,7 +116,7 @@ As a result, a crash cannot leave a damaged file. To make a backup, copy the dat
 
 ## Content files
 
-Hubs, corporations, ICE, programs, starter kits, and text templates are content files. They use a small text format with sections and keys. The [content](../content.md) document gives the format. The save files use the same format, and the same parser reads them.
+Hubs, corporations, host templates, fixers, shops, and ICE are content files. The programs and the starter kits are in the code. They use a small text format with sections and keys. The [content](../content.md) document gives the format. The save files use the same format, and the same parser reads them.
 
 The default city, Port Ostra, is in `crates/server/content/`. The server binary contains it, so a server needs no other files. Later, an operator will put content files in the data directory. A file in the data directory will replace the default file with the same name. The `ttymud-server check` command will find errors in content files.
 

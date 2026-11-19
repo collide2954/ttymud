@@ -87,15 +87,21 @@ The check cannot find all STE problems. A person must also read each document.
 
 | Name | Meaning |
 | --- | --- |
+| access level, access | The rights of a handle on a host: guest, user, or admin. |
 | account | The identity of a person on a server. A key pair identifies the account. |
 | alert level | The state of alarm of a corporation: green, yellow, orange, or red. |
 | analyst | An NPC who works in a SOC. |
 | blueprint | Know-how that lets a handle compile a program. |
+| budget | How much a corporation spends on security: low, medium, high, or top. |
 | burn list | The public list of the handles that burned on a server. |
 | contract | A job from a fixer. |
+| corp | A corporation in a content file. |
 | crate | A Rust package. |
+| credentials | Stolen login data that raises the access of a handle in a network. |
+| credit, cr | The money of the city. |
 | crew | A group of players. |
 | cycle | One unit of CPU time on a rig. |
+| fence | An NPC who buys stolen data. |
 | fixer | An NPC who gives contracts. |
 | handle | A character under an account. A handle can burn. |
 | heat | How much the police know about a handle, from 0 to 5. |
@@ -106,26 +112,32 @@ The check cannot find all STE problems. A person must also read each document.
 | hub | A safe zone that an author makes by hand. |
 | ICE | Hostile security software in a target. |
 | integrity | The health of a rig, from 100 to 0. |
+| job board, board | The list of the jobs that the fixers post each day. |
 | know-how | The programs and blueprints that an account keeps after a burn. |
+| layer | One level of a target: the edge, the LAN, or the core. Later, also the vault. |
 | loot | Data and items that a handle takes from a target. |
 | noise | The evidence that an action leaves in a target. Noise increases the trace. |
 | NPC | A character that the server controls. |
 | offshore stash, stash | A store of credits and items that stays after a burn. |
 | pipeline | Two or more commands that the pipe character (`\|`) joins. |
 | program | Software that a handle runs to do an action. |
+| reputation | The trust of a fixer in a handle. More reputation opens bigger jobs. |
 | rig | The computer of a handle. |
 | route | A network path from one host to a different host. |
 | run | One visit of a handle to a target, from entry to exit. |
-| security level | The strength of the security of a target: low, medium, high, or top. |
+| security level | The strength of the security of a host: low, medium, high, or top. |
+| shop | A place on a hub host that sells programs and hardware. |
 | SOC | The security operations center of a corporation. |
 | starter kit, kit | The first programs of a new handle. A kit sets the first role of the handle. |
 | step | One part of a contract. A step teaches one command. |
 | target | A network that a handle attacks. |
 | telegraph | A message that shows the next action of an ICE before it acts. |
+| template | A type of host for the targets that the server makes. |
 | tick | One step of game time, about two seconds. |
 | trace | How near the SOC is to the location of a handle, from 0% to 100%. |
 | weak point | A flaw of an ICE that `probe` finds. |
 | workspace | A set of Rust crates that build together. |
+| world seed | The number that sets the job board and the targets of a server. |
 
 ## Technical verbs
 
@@ -136,6 +148,7 @@ The check cannot find all STE problems. A person must also read each document.
 | crack | To break ICE or encryption. |
 | decrypt | To make encrypted data readable. |
 | encrypt | To make data unreadable without a key. |
+| exploit | To use a weakness in software to get more access. |
 | hack | To get access to a computer without permission. |
 | jack out | To drop the link to a target at once. |
 | load | To put a program into the RAM of a rig. |

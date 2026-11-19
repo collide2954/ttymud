@@ -105,6 +105,7 @@ Version 0.1 has these parts of the design:
 - Connection limits: 256 in total, and 8 from each IP address. A handshake has a maximum of 10 seconds.
 - One connection for each key. A new connection with the same key replaces the old connection.
 - Handle names with the rules in the [names](#names) section.
-- Save files in plain text. The storage thread writes only the file `burns.ini` and the files in `accounts/`. It refuses all other paths.
+- Save files in plain text. The storage thread writes only the files `burns.ini` and `world.ini`, and the files in `accounts/`. It refuses all other paths.
+- A secret world seed. The client never gets the seed, because a player with the seed can make the targets before a run.
 
 Until a player selects a handle, the Welcome message gives the name `anon-` and the first eight hexadecimal characters of the public key. Other players do not see a player without a handle. The server always uses the full key to identify an account. Recovery codes, device links, key revocation, and the chat safety tools come in M6.
