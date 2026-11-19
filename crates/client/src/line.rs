@@ -19,6 +19,7 @@ impl<W: Write> View for Plain<W> {
         match shown {
             Shown::Line(text) | Shown::Closed(text) => writeln!(self.0, "{text}")?,
             Shown::Prompt(prompt) => write!(self.0, "{prompt}")?,
+            Shown::Candidates { .. } => return Ok(()),
         }
         self.0.flush()
     }

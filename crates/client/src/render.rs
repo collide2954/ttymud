@@ -6,6 +6,7 @@ pub enum Shown {
     Line(String),
     Prompt(String),
     Closed(String),
+    Candidates { word: String, names: Vec<String> },
 }
 
 #[must_use]
@@ -18,6 +19,10 @@ pub fn render(message: &ServerMessage) -> Shown {
         ServerMessage::Text(text) => Shown::Line(clean(&text.plain())),
         ServerMessage::Prompt(prompt) => Shown::Prompt(clean(prompt)),
         ServerMessage::Close(reason) => Shown::Closed(clean(reason)),
+        ServerMessage::Candidates { word, names } => Shown::Candidates {
+            word: clean(word),
+            names: names.iter().map(|name| clean(name)).collect(),
+        },
     }
 }
 
@@ -52,6 +57,21 @@ mod tests {
         assert_eq!(render(&prompt), Shown::Prompt("ghost@relay $ ".to_owned()));
         let close = ServerMessage::Close("Bye.".to_owned());
         assert_eq!(render(&close), Shown::Closed("Bye.".to_owned()));
+    }
+
+    #[test]
+    fn candidates_are_cleaned() {
+        let candidates = ServerMessage::Candidates {
+            word: "m\u{1b}a".to_owned(),
+            names: vec!["mar\u{202e}ket".to_owned()],
+        };
+        assert_eq!(
+            render(&candidates),
+            Shown::Candidates {
+                word: "ma".to_owned(),
+                names: vec!["market".to_owned()],
+            }
+        );
     }
 
     #[test]

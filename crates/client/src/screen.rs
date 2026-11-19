@@ -62,6 +62,7 @@ impl<W: Write> View for Screen<W> {
                 self.above(&reason)?;
                 return self.output.flush();
             }
+            Shown::Candidates { .. } => return Ok(()),
         }
         self.draw()
     }

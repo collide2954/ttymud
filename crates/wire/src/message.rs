@@ -3,15 +3,18 @@ use ttymud_text::{Kind, Message, Span, Style};
 use crate::codec::{DecodeError, Reader, Writer};
 
 const COMMAND: u8 = 1;
+const COMPLETE: u8 = 2;
 
 const WELCOME: u8 = 1;
 const TEXT: u8 = 2;
 const PROMPT: u8 = 3;
 const CLOSE: u8 = 4;
+const CANDIDATES: u8 = 5;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ClientMessage {
     Command(String),
+    Complete(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,18 +23,19 @@ pub enum ServerMessage {
     Text(Message),
     Prompt(String),
     Close(String),
+    Candidates { word: String, names: Vec<String> },
 }
 
 impl ClientMessage {
     #[must_use]
     pub fn encode(&self) -> Vec<u8> {
         let mut writer = Writer::default();
-        match self {
-            Self::Command(line) => {
-                writer.byte(COMMAND);
-                writer.text(line);
-            }
-        }
+        let (tag, text) = match self {
+            Self::Command(line) => (COMMAND, line),
+            Self::Complete(text) => (COMPLETE, text),
+        };
+        writer.byte(tag);
+        writer.text(text);
         writer.finish()
     }
 
@@ -39,6 +43,7 @@ impl ClientMessage {
         let mut reader = Reader::new(bytes);
         let message = match reader.tag()? {
             COMMAND => Self::Command(reader.text()?),
+            COMPLETE => Self::Complete(reader.text()?),
             other => return Err(DecodeError::UnknownType(other)),
         };
         reader.finish()?;
@@ -68,6 +73,14 @@ impl ServerMessage {
                 writer.byte(CLOSE);
                 writer.text(reason);
             }
+            Self::Candidates { word, names } => {
+                writer.byte(CANDIDATES);
+                writer.text(word);
+                writer.number(u64::try_from(names.len()).unwrap_or(u64::MAX));
+                for name in names {
+                    writer.text(name);
+                }
+            }
         }
         writer.finish()
     }
@@ -82,6 +95,10 @@ impl ServerMessage {
             TEXT => Self::Text(read_message(&mut reader)?),
             PROMPT => Self::Prompt(reader.text()?),
             CLOSE => Self::Close(reader.text()?),
+            CANDIDATES => Self::Candidates {
+                word: reader.text()?,
+                names: read_names(&mut reader)?,
+            },
             other => return Err(DecodeError::UnknownType(other)),
         };
         reader.finish()?;
@@ -110,6 +127,11 @@ fn read_message(reader: &mut Reader<'_>) -> Result<Message, DecodeError> {
         });
     }
     Ok(Message { kind, spans })
+}
+
+fn read_names(reader: &mut Reader<'_>) -> Result<Vec<String>, DecodeError> {
+    let count = reader.count()?;
+    (0..count).map(|_| reader.text()).collect()
 }
 
 fn kind_tag(kind: Kind) -> u8 {
@@ -182,6 +204,36 @@ mod tests {
             let message = ClientMessage::Command(line.to_owned());
             assert_eq!(ClientMessage::decode(&message.encode()), Ok(message));
         }
+    }
+
+    #[test]
+    fn completion_requests_round_trip() {
+        let message = ClientMessage::Complete("go ma".to_owned());
+        assert_eq!(ClientMessage::decode(&message.encode()), Ok(message));
+    }
+
+    #[test]
+    fn candidates_round_trip() {
+        server_round_trip(&ServerMessage::Candidates {
+            word: "ma".to_owned(),
+            names: vec!["market".to_owned(), "maze".to_owned()],
+        });
+        server_round_trip(&ServerMessage::Candidates {
+            word: String::new(),
+            names: Vec::new(),
+        });
+    }
+
+    #[test]
+    fn huge_candidate_counts_fail_without_a_large_allocation() {
+        let mut bytes = ServerMessage::Candidates {
+            word: String::new(),
+            names: Vec::new(),
+        }
+        .encode();
+        bytes.pop();
+        bytes.extend([0xff, 0xff, 0xff, 0xff, 0x0f]);
+        assert_eq!(ServerMessage::decode(&bytes), Err(DecodeError::Truncated));
     }
 
     #[test]
