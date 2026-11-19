@@ -232,7 +232,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         verb: Verb::Status,
         names: &["status", "st"],
         usage: "status",
-        summary: "Show your trace, integrity, cycles, and RAM.",
+        summary: "Show your heat, trace, integrity, cycles, and RAM.",
         example: "status",
         takes: Takes::Nothing,
         gives: Gives::Items(Kinds::LINES),

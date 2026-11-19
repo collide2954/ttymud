@@ -140,10 +140,32 @@ mod tests {
     }
 
     #[test]
+    fn help_explains_heat_and_burns() {
+        let heat = run("help heat");
+        assert_eq!(heat[0], "Heat");
+        assert!(
+            heat.contains(
+                &"At heat 5, your handle burns. Your account keeps its know-how and its stash."
+                    .to_owned()
+            ),
+            "{heat:?}"
+        );
+        assert_eq!(run("help burn"), heat);
+    }
+
+    #[test]
+    fn help_for_status_names_the_heat() {
+        assert_eq!(
+            run("help status")[1],
+            "Show your heat, trace, integrity, cycles, and RAM."
+        );
+    }
+
+    #[test]
     fn help_names_the_topics() {
         assert_eq!(
             run("help").last().map(String::as_str),
-            Some("Topics: ice, pipes, runs. Example: help ice")
+            Some("Topics: heat, ice, pipes, runs. Example: help ice")
         );
     }
 

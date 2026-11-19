@@ -1,9 +1,10 @@
 use ttymud_text::{Kind, Message, Style};
 
-pub(super) const TOPICS: &[&str] = &["ice", "pipes", "pipelines", "runs", "trace"];
+pub(super) const TOPICS: &[&str] = &["burn", "heat", "ice", "pipes", "pipelines", "runs", "trace"];
 
 pub(super) fn topic(name: &str) -> Option<Vec<Message>> {
     match name {
+        "heat" | "burn" => Some(heat()),
         "ice" => Some(ice()),
         "pipes" | "pipelines" => Some(pipes()),
         "runs" | "trace" => Some(runs()),
@@ -12,7 +13,7 @@ pub(super) fn topic(name: &str) -> Option<Vec<Message>> {
 }
 
 pub(super) fn index() -> Message {
-    Message::game("Topics: ice, pipes, runs. Example: ").span(Style::Command, "help ice")
+    Message::game("Topics: heat, ice, pipes, runs. Example: ").span(Style::Command, "help ice")
 }
 
 fn title(text: &str) -> Message {
@@ -34,6 +35,20 @@ fn pipes() -> Vec<Message> {
         Message::game("Only the last command shows its output."),
         Message::game("Programs in one pipeline share one setup cycle and one connection."),
         Message::game("Example: ").span(Style::Command, "ls | grep txt | read"),
+    ]
+}
+
+fn heat() -> Vec<Message> {
+    vec![
+        title("Heat"),
+        Message::game("Heat shows how much the police know about your handle, from 0 to 5."),
+        Message::game("A trace adds 1 to 5 heat. A target with more security gives more heat."),
+        Message::game("A jack out with a trace of 75% or more adds 1 heat."),
+        Message::game("At heat 3 or more, a sentry sends its ALERT faster."),
+        Message::game("Heat goes down by 1 for each day without new heat."),
+        Message::game(
+            "At heat 5, your handle burns. Your account keeps its know-how and its stash.",
+        ),
     ]
 }
 
@@ -74,7 +89,7 @@ fn runs() -> Vec<Message> {
         Message::game("Jack out: type ")
             .span(Style::Command, "jackout")
             .text(". You keep the loot, but you lose 20 integrity."),
-        Message::game("Traced: the trace gets to 100%. You lose the loot of the run."),
+        Message::game("Traced: the trace gets to 100%. You lose the loot of the run and get heat."),
         Message::game("Crash: your integrity gets to 0. You lose the loot. Type ")
             .span(Style::Command, "repair")
             .text(" at home."),
