@@ -46,9 +46,13 @@ Commands look like shell commands. Many commands have a shell name and a MUD nam
 | `grep <pattern>` | | Keep only the items that contain the pattern. |
 | `help [command]` | `man` | Show help for all commands or for one command. |
 | `?` | | Show the commands that you can use here. |
-| `status` | `st` | Show trace, integrity, heat, RAM, and cycles. This command comes in M3. |
+| `status` | `st` | Show trace, integrity, cycles, and RAM. Heat comes in M4. |
 | `say <text>` | `'` | Talk to all players on the same host. |
-| `jackout` | | Disconnect immediately. This command comes in M3. |
+| `jackout` | | Disconnect from the target immediately. |
+| `repair` | | Restore all integrity. This command works only at your home host. |
+| `contract [drop]` | `job` | Show your contract and its next step, or stop the contract. |
+
+The programs are also commands. The [programs](#programs) section gives them.
 
 If a command has an error, the game tells you the cause. It also gives the most likely correct command:
 
@@ -71,22 +75,28 @@ A single command always works. A pipeline is a combo for skilled players. A pipe
 
 - It costs fewer cycles, because its commands share one setup cost.
 - It makes less noise, because it opens fewer connections.
-- It can give a bonus. For example, `crack` hits the weakness that `probe` found in the same pipeline.
+- It can give a bonus. For example, `crack` hits the weak point that `probe` found in the same pipeline.
 
 The server checks a pipeline before it runs the pipeline. If the output of a command does not fit the next command, the server stops the pipeline and tells you why. A stopped pipeline costs nothing.
 
     > ls | crack
-    crack: needs a target, but ls gives a list of files.
+    crack needs ICE, but ls gives routes and files.
+
+Each command gives one or more kinds of items: routes, files, lines, or ICE. The `grep` command gives the same kinds of items that it gets.
 
 ## Danger
 
 Three values show how much danger you are in.
 
-**Trace** is a value from 0% to 100% for the current run. Noise from your actions increases the trace. Some ICE attacks also increase it. The `scrub` program deletes log lines and decreases the trace. When the trace gets to 100%, the target traces you.
+**Trace** is a value from 0% to 100% for the current run. Noise from your actions increases the trace. A working Sentry on the host doubles the trace from noise. Some ICE attacks also increase the trace. The `scrub` program deletes log lines and decreases the trace. When the trace gets to 100%, the target traces you.
 
-**Integrity** is the health of your rig, from 100 to 0. Black ICE attacks decrease integrity. The `patch` program repairs some integrity during a run. In your safehouse, you can repair all integrity for credits. When integrity gets to 0, your rig crashes.
+The trace does not increase while you wait. The pressure comes from ICE. Later, it also comes from the SOC.
 
-**Heat** shows how much the police know about your handle, from 0 to 5. Each trace adds heat. The security level of the host where the trace gets to 100% sets the quantity of heat. The [world](world.md) document gives the security levels.
+**Integrity** is the health of your rig, from 100 to 0. Black ICE attacks decrease integrity. The `patch` program repairs some integrity during a run. When integrity gets to 0, your rig crashes.
+
+At your home host, the `repair` command restores all integrity. In version 0.1, a repair is free. Later, a repair costs credits.
+
+**Heat** shows how much the police know about your handle, from 0 to 5. Heat comes in M4. Each trace adds heat. The security level of the host where the trace gets to 100% sets the quantity of heat. The [world](world.md) document gives the security levels.
 
 | Security level | Heat for one trace |
 | --- | --- |
@@ -111,6 +121,10 @@ Heat also has effects before a burn:
 | Traced | The trace gets to 100%. | You disconnect and lose the loot of this run. You get heat. |
 | Crash | The integrity gets to 0. | You disconnect and lose the loot of this run. You must repair the rig. You get no heat. |
 
+When you disconnect, you go back to the hub host where the run started. If the shock of a jack out takes the last integrity, your rig crashes. A rig without integrity cannot connect to a target. In version 0.1, no end of a run gives heat, because heat comes in M4.
+
+Each run is a private copy of the target network. Other players do not see you in a target, and your actions do not change their copy. Crews will share a copy in M9.
+
 ## ICE
 
 ICE is hostile security software. Each ICE has a type, a version, an integrity value, and a set of actions.
@@ -127,9 +141,26 @@ ICE is hostile security software. Each ICE has a type, a version, an integrity v
 
 Before each action, an ICE selects the action from its set and shows it. This message is a telegraph:
 
-    Hound v2 starts to compile TRACE BURST (2 ticks).
+    hound starts to compile TRACE BURST (2 ticks).
 
 The telegraph gives you time to answer. You can crack the Hound before it acts. You can add a proxy so that the attack does less. You can also scrub logs after the attack. Each ICE has a different set of actions and a different order. As a result, a fight is fair but not predictable.
+
+### ICE in version 0.1
+
+Version 0.1 has four types of ICE. Tarpit, Lockjaw, and Honeypot come later. Each version above 1 adds 10 integrity.
+
+| Type | Integrity | Behavior | Actions |
+| --- | --- | --- | --- |
+| Sentry | 20 | Noise on its host starts an alert. | ALERT (3 ticks) wakes the Hounds of the network. If no Hound sleeps, the trace increases by 10%. |
+| Warden | 40 | It blocks one route until it breaks. | None. |
+| Hound | 30 | An alert wakes it. Then it follows you from host to host. | TRACE BURST (2 ticks) adds 8% trace. DEEP TRACE (4 ticks) adds 20% trace. |
+| Scorch | 30 | Noise on its host wakes it. It attacks only while you are on its host. | BURN (2 ticks) does 20 damage. SPIKE (1 tick) does 8 damage. |
+
+An awake ICE selects its next action at random from its set. The seed of the server sets the random numbers. If you leave the host of a Scorch, its attack stops.
+
+You do not know the ICE on a host before you scan the host. The `look` command shows only the number of ICE programs that you do not know. A telegraph from an ICE that you do not know starts with "Unknown ICE".
+
+When the integrity of an ICE gets to 0, the ICE breaks. A broken ICE does not act. A broken Warden opens its route.
 
 ## Programs
 
@@ -153,6 +184,24 @@ Before a run, load programs into RAM in your safehouse. Your RAM is limited, so 
 | Data | `decrypt`, `exfil`, `backdoor` |
 
 Built-in commands, for example `look` and `say`, do not use RAM or cycles.
+
+### Programs in version 0.1
+
+In version 0.1, each rig has 8 GB of RAM and these five programs. Starter kits and the `load` command come in M4.
+
+| Program | RAM | Cycles | Noise | Action |
+| --- | --- | --- | --- | --- |
+| `scan` | 1 GB | 1 | 1 | It shows the ICE on this host. After the scan, you know the names of the ICE. |
+| `probe` | 1 GB | 1 | 1 | It shows the weak point of an ICE. |
+| `crack` | 2 GB | 2 | 2 | It does 15 damage to an ICE. After a probe in the same pipeline, it does 30 damage. |
+| `scrub` | 2 GB | 2 | 0 | It decreases the trace by 15%. |
+| `patch` | 2 GB | 2 | 0 | It repairs 20 integrity. |
+
+A rig has a maximum of 4 cycles. It gets 1 cycle on each tick. The programs work only in a target network. In a target network, a download also makes 2 noise.
+
+A command line that runs programs costs 1 more cycle for the setup. If the programs make noise, the connection adds 1 more noise. As a result, `probe sentry | crack` costs 4 cycles and makes 4 noise. The same two commands on two lines cost 5 cycles and make 5 noise.
+
+If you do not have enough cycles, the command does not run. It costs nothing.
 
 ## Roles
 
