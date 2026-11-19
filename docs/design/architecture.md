@@ -42,11 +42,12 @@ These rules control the dependencies between crates:
 
     ttymud-server init <data-dir>
     ttymud-server run <data-dir> [--listen <address>]
+    ttymud-server mod <data-dir> [add|remove <handle>]
     ttymud-server play [name]
 
 The default port is 7331. The `play` command lets one player walk Port Ostra without a network. It is for tests and for a first look at the game. It uses real time and asks for a handle, as the server does. It saves nothing. The [player guide](../player.md) and the [operator guide](../operator.md) tell how to use the commands.
 
-These commands come later: `ttymud identity`, `ttymud recover`, and `ttymud-server check`.
+The `mod` command shows, adds, and removes the moderators of a server. These commands come later: `ttymud identity` and `ttymud-server check`.
 
 ## Server
 
@@ -55,14 +56,14 @@ The server uses threads from the Rust standard library. It does not use an async
 - **Accept thread.** It accepts TCP connections and applies the connection limits. For each connection, it starts a session thread.
 - **Session threads.** Each session does the Noise handshake, decodes the messages, and applies the rate limits. It sends inputs to the game loop through a channel.
 - **Writer threads.** Each session has a writer thread. It receives outputs from the game loop through a different channel, and it encrypts and writes them.
-- **Game loop thread.** It owns the world state. No other thread can touch the world, so the world has no locks. The loop applies each input when it arrives.
+- **Game loop thread.** It owns the world state. No other thread can touch the world, so the world has no locks. The loop applies each input when it arrives. It also owns the keys of the accounts, and it does the commands for recovery codes and device links.
 - **Storage thread.** It writes the save files to the data directory. As a result, a slow disk does not stop the game loop.
 
 The game loop also runs a tick every two seconds. If the loop is late, it does not run the ticks that it missed. After the text of a tick, the loop sends a Refresh message with the new prompt. Each player who gets text from a different player also gets a Refresh message.
 
 After each input and each tick, the game loop gets the changed save texts from the world. It sends them to the storage thread. When the server starts, it reads all save files before it opens the port.
 
-If a key connects again, the new connection replaces the old connection. The old connection gets a Close message with the reason. After a Close message, the writer thread stops all writes and waits for the client to close the connection. As a result, the reset of a connection cannot delete the Close message.
+If an account connects again, with the same key or a different key, the new connection replaces the old connection. The old connection gets a Close message with the reason. A kick and a ban also end a connection with a Close message. After a Close message, the writer thread stops all writes and waits for the client to close the connection. As a result, the reset of a connection cannot delete the Close message.
 
 The server accepts a maximum of 256 connections. This design is for a maximum of about 500 players on a small server. Most MUDs have fewer players than this.
 

@@ -43,7 +43,7 @@ A count or a length cannot be larger than the number of bytes that remain in the
 
 | Type | Name | Fields | Use |
 | --- | --- | --- | --- |
-| 1 | Welcome | Text: the city. Text: the handle, or a temporary name. | The first message after the handshake. |
+| 1 | Welcome | Text: the city. Text: the handle, or a temporary name. | The first message after the handshake. The server sends it again when a link code or a recovery code changes the account. |
 | 2 | Text | Byte: the kind. List: the spans. | One line of game text. |
 | 3 | Prompt | Text: the prompt. | The prompt for the next input line. |
 | 4 | Close | Text: the reason. | The last message before the server closes the connection. |
@@ -100,4 +100,6 @@ If a command goes above a limit, the server does not run it. The server sends a 
 
 ## Close
 
-The server sends a Close message when it ends a connection. For example, it ends the old connection when the same key connects again. After the Close message, the server stops all writes. Then it waits a maximum of 5 seconds for the client to close the connection. As a result, the connection does not reset before the client reads the Close message.
+The server sends a Close message when it ends a connection. For example, it ends the old connection when the same account connects again. It also ends a connection after a kick or a ban. A banned or revoked key gets only a Close message.
+
+After the Close message, the server stops all writes. Then it waits a maximum of 5 seconds for the client to close the connection. As a result, the connection does not reset before the client reads the Close message.

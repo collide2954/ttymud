@@ -20,7 +20,7 @@ TTYmud protects players and servers against these threats.
 
 TTYmud does not protect against these threats:
 
-- The server operator can read all game data and all chat, also private messages. Before the first private message of a player, the client tells the player this.
+- The server operator can read all game data and all chat, also private messages. Before the first private message of a player, the server tells the player this.
 - A person with access to your computer can copy your identity key.
 
 ## Transport
@@ -43,9 +43,11 @@ A server operator can publish the fingerprint of the server key. In a later vers
 
 The client makes a static key pair at its first run. The public key identifies the account. The Noise handshake proves that the client has the private key. There is no password.
 
-- **Recovery code.** When the server makes a new account, it shows a recovery code one time. The code contains 128 bits of random data. The server keeps only a hash of the code. With the code, a new key can replace a lost key.
-- **More devices.** On a connected device, the `link` command gives a link code for one use. A new device uses the code to add its key to the account.
-- **Revocation.** The `keys` command shows all keys of the account. The `revoke` command removes a key.
+- **Recovery code.** When an account makes its first handle, the server shows a recovery code one time. The code contains 128 bits of random data, and the server keeps only a BLAKE2s hash of the code in `keys.ini`. At the handle prompt, `recover <code>` adds a new key to the account. Then the server gives a new code, and the old code stops. The `recovery` command also gives a new code.
+- **More devices.** On a connected device, the `link` command gives a link code with 64 bits of random data. The code works one time, for 10 minutes. At the handle prompt, a new device types `link <code>` to add its key to the account.
+- **Revocation.** The `keys` command shows all keys of the account. The `revoke` command removes a key. A revoked key cannot connect.
+
+An account is online on one device at a time. When a second key of the account connects, the server closes the first connection.
 
 The client keeps the private key in the configuration directory of the user. On Unix, the key file has the permissions 0600.
 
@@ -75,13 +77,13 @@ The client also removes control characters from all text before it shows the tex
 - **New accounts.** A new account cannot send private messages for its first 10 minutes. This makes spam more difficult.
 - **Repeated messages.** If a player sends the same message again within 30 seconds, the server blocks it.
 - **Ignore and block.** `ignore <handle>` hides the messages of a player. `block <handle>` also stops the private messages of that player.
-- **Reports.** `report <handle>` sends the recent messages of that player to the moderators. The server keeps the last 15 minutes of chat in memory only, so that a moderator can confirm a report.
-- **Moderators.** Moderators can mute, kick, and ban accounts. A ban applies to the account key and, as an option, to an IP address. The server writes all moderator actions to an audit log.
+- **Reports.** `report <handle>` sends the recent messages of that player to the moderators. The server keeps the last 15 minutes of chat in memory, so that a moderator can confirm a report. A report keeps the public messages of the player, and the private messages of the player to the reporter. A player can have one open report about each handle.
+- **Moderators.** The operator selects the moderators with the `ttymud-server mod` command. Moderators can mute, kick, and ban accounts. A ban applies to the account and, as an option, to an IP address. The server writes all moderator actions to an audit log, the file `audit.log`.
 
 ## Privacy
 
-- By default, the server does not write chat to disk. If the operator turns on chat logs, the server tells each player at login.
-- By default, the server keeps IP addresses in memory only.
+- The server writes chat to disk only as the evidence of a report, in `reports.ini`. If the operator turns on chat logs in a later version, the server tells each player at login.
+- The server keeps IP addresses in memory only. An IP ban writes the address to `bans.ini`.
 - An operator can delete an account and all of its data with one command.
 
 ## Protection of the server
@@ -103,9 +105,11 @@ Version 0.1 has these parts of the design:
 - The text sanitizer on the server. The client also removes unsafe characters from all text from the server, and its line editor never keeps control characters.
 - Rate limits for each connection. The command bucket holds 20 tokens and gets 10 tokens each second. The chat bucket holds 5 tokens and gets 1 token every 2 seconds.
 - Connection limits: 256 in total, and 8 from each IP address. A handshake has a maximum of 10 seconds.
-- One connection for each key. A new connection with the same key replaces the old connection.
+- One connection for each account. A new connection to the same account replaces the old connection.
 - Handle names with the rules in the [names](#names) section.
-- Save files in plain text. The storage thread writes only the files `burns.ini` and `world.ini`, and the files in `accounts/`. It refuses all other paths.
+- Save files in plain text. The storage thread writes only the files in `accounts/` and these files: `keys.ini`, `burns.ini`, `world.ini`, `moderators.ini`, `audit.log`, `reports.ini`, and `bans.ini`. It refuses all other paths.
 - A secret world seed. The client never gets the seed, because a player with the seed can make the targets before a run.
+- Recovery codes, link codes, and key revocation, as the [identity](#identity) section tells.
+- All the tools in the [chat safety](#chat-safety) section.
 
-Until a player selects a handle, the Welcome message gives the name `anon-` and the first eight hexadecimal characters of the public key. Other players do not see a player without a handle. The server always uses the full key to identify an account. Recovery codes, device links, key revocation, and the chat safety tools come in M6.
+Until a player selects a handle, the Welcome message gives the name `anon-` and the first eight hexadecimal characters of the public key. Other players do not see a player without a handle. The server always uses the full key to identify an account.
