@@ -9,19 +9,38 @@ pub fn line_mode(
     input: impl BufRead + Send + 'static,
     output: impl Write,
 ) -> io::Result<Ending> {
-    run(link, move |events| read(input, events), &mut Plain(output))
+    let mut plain = Plain {
+        output,
+        open: false,
+    };
+    run(link, move |events| read(input, events), &mut plain)
 }
 
-struct Plain<W>(W);
+struct Plain<W> {
+    output: W,
+    open: bool,
+}
 
 impl<W: Write> View for Plain<W> {
     fn show(&mut self, shown: Shown) -> io::Result<()> {
         match shown {
-            Shown::Line(text) | Shown::Closed(text) => writeln!(self.0, "{text}")?,
-            Shown::Prompt(prompt) => write!(self.0, "{prompt}")?,
+            Shown::Line(text) | Shown::Closed(text) => {
+                if std::mem::take(&mut self.open) {
+                    writeln!(self.output)?;
+                }
+                writeln!(self.output, "{text}")?;
+            }
+            Shown::Prompt(prompt) => {
+                write!(self.output, "{prompt}")?;
+                self.open = true;
+            }
             Shown::Candidates { .. } => return Ok(()),
         }
-        self.0.flush()
+        self.output.flush()
+    }
+
+    fn submitted(&mut self) {
+        self.open = false;
     }
 }
 
@@ -60,6 +79,15 @@ mod tests {
         let text = String::from_utf8_lossy(&screen);
         assert!(text.contains("tick\n% "), "{text}");
         assert!(text.contains("echo look\n"), "{text}");
+    }
+
+    #[test]
+    fn text_after_an_open_prompt_starts_on_a_new_line() {
+        let input = Cursor::new(b"look\nquit\n".to_vec());
+        let mut screen = Vec::new();
+        line_mode(link(ticker), input, &mut screen).unwrap();
+        let text = String::from_utf8_lossy(&screen);
+        assert!(text.contains("% \necho look\n$ "), "{text}");
     }
 
     #[test]

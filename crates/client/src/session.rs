@@ -47,6 +47,8 @@ pub(crate) trait View {
         Ok(())
     }
 
+    fn submitted(&mut self) {}
+
     fn finish(&mut self) -> io::Result<()> {
         Ok(())
     }
@@ -125,7 +127,10 @@ fn play(
             }
             Event::LinkEnded => return Ok(Ending::Closed),
             Event::InputEnded => Typed::Quit,
-            Event::Line(line) => Typed::Line(line),
+            Event::Line(line) => {
+                view.submitted();
+                Typed::Line(line)
+            }
             Event::Key(key) if !draining => view.press(key)?,
             Event::Key(_) => Typed::Nothing,
             Event::Resize(width) => {
