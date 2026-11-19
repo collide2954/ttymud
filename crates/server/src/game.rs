@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::sync::mpsc::{self, RecvTimeoutError};
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::Instant;
 
 use ttymud_game::{Completion, Output, PlayerId, World};
 use ttymud_net::PublicKey;
 use ttymud_wire::ServerMessage;
 
+use crate::city::now;
 use crate::ticker::{TICK, Ticker};
 
 const TAKEN_OVER: &str = "You connected from another place.";
@@ -61,12 +62,6 @@ pub(crate) fn run(world: World, inbox: &mpsc::Receiver<Event>, store: Option<Sav
 
 pub(crate) fn name_for(key: PublicKey) -> String {
     format!("anon-{}", &key.to_hex()[..8])
-}
-
-fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |since| since.as_secs())
 }
 
 impl Game {

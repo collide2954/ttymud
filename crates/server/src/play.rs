@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 
 use ttymud_game::{Output, PlayerId, World};
 
+use crate::city::{now, port_ostra, seed};
 use crate::ticker::{TICK, Ticker};
-use crate::{port_ostra, seed};
 
 pub fn play(
     name: Option<&str>,
@@ -23,6 +23,7 @@ fn session(
     every: Duration,
 ) -> io::Result<()> {
     let mut world = port_ostra(seed())?;
+    world.set_time(now());
     let (player, joined) = world.connect("offline");
     let city = world.city();
     writeln!(
@@ -43,6 +44,7 @@ fn session(
                 if line.trim() == "quit" {
                     return Ok(());
                 }
+                world.set_time(now());
                 show(&mut output, &world.command(player, &line))?;
                 prompt(&mut output, &world, player)?;
             }
@@ -50,6 +52,7 @@ fn session(
             Err(RecvTimeoutError::Disconnected) => return writeln!(output),
         }
         if ticker.due(Instant::now()) {
+            world.set_time(now());
             let outputs = world.tick();
             if !outputs.is_empty() {
                 writeln!(output)?;
