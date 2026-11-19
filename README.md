@@ -1,12 +1,21 @@
 # TTYmud
 
+[![CI](https://github.com/collide2954/ttymud/actions/workflows/ci.yml/badge.svg)](https://github.com/collide2954/ttymud/actions/workflows/ci.yml)
+
 TTYmud is a multiplayer text game for the terminal. You are a hacker in a near-future city. You take contracts, hack into corporate networks, and steal data. Security software and analysts try to trace you. If they trace you too often, your handle burns, and you start again with a new identity.
 
 TTYmud is a MUD (multi-user dungeon). The networks are the dungeons. The hostile security software is the monster.
 
 ## Status
 
-TTYmud is in the design phase. There is no playable version yet. The [roadmap](docs/roadmap.md) gives the plan.
+TTYmud is in early development. The foundation (milestone M0) is complete. There is no playable version yet. The [roadmap](docs/roadmap.md) gives the plan.
+
+## Build
+
+Install Rust with [rustup](https://rustup.rs). Then use these commands to build and test TTYmud:
+
+    cargo build --workspace
+    cargo test --workspace
 
 ## Goals
 
@@ -24,6 +33,7 @@ TTYmud is in the design phase. There is no playable version yet. The [roadmap](d
 - [Roadmap](docs/roadmap.md)
 - [Style guide](docs/style.md)
 - [How to contribute](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
 
 ## License
 

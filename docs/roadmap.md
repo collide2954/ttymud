@@ -4,7 +4,7 @@ TTYmud grows in small milestones. At the end of each milestone, the game works a
 
 ## Version 0.1: the first playable version
 
-### M0: Foundation
+### M0: Foundation (done)
 
 - The Cargo workspace with the crates `game`, `wire`, `server`, and `client`, and the tool `stelint`.
 - Workspace lints, and settings for rustfmt and clippy.
