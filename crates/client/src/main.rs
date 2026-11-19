@@ -3,7 +3,7 @@ use std::io::{self, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use ttymud::{Choices, ConnectError, Ending, Layer};
+use ttymud::{Choices, ConnectError, Depth, Ending, Layer};
 use ttymud_net::PublicKey;
 
 const USAGE: &str = "\
@@ -139,7 +139,8 @@ fn connect(options: &Options) -> Result<Ending, String> {
     .map_err(|error| explain(&error, &known))?;
     let ending = match settings.layer {
         Layer::Line => ttymud::line_mode(link, BufReader::new(io::stdin()), io::stdout()),
-        Layer::Edit | Layer::Color | Layer::Hud => ttymud::edit_mode(link),
+        Layer::Edit => ttymud::edit_mode(link, Depth::None),
+        Layer::Color | Layer::Hud => ttymud::edit_mode(link, settings.color),
     };
     ending.map_err(|error| error.to_string())
 }

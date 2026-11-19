@@ -1,9 +1,9 @@
-use ttymud_text::{RunStatus, Status, clean};
+use ttymud_text::{Message, RunStatus, Span, Status, clean};
 use ttymud_wire::ServerMessage;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Shown {
-    Line(String),
+    Line(Message),
     Prompt(String),
     Closed(String),
     Candidates { word: String, names: Vec<String> },
@@ -15,9 +15,19 @@ pub fn render(message: &ServerMessage) -> Shown {
     match message {
         ServerMessage::Welcome { city, name } => {
             let (city, name) = (clean(city), clean(name));
-            Shown::Line(format!("Connected to {city} as {name}."))
+            Shown::Line(Message::game(format!("Connected to {city} as {name}.")))
         }
-        ServerMessage::Text(text) => Shown::Line(clean(&text.plain())),
+        ServerMessage::Text(text) => Shown::Line(Message {
+            kind: text.kind,
+            spans: text
+                .spans
+                .iter()
+                .map(|span| Span {
+                    style: span.style,
+                    text: clean(&span.text),
+                })
+                .collect(),
+        }),
         ServerMessage::Prompt(prompt) | ServerMessage::Refresh(prompt) => {
             Shown::Prompt(clean(prompt))
         }
@@ -53,14 +63,15 @@ mod tests {
         };
         assert_eq!(
             render(&welcome),
-            Shown::Line("Connected to Port Ostra as anon-3f9a2c71.".to_owned())
+            Shown::Line(Message::game("Connected to Port Ostra as anon-3f9a2c71."))
         );
     }
 
     #[test]
-    fn text_shows_as_one_plain_line() {
-        let text = ServerMessage::Text(Message::game("Routes: ").span(Style::Host, "relay"));
-        assert_eq!(render(&text), Shown::Line("Routes: relay".to_owned()));
+    fn text_keeps_its_kind_and_its_styles() {
+        let scene = Message::game("Routes: ").span(Style::Host, "relay");
+        let text = ServerMessage::Text(scene.clone());
+        assert_eq!(render(&text), Shown::Line(scene));
     }
 
     #[test]
@@ -114,8 +125,11 @@ mod tests {
 
     #[test]
     fn a_server_cannot_send_escape_codes() {
-        let text = ServerMessage::Text(Message::game("a\u{1b}]52;c;bad\u{7}b\u{202e}"));
-        assert_eq!(render(&text), Shown::Line("a]52;c;badb".to_owned()));
+        let text = ServerMessage::Text(
+            Message::game("a\u{1b}]52;c;bad\u{7}b\u{202e}").span(Style::Host, "\u{1b}[31mx"),
+        );
+        let clean = Message::game("a]52;c;badb").span(Style::Host, "[31mx");
+        assert_eq!(render(&text), Shown::Line(clean));
         let prompt = ServerMessage::Prompt("\u{1b}[2J$ ".to_owned());
         assert_eq!(render(&prompt), Shown::Prompt("[2J$ ".to_owned()));
     }

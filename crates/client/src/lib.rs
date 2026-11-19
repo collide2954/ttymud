@@ -3,6 +3,7 @@ mod editor;
 mod known;
 mod line;
 mod link;
+mod paint;
 mod render;
 mod screen;
 mod session;

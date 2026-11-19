@@ -2,7 +2,9 @@ use std::io::{self, Write};
 
 use crate::Shown;
 use crate::editor::{Action, Editor, Key};
+use crate::paint::paint;
 use crate::session::{Typed, View};
+use crate::settings::Depth;
 
 const CLEAR: &str = "\r\x1b[K";
 const SAVE: &str = "\x1b7";
@@ -15,10 +17,11 @@ pub(crate) struct Screen<W> {
     width: usize,
     start: usize,
     asked: Option<String>,
+    depth: Depth,
 }
 
 impl<W: Write> Screen<W> {
-    pub(crate) fn new(output: W, width: u16) -> Self {
+    pub(crate) fn new(output: W, width: u16, depth: Depth) -> Self {
         Self {
             output,
             editor: Editor::default(),
@@ -26,6 +29,7 @@ impl<W: Write> Screen<W> {
             width: usize::from(width),
             start: 0,
             asked: None,
+            depth,
         }
     }
 
@@ -77,7 +81,10 @@ impl<W: Write> Screen<W> {
 impl<W: Write> View for Screen<W> {
     fn show(&mut self, shown: Shown) -> io::Result<()> {
         match shown {
-            Shown::Line(text) => self.above(&text)?,
+            Shown::Line(message) => {
+                let text = paint(&message, self.depth);
+                self.above(&text)?;
+            }
             Shown::Prompt(prompt) => self.prompt = prompt,
             Shown::Closed(reason) => {
                 self.above(&reason)?;
@@ -141,6 +148,7 @@ mod tests {
     use std::net::TcpStream;
 
     use ttymud_net::{Receiver, Sender};
+    use ttymud_text::{Message, Style};
     use ttymud_wire::{ClientMessage, ServerMessage};
 
     use super::Screen;
@@ -148,6 +156,7 @@ mod tests {
     use crate::Shown;
     use crate::editor::Key;
     use crate::session::{Event, Typed, View, run};
+    use crate::settings::Depth;
     use crate::testing::{echo, link, send};
 
     fn completer(mut receiver: Receiver<TcpStream>, mut sender: Sender<TcpStream>) {
@@ -192,7 +201,11 @@ mod tests {
     }
 
     fn screen(width: u16) -> Screen<Vec<u8>> {
-        let mut screen = Screen::new(Vec::new(), width);
+        colored(width, Depth::None)
+    }
+
+    fn colored(width: u16, depth: Depth) -> Screen<Vec<u8>> {
+        let mut screen = Screen::new(Vec::new(), width, depth);
         screen.show(Shown::Prompt("$ ".to_owned())).unwrap();
         screen
     }
@@ -222,10 +235,24 @@ mod tests {
     #[test]
     fn server_text_goes_above_the_input_line() {
         let mut screen = typed("say hi", 80);
-        screen.show(Shown::Line("<anon-1> hey".to_owned())).unwrap();
+        screen
+            .show(Shown::Line(Message::game("<anon-1> hey")))
+            .unwrap();
         assert_eq!(
             drawn(&mut screen),
             "\r\x1b[K<anon-1> hey\r\n\r\x1b[K$ say hi"
+        );
+    }
+
+    #[test]
+    fn server_text_has_the_colors_of_its_styles() {
+        let mut screen = colored(80, Depth::Basic);
+        screen.output.clear();
+        let scene = Message::game("Routes: ").span(Style::Host, "relay");
+        screen.show(Shown::Line(scene)).unwrap();
+        assert_eq!(
+            drawn(&mut screen),
+            "\r\x1b[KRoutes: \x1b[36mrelay\x1b[0m\r\n\r\x1b[K$ "
         );
     }
 
@@ -331,7 +358,7 @@ mod tests {
     #[test]
     fn tab_completes_through_the_server() {
         let keys = "go ma".chars().map(Key::Char).chain([Key::Tab]).collect();
-        let mut screen = Screen::new(Vec::new(), 80);
+        let mut screen = Screen::new(Vec::new(), 80, Depth::None);
         let ending = run(link(completer), feed(keys), &mut screen).unwrap();
         assert_eq!(ending, Ending::Closed);
         let text = String::from_utf8_lossy(&screen.output).into_owned();
@@ -341,7 +368,7 @@ mod tests {
     #[test]
     fn keys_drive_a_session_on_a_server() {
         let keys = vec![Key::Char('l'), Key::Char('s'), Key::Enter, Key::EndOfInput];
-        let mut screen = Screen::new(Vec::new(), 80);
+        let mut screen = Screen::new(Vec::new(), 80, Depth::None);
         let ending = run(link(echo), feed(keys), &mut screen).unwrap();
         assert_eq!(ending, Ending::Quit);
         let text = String::from_utf8_lossy(&screen.output).into_owned();

@@ -24,12 +24,8 @@ struct Plain<W> {
 impl<W: Write> View for Plain<W> {
     fn show(&mut self, shown: Shown) -> io::Result<()> {
         match shown {
-            Shown::Line(text) | Shown::Closed(text) => {
-                if std::mem::take(&mut self.open) {
-                    writeln!(self.output)?;
-                }
-                writeln!(self.output, "{text}")?;
-            }
+            Shown::Line(message) => self.line(&message.plain())?,
+            Shown::Closed(text) => self.line(&text)?,
             Shown::Prompt(prompt) => {
                 write!(self.output, "{prompt}")?;
                 self.open = true;
@@ -41,6 +37,15 @@ impl<W: Write> View for Plain<W> {
 
     fn submitted(&mut self) {
         self.open = false;
+    }
+}
+
+impl<W: Write> Plain<W> {
+    fn line(&mut self, text: &str) -> io::Result<()> {
+        if std::mem::take(&mut self.open) {
+            writeln!(self.output)?;
+        }
+        writeln!(self.output, "{text}")
     }
 }
 
