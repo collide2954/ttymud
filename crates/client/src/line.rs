@@ -1,99 +1,27 @@
 use std::io::{self, BufRead, Write};
-use std::net::{Shutdown, TcpStream};
 use std::sync::mpsc;
-use std::thread;
-use std::time::Duration;
 
-use ttymud_net::Receiver;
-use ttymud_text::clean;
-use ttymud_wire::{ClientMessage, ServerMessage};
-
-use crate::{Link, Shown, render};
-
-const DRAIN: Duration = Duration::from_secs(5);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Ending {
-    Quit,
-    Closed,
-}
-
-enum Event {
-    Line(String),
-    InputEnded,
-    Prompted,
-    LinkEnded,
-}
+use crate::session::{Event, View, run};
+use crate::{Ending, Link, Shown};
 
 pub fn line_mode(
     link: Link,
     input: impl BufRead + Send + 'static,
-    output: impl Write + Send + 'static,
+    output: impl Write,
 ) -> io::Result<Ending> {
-    let Link {
-        receiver,
-        mut sender,
-        control,
-        ..
-    } = link;
-    let (events, inbox) = mpsc::channel();
-    let display = {
-        let events = events.clone();
-        thread::Builder::new()
-            .name("display".to_owned())
-            .spawn(move || {
-                let result = show(receiver, output, &events);
-                let _ = events.send(Event::LinkEnded);
-                result
-            })?
-    };
-    thread::Builder::new()
-        .name("input".to_owned())
-        .spawn(move || read(input, &events))?;
-    let (mut sent, mut prompts, mut draining) = (0_usize, 0_usize, false);
-    let mut ending = Ending::Quit;
-    loop {
-        let next = if draining {
-            inbox.recv_timeout(DRAIN).ok()
-        } else {
-            inbox.recv().ok()
-        };
-        let Some(event) = next else {
-            break;
-        };
-        match event {
-            Event::Line(_) if draining => {}
-            Event::Line(command) if is_quit(&command) => draining = true,
-            Event::Line(command) => {
-                if sender
-                    .send(&ClientMessage::Command(command).encode())
-                    .is_err()
-                {
-                    ending = Ending::Closed;
-                    break;
-                }
-                sent += 1;
-            }
-            Event::InputEnded => draining = true,
-            Event::Prompted => prompts += 1,
-            Event::LinkEnded => {
-                ending = Ending::Closed;
-                break;
-            }
-        }
-        if draining && prompts > sent {
-            break;
-        }
-    }
-    let _ = control.shutdown(Shutdown::Both);
-    display
-        .join()
-        .map_err(|_| io::Error::other("the display thread stopped"))??;
-    Ok(ending)
+    run(link, move |events| read(input, events), &mut Plain(output))
 }
 
-pub(crate) fn is_quit(line: &str) -> bool {
-    clean(line).trim().eq_ignore_ascii_case("quit")
+struct Plain<W>(W);
+
+impl<W: Write> View for Plain<W> {
+    fn show(&mut self, shown: Shown) -> io::Result<()> {
+        match shown {
+            Shown::Line(text) | Shown::Closed(text) => writeln!(self.0, "{text}")?,
+            Shown::Prompt(prompt) => write!(self.0, "{prompt}")?,
+        }
+        self.0.flush()
+    }
 }
 
 fn read(input: impl BufRead, events: &mpsc::Sender<Event>) {
@@ -108,75 +36,19 @@ fn read(input: impl BufRead, events: &mpsc::Sender<Event>) {
     let _ = events.send(Event::InputEnded);
 }
 
-fn show(
-    mut receiver: Receiver<TcpStream>,
-    mut output: impl Write,
-    events: &mpsc::Sender<Event>,
-) -> io::Result<()> {
-    while let Ok(bytes) = receiver.receive() {
-        let Ok(message) = ServerMessage::decode(&bytes) else {
-            break;
-        };
-        match render(&message) {
-            Shown::Line(text) => writeln!(output, "{text}")?,
-            Shown::Prompt(prompt) => write!(output, "{prompt}")?,
-            Shown::Closed(reason) => {
-                writeln!(output, "{reason}")?;
-                output.flush()?;
-                break;
-            }
-        }
-        output.flush()?;
-        if matches!(message, ServerMessage::Prompt(_)) {
-            let _ = events.send(Event::Prompted);
-        }
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
-    use std::io::{self, Cursor, Write};
-    use std::sync::{Arc, Mutex};
+    use std::io::Cursor;
 
-    use super::{Ending, line_mode};
-    use crate::connect;
-    use crate::testing::{echo, server};
-
-    #[derive(Clone, Default)]
-    struct Screen(Arc<Mutex<Vec<u8>>>);
-
-    impl Write for Screen {
-        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-            self.0.lock().unwrap().extend_from_slice(bytes);
-            Ok(bytes.len())
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            Ok(())
-        }
-    }
-
-    impl Screen {
-        fn text(&self) -> String {
-            String::from_utf8_lossy(&self.0.lock().unwrap()).into_owned()
-        }
-    }
+    use super::line_mode;
+    use crate::Ending;
+    use crate::testing::{echo, link};
 
     fn session(input: &str) -> (Ending, String) {
-        let (address, _) = server(echo);
-        let dir = std::env::temp_dir().join(format!(
-            "ttymud-line-{}-{}",
-            std::process::id(),
-            input.len()
-        ));
-        let keys = ttymud_net::Keys::generate().unwrap();
-        let link = connect(&address.to_string(), &keys, &dir, |_, _| Ok(true)).unwrap();
-        let _ = std::fs::remove_file(&dir);
-        let screen = Screen::default();
         let input = Cursor::new(input.as_bytes().to_vec());
-        let ending = line_mode(link, input, screen.clone()).unwrap();
-        (ending, screen.text())
+        let mut screen = Vec::new();
+        let ending = line_mode(link(echo), input, &mut screen).unwrap();
+        (ending, String::from_utf8_lossy(&screen).into_owned())
     }
 
     #[test]

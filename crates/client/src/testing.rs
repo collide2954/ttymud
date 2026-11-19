@@ -5,6 +5,8 @@ use ttymud_net::{Keys, PublicKey, Receiver, Sender};
 use ttymud_text::Message;
 use ttymud_wire::{ClientMessage, ServerMessage};
 
+use crate::Link;
+
 type Handler = fn(Receiver<TcpStream>, Sender<TcpStream>);
 
 pub(crate) fn server(handle: Handler) -> (SocketAddr, PublicKey) {
@@ -25,6 +27,19 @@ pub(crate) fn server(handle: Handler) -> (SocketAddr, PublicKey) {
         }
     });
     (address, public)
+}
+
+pub(crate) fn link(handle: Handler) -> Link {
+    let (address, _) = server(handle);
+    let known = std::env::temp_dir().join(format!(
+        "ttymud-known-{}-{}",
+        std::process::id(),
+        address.port()
+    ));
+    let keys = Keys::generate().unwrap();
+    let link = crate::connect(&address.to_string(), &keys, &known, |_, _| Ok(true)).unwrap();
+    let _ = std::fs::remove_file(&known);
+    link
 }
 
 pub(crate) fn send(sender: &mut Sender<TcpStream>, message: &ServerMessage) {
