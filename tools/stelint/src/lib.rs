@@ -15,6 +15,7 @@ const PARAGRAPH_LIMIT: usize = 6;
 pub fn check(markdown: &str) -> Vec<Issue> {
     let mut issues = Vec::new();
     for block in markdown::blocks(markdown) {
+        semicolons(&block, &mut issues);
         if block.kind == Kind::Prose {
             let sentences = sentence::sentences(&block.text);
             long_sentences(&block, &sentences, &mut issues);
@@ -22,6 +23,12 @@ pub fn check(markdown: &str) -> Vec<Issue> {
         }
     }
     issues
+}
+
+fn semicolons(block: &Block, issues: &mut Vec<Issue>) {
+    if block.text.contains(';') {
+        issues.push(issue(block, "semicolon: write two sentences".to_owned()));
+    }
 }
 
 fn long_sentences(block: &Block, sentences: &[&str], issues: &mut Vec<Issue>) {
@@ -121,6 +128,24 @@ mod tests {
             messages(&"Short. ".repeat(7)),
             ["paragraph has 7 sentences (max 6)"]
         );
+    }
+
+    #[test]
+    fn semicolon_fails() {
+        assert_eq!(
+            messages("One part; two parts."),
+            ["semicolon: write two sentences"]
+        );
+    }
+
+    #[test]
+    fn semicolon_in_a_heading_fails() {
+        assert_eq!(messages("# One; two"), ["semicolon: write two sentences"]);
+    }
+
+    #[test]
+    fn semicolon_in_code_passes() {
+        assert_clean("Type `a; b` now.");
     }
 
     #[test]
