@@ -74,10 +74,13 @@ Crew channels come with crews in M9.
 
 ## Version 0.2: the city comes alive
 
-### M7: HUD
+### M7: HUD (done)
 
-- Terminal detection, color depths, and the ASCII fallback.
-- The HUD layer, with the status bar and the panes.
+- A Status message with the state of the handle.
+- Terminal detection, display layers, color depths, and the ASCII fallback.
+- The colors of the terminal theme for the styles of the text.
+- The HUD, with two status bars, an output pane with scrollback, a chat pane, and the input line.
+- A settings file, and the verbose setting for screen readers.
 
 ### M8: The city reacts
 

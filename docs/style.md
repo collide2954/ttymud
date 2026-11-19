@@ -103,6 +103,7 @@ The check cannot find all STE problems. A person must also read each document.
 | credit, cr | The money of the city. |
 | crew | A group of players. |
 | cycle | One unit of CPU time on a rig. |
+| display layer | One level of the client display: line, edit, color, or HUD. |
 | fence | An NPC who buys stolen data. |
 | fixer | An NPC who gives contracts. |
 | handle | A character under an account. A handle can burn. |
@@ -112,6 +113,7 @@ The check cannot find all STE problems. A person must also read each document.
 | home host | The private hub host where a handle repairs the rig, changes the RAM, and uses the stash. |
 | host | A computer in the game world. It is the TTYmud equivalent of a room. |
 | hub | A safe zone that an author makes by hand. |
+| HUD | The client display that fills the window, with two status bars, an output pane, a chat pane, and the input line. |
 | ICE | Hostile security software in a target. |
 | integrity | The health of a rig, from 100 to 0. |
 | job board, board | The list of the jobs that the fixers post each day. |
@@ -123,6 +125,7 @@ The check cannot find all STE problems. A person must also read each document.
 | noise | The evidence that an action leaves in a target. Noise increases the trace. |
 | NPC | A character that the server controls. |
 | offshore stash, stash | A store of credits and items that stays after a burn. |
+| pane | A part of the HUD that shows one type of text. |
 | pipeline | Two or more commands that the pipe character (`\|`) joins. |
 | program | Software that a handle runs to do an action. |
 | recovery code | A secret code that gets an account back on a new device. |
@@ -168,5 +171,6 @@ The check cannot find all STE problems. A person must also read each document.
 | revoke | To remove a key from an account. |
 | sanitize | To remove unsafe characters from text. |
 | scan | To find hosts and services. |
+| scroll | To move the text in a pane up or down. |
 | scrub | To delete log lines. |
 | unload | To remove a program from the RAM of a rig. |
