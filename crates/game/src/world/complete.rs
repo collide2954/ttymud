@@ -54,6 +54,16 @@ impl World {
                 .iter()
                 .map(|file| file.name.as_str())
                 .collect(),
+            (Verb::Probe | Verb::Crack, _) => self
+                .players
+                .get(&player)
+                .and_then(|state| state.run.as_ref())
+                .into_iter()
+                .flat_map(|run| &run.ice)
+                .filter(|ice| ice.host == here && ice.known && !ice.broken())
+                .map(|ice| ice.name.as_str())
+                .collect(),
+            (Verb::Contract, 1) => vec!["drop"],
             _ => Vec::new(),
         }
     }
@@ -127,6 +137,24 @@ mod tests {
     fn help_completes_commands_and_topics() {
         assert_eq!(names("help pi"), ["pipes", "pipelines"]);
         assert_eq!(names("man gr"), ["grep"]);
+    }
+
+    #[test]
+    fn probe_and_crack_complete_the_known_ice_here() {
+        let gate = ["go back-room", "go gate"];
+        assert_eq!(complete(&gate, "probe ").names, Vec::<String>::new());
+        let scanned = [&gate[..], &["scan"]].concat();
+        assert_eq!(complete(&scanned, "crack w").names, ["warden"]);
+        assert_eq!(
+            complete(&scanned, "scan | probe ").names,
+            ["sentry", "warden"]
+        );
+    }
+
+    #[test]
+    fn contract_completes_drop() {
+        assert_eq!(names("contract d"), ["drop"]);
+        assert_eq!(names("job "), ["drop"]);
     }
 
     #[test]
