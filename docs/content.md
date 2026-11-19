@@ -1,6 +1,6 @@
 # Content files
 
-A content file describes a city: its hosts and routes, the files on the hosts, the target networks, their ICE, and the contracts. It also gives the fixers, the shops, and the corporations and host templates for generated targets. This document gives the format. Port Ostra, the default city, uses this format. A later version of the server will also read content files from its data directory.
+A content file describes a city: its hosts and routes, the files on the hosts, the target networks, their ICE, and the contracts. It also gives the fixers, the shops, the chat channels, and the corporations and host templates for generated targets. This document gives the format. Port Ostra, the default city, uses this format. A later version of the server will also read content files from its data directory.
 
 ## Format
 
@@ -144,6 +144,15 @@ A shop section opens a shop on a hub host. The section name is the name of the h
 
 The shop sells a program only to a handle whose account does not know it. It sells only the next RAM size and the next CPU.
 
+### Channel
+
+A channel section makes one chat channel. Players talk in a channel with `#<channel> <text>`. A channel message reaches the members of the channel on all hosts.
+
+| Key | Count | Meaning |
+| --- | --- | --- |
+| `desc` | 1 | The description of the channel. The `channels` command shows it. |
+| `auto` | 0 or 1 | `yes` or `no`. The default is `no`. With `yes`, each new handle starts in the channel. |
+
 ## Example
 
     [city port-ostra]
@@ -166,6 +175,10 @@ The shop sells a program only to a handle whose account does not know it. It sel
     [shop relay]
     program = mask 400
     ram = 12 900
+
+    [channel ostra]
+    desc = All of Port Ostra.
+    auto = yes
 
     [network smile-dental]
     name = Bright Smile Dental
@@ -245,6 +258,6 @@ The server checks a content file before it uses the file. It finds these errors 
 - Corps without data, data lines without a colon, and corps without a template for each layer.
 - Templates with the name of a host.
 - Unknown programs in a shop, bad prices, and RAM or CPU steps that do not go up.
-- Bad values for `pay` and `max-heat`.
+- Bad values for `pay`, `max-heat`, and `auto`.
 
 The server shows all errors at the same time. As a result, you can correct all of them in one step.

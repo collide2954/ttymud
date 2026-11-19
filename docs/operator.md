@@ -53,17 +53,52 @@ The server has these limits:
 - A maximum of 10 seconds for each handshake.
 - Rate limits for commands and chat. The [protocol](protocol.md) document gives the values.
 
+## Moderators
+
+Moderators help you keep the chat safe. Use the `mod` command to select them. To show the moderators, use this command:
+
+    ttymud-server mod ostra-data
+
+To add or remove a moderator, give the handle:
+
+    ttymud-server mod ostra-data add nyx
+    ttymud-server mod ostra-data remove nyx
+
+The command writes the file `moderators.ini`. Restart the server to use the change. A moderator is an account, so the account stays a moderator after a burn. To remove a moderator without a handle, give the name of the account file in `accounts/`, without `.ini`.
+
+Moderators have these commands in the game:
+
+| Command | Action |
+| --- | --- |
+| `mute <handle> <minutes>` | Stops the chat messages of a handle. `unmute <handle>` lets the handle talk again. |
+| `kick <handle>` | Disconnects a handle. |
+| `ban <handle> [ip]` | Disconnects a handle and refuses its account. With `ip`, it also refuses the IP address of the handle. `unban <handle>` removes the ban. |
+| `bans` | Shows the bans. |
+| `reports [number]` | Shows the open reports, or one report with its chat. |
+| `resolve <number>` | Closes a report. |
+
+A moderator cannot mute, kick, or ban a different moderator. The server writes each action of a moderator to the file `audit.log`. The times in the file are in UTC.
+
+> CAUTION: Use IP bans carefully. Many players can share one IP address, for example in a school or behind a mobile network.
+
 ## Privacy
 
-The connections are encrypted, but the server can read all text that players send, also chat. Tell your players this. The server does not write chat to disk. It keeps the IP address of each connection in memory only.
+The connections are encrypted, but the server can read all text that players send, also chat. Tell your players this. The server writes chat to disk only in a report. The file `reports.ini` keeps the chat of the reported handle from the 15 minutes before the report.
+
+The server keeps the IP address of each connection in memory only. An IP ban writes the address to the file `bans.ini`.
 
 ## Game data
 
 The server keeps the game data in plain text files in the data directory:
 
-- `accounts/`: one file for each account. The file has the handle, the rig, the credits, the reputation, the contract, the know-how, and the stash of the account. The name of the file is the public key of the account in hexadecimal.
+- `accounts/`: one file for each account. The file has the handle, the rig, the credits, the reputation, the contract, the know-how, and the stash of the account. The name of the file is the first public key of the account in hexadecimal.
+- `keys.ini`: the keys of each account, and a hash of each recovery code. The server never keeps a recovery code.
 - `burns.ini`: the burn list.
 - `world.ini`: the seed of the world. The server makes the file at its first start.
+- `moderators.ini`: the moderators. The `mod` command writes this file.
+- `audit.log`: the actions of the moderators, one on each line.
+- `reports.ini`: the reports of the players, with their chat.
+- `bans.ini`: the banned accounts, and the IP addresses of IP bans.
 
 The server writes a file each time its data changes. A storage thread writes the files, so a slow disk does not stop the game. The server writes each file to a temporary file first, and then it renames the file. As a result, a crash cannot leave a damaged file.
 
@@ -71,7 +106,7 @@ When the server starts, it reads all the files. If a file has an error, the serv
 
 > CAUTION: Stop the server before you change a file in the data directory. If the server runs, it can write over your change.
 
-To make a backup, stop the server and copy the data directory. To delete an account, stop the server and delete the file of the account.
+To make a backup, stop the server and copy the data directory. To delete an account, stop the server and delete the file of the account. Then remove the section of the account from `keys.ini`.
 
 The seed in `world.ini` sets the job board and the target networks. As a result, a job has the same network after a restart. Keep the file. If you lose it, the server makes a new seed. Then the jobs on the board and the accepted jobs change.
 
@@ -85,6 +120,6 @@ Use this command to walk Port Ostra alone, without a network:
 
     ttymud-server play
 
-The game asks for a handle and a starter kit, as on a server. To give the handle on the command line, put it after `play`, for example `ttymud-server play nyx`. The offline mode does not save anything.
+The game asks for a handle and a starter kit, as on a server. To give the handle on the command line, put it after `play`, for example `ttymud-server play nyx`. The offline mode does not save anything. The commands for recovery codes and device links work only on a server.
 
 Type `quit` to stop. The offline mode uses real time, as the server does. As a result, the ICE acts on each tick of two seconds.
