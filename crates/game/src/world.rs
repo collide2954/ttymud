@@ -15,6 +15,7 @@ mod ram;
 mod rig;
 mod roles;
 mod run;
+mod stash;
 mod topics;
 
 use std::collections::BTreeMap;
@@ -82,6 +83,7 @@ struct Player {
     phase: Phase,
     kit: Option<&'static Kit>,
     heat: u32,
+    stash: Vec<File>,
 }
 
 impl Player {
@@ -90,6 +92,7 @@ impl Player {
             name: name.to_owned(),
             chain: vec![at],
             heat: 0,
+            stash: Vec::new(),
             rig: Rig::new(),
             know: commands::programs()
                 .map(|(command, _)| command.verb)
@@ -398,6 +401,8 @@ impl World {
             Verb::Contract => self.contract(player, args),
             Verb::Load => self.load(player, args),
             Verb::Unload => self.unload(player, args),
+            Verb::Stash => self.stash(player, args),
+            Verb::Unstash => self.unstash(player, args),
             Verb::Scan => {
                 no_args(command, args)?;
                 self.scan(player)

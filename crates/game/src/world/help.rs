@@ -41,7 +41,7 @@ impl World {
                 verb if verb.program().is_some() => {
                     running && state.is_some_and(|state| state.rig.loads.contains(&verb))
                 }
-                Verb::Repair | Verb::Load | Verb::Unload => self.home == Some(here),
+                Verb::Repair | Verb::Load | Verb::Unload | Verb::Unstash => self.home == Some(here),
                 Verb::Contract => hired,
                 Verb::Read => readable,
                 Verb::Download => !host.files.is_empty(),
@@ -167,31 +167,50 @@ mod tests {
         assert!(shown.iter().all(|line| line.contains("rig")));
     }
 
+    fn available(lines: &[&str]) -> Vec<String> {
+        let shown = walk(&[lines, &["?"]].concat()).0;
+        shown[0]
+            .trim_start_matches("Here you can use: ")
+            .split(", ")
+            .map(str::to_owned)
+            .collect()
+    }
+
+    fn check(names: &[String], present: &[&str], absent: &[&str]) {
+        for name in present {
+            assert!(names.iter().any(|known| known == name), "{name}: {names:?}");
+        }
+        for name in absent {
+            assert!(
+                !names.iter().any(|known| known == name),
+                "{name}: {names:?}"
+            );
+        }
+    }
+
     #[test]
     fn question_mark_lists_what_works_here() {
         assert_eq!(
-            run("?"),
-            ["Here you can use: look, ls, go, read, download, inventory, status, grep, say, help"]
+            run("?")[0],
+            "Here you can use: look, ls, go, read, download, inventory, status, stash, grep, say, help"
         );
     }
 
     #[test]
     fn question_mark_adds_the_run_commands_during_a_run() {
-        let outside = run("?");
-        let inside = walk(&["go back-room", "go gate", "?"]).0;
-        for name in ["jackout", "scan"] {
-            assert!(!outside[0].contains(name), "{outside:?}");
-            assert!(inside[0].contains(name), "{inside:?}");
-        }
+        let outside = available(&[]);
+        let inside = available(&["go back-room", "go gate"]);
+        check(&outside, &[], &["jackout", "scan"]);
+        check(&inside, &["jackout", "scan", "crack"], &["firewall"]);
     }
 
     #[test]
-    fn question_mark_adds_back_after_a_move() {
-        assert_eq!(
-            walk(&["go back-room", "?"]).0,
-            [
-                "Here you can use: look, ls, go, back, inventory, status, repair, load, unload, grep, say, help"
-            ]
+    fn question_mark_adds_the_home_commands_at_home() {
+        let home = available(&["go back-room"]);
+        check(
+            &home,
+            &["back", "repair", "load", "unload", "unstash"],
+            &["download"],
         );
     }
 }

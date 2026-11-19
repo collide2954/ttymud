@@ -4,7 +4,7 @@ A crowded public node.
 Routes: market, back-room, bazaar
 Files: motd.txt, rules.txt
 > ?
-Here you can use: look, ls, go, read, download, inventory, status, grep, say, help
+Here you can use: look, ls, go, read, download, inventory, status, stash, grep, say, help
 > help go
 go <place>
 Move to a host through a route.

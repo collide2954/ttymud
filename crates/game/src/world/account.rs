@@ -19,6 +19,7 @@ pub(super) enum Phase {
 pub(super) struct Account {
     pub(super) handle: Option<Saved>,
     pub(super) know: Vec<Verb>,
+    pub(super) stash: Vec<File>,
 }
 
 #[derive(Debug, Clone)]
@@ -35,7 +36,9 @@ pub(super) struct Saved {
 impl World {
     pub fn connect(&mut self, account: &str) -> (PlayerId, Vec<Output>) {
         let known = self.accounts.get(account).cloned();
-        let Some((saved, know)) = known.and_then(|known| Some((known.handle?, known.know))) else {
+        let Some((saved, know, stash)) =
+            known.and_then(|known| Some((known.handle?, known.know, known.stash)))
+        else {
             return self.begin(account);
         };
         let home = self.home.unwrap_or(self.start);
@@ -48,6 +51,7 @@ impl World {
         state.rig.loads = saved.loads;
         state.contract = saved.contract;
         state.know = know;
+        state.stash = stash;
         let player = self.add(state);
         let name = &saved.name;
         self.notify(home, player, &presence::named(name, " connects."));
@@ -64,10 +68,12 @@ impl World {
         let mut state = Player::new("", self.start);
         state.account = Some(account.to_owned());
         state.phase = Phase::Naming;
-        state.know = self
-            .accounts
-            .get(account)
-            .map_or_default(|known| known.know.clone());
+        if let Some(known) = self.accounts.get(account) {
+            state.know.clone_from(&known.know);
+            state.stash.clone_from(&known.stash);
+        } else {
+            state.know.clear();
+        }
         let player = self.add(state);
         let city = &self.city;
         let shown = vec![
@@ -177,10 +183,11 @@ impl World {
             loads: state.rig.loads.clone(),
             contract: state.contract,
         };
-        let know = state.know.clone();
+        let (know, stash) = (state.know.clone(), state.stash.clone());
         let entry = self.accounts.entry(account.clone()).or_default();
         entry.handle = Some(saved);
         entry.know = know;
+        entry.stash = stash;
     }
 
     #[must_use]

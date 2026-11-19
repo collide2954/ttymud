@@ -38,11 +38,12 @@ impl World {
         state.contract = None;
         state.kit = None;
         state.chain = vec![start];
-        let know = state.know.clone();
+        let (know, stash) = (state.know.clone(), state.stash.clone());
         if let Some(account) = state.account.clone() {
             let entry = self.accounts.entry(account).or_default();
             entry.handle = None;
             entry.know = know;
+            entry.stash = stash;
         }
         self.burns.push(Burn {
             name: name.clone(),
