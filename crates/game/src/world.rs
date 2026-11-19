@@ -10,6 +10,7 @@ mod presence;
 mod programs;
 mod rig;
 mod run;
+mod topics;
 
 use std::collections::BTreeMap;
 

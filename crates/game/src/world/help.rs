@@ -1,23 +1,23 @@
 use ttymud_text::{Kind, Message, Style};
 
+use super::topics::{self, TOPICS};
 use super::{PlayerId, Step, World, hint, lines, listed};
 use crate::commands::{self, COMMANDS, Command, Verb};
 
-pub(super) const TOPICS: &[&str] = &["pipes", "pipelines"];
 const COLUMN: usize = 18;
 
 pub(super) fn help(args: &[String]) -> Result<Step, Message> {
     let shown = match args {
         [] => overview(),
-        [topic] if TOPICS.contains(&topic.to_lowercase().as_str()) => pipes(),
-        [name] => {
-            let Some(command) = commands::find(name) else {
+        [name] => match (topics::topic(&name.to_lowercase()), commands::find(name)) {
+            (Some(topic), _) => topic,
+            (None, Some(command)) => details(command),
+            (None, None) => {
                 let message = Message::error(format!("No help for {name}."));
                 let known = commands::names().chain(TOPICS.iter().copied());
                 return Err(hint(message, name, known));
-            };
-            details(command)
-        }
+            }
+        },
         _ => return Err(Message::error("Usage: help [command].")),
     };
     Ok(lines(shown))
@@ -67,6 +67,7 @@ fn overview() -> Vec<Message> {
             .span(Style::Command, "|")
             .text(" to make a pipeline."),
     );
+    shown.push(topics::index());
     shown
 }
 
@@ -85,17 +86,6 @@ fn details(command: &Command) -> Vec<Message> {
     shown
 }
 
-fn pipes() -> Vec<Message> {
-    vec![
-        Message::new(Kind::Game).span(Style::Title, "Pipelines"),
-        Message::game("Join commands with ")
-            .span(Style::Command, "|")
-            .text(" to send the items of one command to the next."),
-        Message::game("Only the last command shows its output."),
-        Message::game("Example: ").span(Style::Command, "ls | grep txt | read"),
-    ]
-}
-
 #[cfg(test)]
 mod tests {
     use crate::commands::COMMANDS;
@@ -105,7 +95,7 @@ mod tests {
     fn help_lists_every_command() {
         let shown = run("help");
         assert_eq!(shown[0], "Commands");
-        assert_eq!(shown.len(), COMMANDS.len() + 2);
+        assert_eq!(shown.len(), COMMANDS.len() + 3);
         assert!(shown[1].starts_with("look "));
         assert!(shown.iter().any(|line| line.starts_with("go <place> ")
             && line.ends_with("Move to a host through a route.")));
@@ -137,6 +127,22 @@ mod tests {
     #[test]
     fn help_explains_pipelines() {
         assert_eq!(run("help pipes")[0], "Pipelines");
+    }
+
+    #[test]
+    fn help_explains_ice_and_runs() {
+        assert_eq!(run("help ice")[0], "ICE");
+        assert_eq!(run("help runs")[0], "Runs");
+        assert_eq!(run("help trace"), run("help runs"));
+        assert_eq!(run("HELP ICE"), run("help ice"));
+    }
+
+    #[test]
+    fn help_names_the_topics() {
+        assert_eq!(
+            run("help").last().map(String::as_str),
+            Some("Topics: ice, pipes, runs. Example: help ice")
+        );
     }
 
     #[test]

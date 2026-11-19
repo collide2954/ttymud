@@ -14,6 +14,7 @@ Example: go market
 Pipelines
 Join commands with | to send the items of one command to the next.
 Only the last command shows its output.
+Programs in one pipeline share one setup cycle and one connection.
 Example: ls | grep txt | read
 > help | grep rig
 read <file>       Show the text of a file here or on your rig.

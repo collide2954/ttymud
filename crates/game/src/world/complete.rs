@@ -1,6 +1,6 @@
 use ttymud_text::sanitize;
 
-use super::{PlayerId, World, help};
+use super::{PlayerId, World, topics};
 use crate::commands::{self, COMMANDS, Command, Verb};
 use crate::parse::{self, Tail};
 
@@ -41,7 +41,7 @@ impl World {
             (Verb::Go, 1) => self.route_names(here),
             (Verb::Help, 1) => {
                 let mut names = command_names(every);
-                names.extend(help::TOPICS);
+                names.extend(topics::TOPICS);
                 names
             }
             (Verb::Read, _) => self
