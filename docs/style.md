@@ -65,6 +65,24 @@ Use a caution to tell the reader about a risk of data loss or a security risk. S
 
 > CAUTION: Keep your recovery code secret. A person with the code can use your account.
 
+## The STE check
+
+The `stelint` test checks all Markdown files in the repository. It finds these problems:
+
+- Sentences with too many words.
+- Paragraphs with more than six sentences.
+- Semicolons.
+- Contractions.
+- The words in the left column of the word table.
+
+The check ignores code spans and code blocks. When you write about a word itself, put the word in a code span, for example `ensure`.
+
+To run the check, use this command:
+
+    cargo test -p stelint
+
+The check cannot find all STE problems. A person must also read each document.
+
 ## Technical names
 
 | Name | Meaning |
