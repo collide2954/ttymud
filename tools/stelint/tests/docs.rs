@@ -11,7 +11,10 @@ fn repository_root() -> PathBuf {
 fn markdown_files(dir: &Path, found: &mut Vec<PathBuf>) -> io::Result<()> {
     for entry in fs::read_dir(dir)? {
         let path = entry?.path();
-        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
         if path.is_dir() {
             if name != ".git" && name != "target" {
                 markdown_files(&path, found)?;
