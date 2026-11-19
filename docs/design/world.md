@@ -19,9 +19,9 @@ A hub is a safe place that does not change. Players learn the hubs and meet ther
 - **The Relay.** The public place where players meet. New players start here.
 - **The Night Market.** Shops for hardware and programs.
 - **The Back Room.** A bar where fixers give contracts and tell rumors.
-- **The Safehouse.** The home of your handle. Load programs, repair your rig, and use your stash here.
+- **The Safehouse.** The home of your handle. Load programs, repair your rig, and use your stash here. The safehouse is private, so other players do not see you there.
 - **The Evidence Locker.** The police auction for seized rigs.
-- **The Newsstand.** The news feed.
+- **The Newsstand.** The news feed and the burn list.
 
 Hubs are content files. A server operator can change the hubs or add new hubs.
 
@@ -60,6 +60,8 @@ Each host has a security level: low, medium, high, or top. The layer of the host
 | Top | High | High | Top | Top |
 
 The security level sets the strength of the ICE and the heat for a trace.
+
+In version 0.1, each target network has one security level, and the content file sets it. The security level sets only the heat for a trace. Bright Smile Dental has the security level low.
 
 ## Contracts
 

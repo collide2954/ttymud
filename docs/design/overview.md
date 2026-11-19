@@ -52,10 +52,13 @@ This table records the main design decisions. When a decision changes, change th
 | Topic | Decision |
 | --- | --- |
 | Tone | Gritty cyberpunk. No fantasy layer. |
-| Danger | Two meters: trace and integrity. |
+| Danger | Two meters for each run: trace and integrity. Heat stays with the handle. |
 | Time | Real time, with ticks of about two seconds. ICE shows its next action before it acts. |
 | Death | Each trace adds heat. Heat goes down over real time. At maximum heat, the handle burns. |
-| Legacy | After a burn, the player keeps know-how and a small offshore stash. |
+| Legacy | After a burn, the account keeps its know-how and an offshore stash of 3 files. |
+| Handles | One handle for each account. The player selects the name and a starter kit in the game. |
+| Heat | The security level of the target sets the heat for a trace. Heat goes down by 1 for each 24 hours. |
+| Burn list | A file on a hub host. In Port Ostra, it is on the Newsstand. |
 | World | Hubs that authors make by hand, and targets that the server makes from a seed. |
 | Progression | No levels. Rig hardware, program versions, and faction reputation. |
 | Roles | No classes. The programs in RAM set the role. Starter kits help new players. |
@@ -70,12 +73,15 @@ This table records the main design decisions. When a decision changes, change th
 | Code | A Cargo workspace with two binaries: `ttymud` and `ttymud-server`. |
 | Text model | A small `ttymud-text` crate holds styles, spans, and messages. |
 | Look and list | `look` describes the host in words. `ls` gives a short list. `cd` works like `go`, and `cd ..` goes back. |
-| Offline mode | `ttymud-server play` lets one player walk Port Ostra without a network. It uses real time, as the server does. |
+| Offline mode | `ttymud-server play` lets one player walk Port Ostra without a network. It uses real time, as the server does. It saves nothing. |
 | Programs | A program acts at once and costs cycles. The rig gets 1 cycle on each tick. |
 | Runs | Each run is a private copy of the target network. Crews share a copy later. |
+| Disconnect | A disconnect during a run counts as a jack out. |
+| Home host | It is private for each handle. A handle that connects again starts there. |
+| Storage | Plain text files in the data directory. A storage thread writes them. |
 | Noise | Noise raises the trace at once. A working Sentry doubles it. The trace does not increase while you wait. |
 | ICE in version 0.1 | Sentry, Warden, Hound, and Scorch. The other types come later. |
-| RAM in version 0.1 | A fixed rig with 8 GB and five programs. Loads and starter kits come in M4. |
+| RAM | A rig has 8 GB. A starter kit fills it with five programs. `load` and `unload` work only at the home host. |
 | First contract | The fixer Pell offers it on connect. Its steps and hints come from the content file. |
 | Repair | The `repair` command at the home host. It is free until credits come in M5. |
 | Hosting | A public GitHub repository. The default branch is `main`. |

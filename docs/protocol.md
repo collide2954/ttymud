@@ -43,7 +43,7 @@ A count or a length cannot be larger than the number of bytes that remain in the
 
 | Type | Name | Fields | Use |
 | --- | --- | --- | --- |
-| 1 | Welcome | Text: the city. Text: the name of the player. | The first message after the handshake. |
+| 1 | Welcome | Text: the city. Text: the handle, or a temporary name. | The first message after the handshake. |
 | 2 | Text | Byte: the kind. List: the spans. | One line of game text. |
 | 3 | Prompt | Text: the prompt. | The prompt for the next input line. |
 | 4 | Close | Text: the reason. | The last message before the server closes the connection. |
@@ -76,7 +76,8 @@ A kind byte or a style byte with a different value is not valid.
 
 ## Rules
 
-- After the Welcome message, the server sends the scene of the start host and a Prompt message.
+- After the Welcome message, the server sends the first text and a Prompt message. For an account without a handle, the text asks for a handle. For an account with a handle, the text is the scene of the home host.
+- An account without a handle has a temporary name: `anon-` and the first eight hexadecimal characters of its key.
 - After the answer to each Command message, the server sends a Prompt message. The client can count the prompts to know when all answers are in.
 - Some text comes without a command, for example the actions of ICE on a tick or the chat of other players. After this text, the server sends a Refresh message. A client shows a Refresh message as a prompt, but it does not count it as an answer.
 - The server does not send a Prompt message after a Candidates message.

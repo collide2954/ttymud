@@ -55,6 +55,8 @@ The client keeps the private key in the configuration directory of the user. On 
 
 Handle names and crew names contain only ASCII letters, digits, hyphens (`-`), and underscores (`_`). A name has 3 to 16 characters. The server compares names without case, so "Nyx" and "nyx" are the same name. As a result, nobody can fake a name with similar characters.
 
+A handle name cannot start with `anon-`. The server uses these names for players without a handle.
+
 ## Text sanitizer
 
 All text from players goes through one sanitizer on the server before other players see it. The sanitizer does these steps:
@@ -93,7 +95,7 @@ The client also removes control characters from all text before it shows the tex
 
 ## Status
 
-Milestone M2 has these parts of the design:
+Version 0.1 has these parts of the design:
 
 - The Noise transport, with the prologue `ttymud/1` and frames with a length prefix of two bytes.
 - Server keys, and the list of known servers in the client. The client asks the player before it trusts a new server.
@@ -102,5 +104,7 @@ Milestone M2 has these parts of the design:
 - Rate limits for each connection. The command bucket holds 20 tokens and gets 10 tokens each second. The chat bucket holds 5 tokens and gets 1 token every 2 seconds.
 - Connection limits: 256 in total, and 8 from each IP address. A handshake has a maximum of 10 seconds.
 - One connection for each key. A new connection with the same key replaces the old connection.
+- Handle names with the rules in the [names](#names) section.
+- Save files in plain text. The storage thread writes only the file `burns.ini` and the files in `accounts/`. It refuses all other paths.
 
-In M2, the name of a player is `anon-` and the first eight hexadecimal characters of the public key. These names are temporary. They have only 32 bits, so a person with enough computer time can make a key with the same name. The server always uses the full key to identify a connection. The rules for handle names come in M4. Recovery codes, device links, key revocation, and the chat safety tools come in M6.
+Until a player selects a handle, the Welcome message gives the name `anon-` and the first eight hexadecimal characters of the public key. Other players do not see a player without a handle. The server always uses the full key to identify an account. Recovery codes, device links, key revocation, and the chat safety tools come in M6.

@@ -30,7 +30,7 @@ When the input and the output are terminals, the client edits the input line loc
 - Left, Right, Home, End, Backspace, and Delete.
 - Ctrl+A, Ctrl+E, Ctrl+B, Ctrl+F, Ctrl+W, Ctrl+U, and Ctrl+K, as in a shell.
 - Up and Down, or Ctrl+P and Ctrl+N, for the command history.
-- Tab to complete commands, routes, files, and help topics. Later, Tab will also complete handles.
+- Tab to complete commands, routes, files, programs, ICE, and help topics. Later, Tab will also complete handles.
 - Ctrl+C to clear the line, and Ctrl+D to delete a character. On an empty line, these keys quit.
 
 A long input line moves to the side, so that the cursor stays on the screen. The `--line` option selects line mode in a terminal. The [player guide](../player.md) gives all the keys.
@@ -98,12 +98,12 @@ The first run must teach the game without a long tutorial.
 5. Each step of the tutorial contract teaches one command. The game gives a hint only when the player makes no progress for some time.
 6. The player can stop the tutorial contract at any time.
 
-In version 0.1, handles and starter kits do not exist yet. They come in M4. The fixer Pell offers the tutorial contract when the player connects. The `contract` command shows the next step. After 15 ticks without progress, the game shows the hint one time. The `contract drop` command stops the contract.
+In version 0.1, the server asks for the handle name first, and then for the starter kit. The fixer Pell offers the tutorial contract to each new handle. The `contract` command shows the next step. After 15 ticks without progress, the game shows the hint one time. The game skips a step for a program that the handle does not know. The `contract drop` command stops the contract.
 
 ## Help
 
 - `help` shows the most important commands.
-- `help <topic>` shows the help for a command or a topic. The topics are `ice`, `pipes`, and `runs`.
+- `help <topic>` shows the help for a command or a topic. The topics are `heat`, `ice`, `pipes`, and `runs`.
 - `?` shows the commands that you can use on the current host.
 - An unknown command gives the most likely correct command.
 - Each error message tells what went wrong and what to do.

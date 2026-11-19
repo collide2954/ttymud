@@ -26,8 +26,9 @@ Each content file has one city section.
 | --- | --- | --- |
 | `name` | 1 | The name of the city that players see. |
 | `start` | 1 | The host where new players start. |
-| `home` | 0 or 1 | The host where players repair their rigs. It must be a hub host. |
-| `contract` | 0 or 1 | The contract that each new player gets on connect. |
+| `home` | 0 or 1 | The host where players repair their rigs, change their RAM, and use their stash. It must be a hub host. Other players do not see a player there. |
+| `burns` | 0 or 1 | The host with the burn list, the file `burn-list.txt`. It must be a hub host. |
+| `contract` | 0 or 1 | The contract that each new handle gets. |
 
 ### Network
 
@@ -36,6 +37,7 @@ A network section makes one target network. A run starts when a player goes from
 | Key | Count | Meaning |
 | --- | --- | --- |
 | `name` | 1 | The name of the network that players see, for example the name of the company. |
+| `security` | 0 or 1 | `low`, `medium`, `high`, or `top`. The default is `low`. A trace in this network gives 1, 2, 3, or 5 heat. |
 
 ### Host
 
@@ -79,10 +81,10 @@ A contract section makes one contract. The `contract` key of the city section gi
 | `fixer` | 1 | The name of the fixer who gives the contract. |
 | `network` | 1 | The target network. |
 | `goal` | 1 | The name of a file in the target network. A clean exit with this file completes the contract. |
-| `offer` | 1 or more | One line of the offer. The new player sees the offer on connect. |
+| `offer` | 1 or more | One line of the offer. A new handle sees the offer after it selects a starter kit. |
 | `step` | 0 or more | One step of the contract: an event, a colon, and a hint. |
 
-A step teaches one command. The `contract` command shows the hint of the next step. If the player makes no progress for 15 ticks, the game shows the hint one time. An event also completes the steps before it.
+A step teaches one command. The `contract` command shows the hint of the next step. If the player makes no progress for 15 ticks, the game shows the hint one time. An event also completes the steps before it. The game skips a step for a program that the handle does not know.
 
 | Event | When it occurs |
 | --- | --- |
@@ -97,16 +99,23 @@ A step teaches one command. The `contract` command shows the hint of the next st
     [city port-ostra]
     name = Port Ostra
     start = relay
-    home = relay
+    home = safehouse
+    burns = relay
     contract = first-job
 
     [host relay]
     name = The Relay
     desc = The public node at the heart of the city net.
+    route = safehouse
+
+    [host safehouse]
+    name = Your Safehouse
+    desc = A quiet node that the city forgot to index.
     route = smile-gw
 
     [network smile-dental]
     name = Bright Smile Dental
+    security = low
 
     [host smile-gw]
     name = Bright Smile Gateway
@@ -140,8 +149,9 @@ The server checks a content file before it uses the file. It finds these errors 
 - Routes and files on unknown hosts, and routes from a host to itself.
 - A start host that does not exist.
 - Hosts that players cannot reach from the start host.
-- A home host that does not exist, or that is in a network.
+- A home host or a burns host that does not exist, or that is in a network.
 - Networks without hosts, hosts in unknown networks, and routes between two networks.
+- Unknown security levels.
 - ICE on unknown hosts or on hub hosts, unknown ICE types, and bad versions.
 - Wardens without a `guards` key, other ICE with a `guards` key, and wardens that guard no route.
 - Contracts for unknown networks, and goals that are not files in the network.

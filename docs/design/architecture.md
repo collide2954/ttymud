@@ -44,7 +44,7 @@ These rules control the dependencies between crates:
     ttymud-server run <data-dir> [--listen <address>]
     ttymud-server play [name]
 
-The default port is 7331. The `play` command lets one player walk Port Ostra without a network. It is for tests and for a first look at the game. It uses real time, as the server does. The [player guide](../player.md) and the [operator guide](../operator.md) tell how to use the commands.
+The default port is 7331. The `play` command lets one player walk Port Ostra without a network. It is for tests and for a first look at the game. It uses real time and asks for a handle, as the server does. It saves nothing. The [player guide](../player.md) and the [operator guide](../operator.md) tell how to use the commands.
 
 These commands come later: `ttymud identity`, `ttymud recover`, and `ttymud-server check`.
 
@@ -56,10 +56,11 @@ The server uses threads from the Rust standard library. It does not use an async
 - **Session threads.** Each session does the Noise handshake, decodes the messages, and applies the rate limits. It sends inputs to the game loop through a channel.
 - **Writer threads.** Each session has a writer thread. It receives outputs from the game loop through a different channel, and it encrypts and writes them.
 - **Game loop thread.** It owns the world state. No other thread can touch the world, so the world has no locks. The loop applies each input when it arrives.
+- **Storage thread.** It writes the save files to the data directory. As a result, a slow disk does not stop the game loop.
 
 The game loop also runs a tick every two seconds. If the loop is late, it does not run the ticks that it missed. After the text of a tick, the loop sends a Refresh message with the new prompt. Each player who gets text from a different player also gets a Refresh message.
 
-A storage thread comes in M4. It will write changes to disk, so that a slow disk does not stop the game loop.
+After each input and each tick, the game loop gets the changed save texts from the world. It sends them to the storage thread. When the server starts, it reads all save files before it opens the port.
 
 If a key connects again, the new connection replaces the old connection. The old connection gets a Close message with the reason. After a Close message, the writer thread stops all writes and waits for the client to close the connection. As a result, the reset of a connection cannot delete the Close message.
 
@@ -82,17 +83,26 @@ When the player quits, the client waits until each command has its prompt, for a
 The `game` crate is a pure state machine. It does not read the clock, and it does not get random numbers from the operating system.
 
     let mut world = World::new(Content::parse(text)?, seed);
-    let (player, outputs) = world.join("ghost");
-    let outputs = world.command(player, "ls | grep txt");
+    let (player, outputs) = world.connect(account);
+    let outputs = world.command(player, "nyx");
+    let outputs = world.command(player, "ghost");
+    world.set_time(now);
     let outputs = world.tick();
+    let saves = world.saves();
 
 Each output has a player and a styled message. A command checks all stages of a pipeline before it runs the first stage. The `prompt` function gives the prompt of a player.
+
+The `connect` function starts the session of an account. For a new account, the first two commands give the name of the handle and the starter kit. Tests can use `join`, which makes a handle that is ready at once and knows all programs.
+
+The world does not read the clock. Before each input and each tick, the caller gives the time in seconds with `set_time`. Heat cools with this time, and the burn list shows its dates.
+
+The `saves` function gives the save texts that changed since the last call, each with its path. When the server starts, the `restore` function reads each save text back.
 
 The caller calls `tick` every two seconds. On each tick, each rig gets a cycle, the ICE acts, and contracts give hints. The ICE selects its actions with a small random number generator from the seed. As a result, a test with the same seed gets the same result each time. Until M5, the server takes the seed from the clock.
 
 ## Storage
 
-The server keeps all data in plain text files in its data directory. Each account, handle, and crew has its own file. The server writes a file in three steps:
+The server keeps all data in plain text files in its data directory. Each account has its own file in `accounts/`, with its handle. The burn list is in `burns.ini`. Later, each crew will have its own file. The storage thread writes a file in three steps:
 
 1. It writes the data to a temporary file.
 2. It flushes the temporary file to the disk.
@@ -102,7 +112,7 @@ As a result, a crash cannot leave a damaged file. To make a backup, copy the dat
 
 ## Content files
 
-Hubs, corporations, ICE, programs, starter kits, and text templates are content files. They use a small text format with sections and keys. The [content](../content.md) document gives the format. The same parser will also read save files.
+Hubs, corporations, ICE, programs, starter kits, and text templates are content files. They use a small text format with sections and keys. The [content](../content.md) document gives the format. The save files use the same format, and the same parser reads them.
 
 The default city, Port Ostra, is in `crates/server/content/`. The server binary contains it, so a server needs no other files. Later, an operator will put content files in the data directory. A file in the data directory will replace the default file with the same name. The `ttymud-server check` command will find errors in content files.
 
