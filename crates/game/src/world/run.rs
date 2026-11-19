@@ -3,6 +3,7 @@ use ttymud_text::{Message, Style};
 use super::alert::{Alert, TRACE_ALERT};
 use super::heat::FAST_HEAT;
 use super::ice::{Ice, deploy};
+use super::soc::Analyst;
 use super::{HostId, NetworkId, PlayerId, Step, World};
 use crate::contract::Event;
 use crate::heat::MAX_HEAT;
@@ -26,6 +27,8 @@ pub(super) struct Run {
     pub(super) proxy: bool,
     pub(super) access: Level,
     pub(super) shells: Vec<(HostId, Level)>,
+    pub(super) analysts: Vec<Analyst>,
+    pub(super) logs: Vec<(HostId, u32)>,
 }
 
 impl World {
@@ -123,6 +126,12 @@ impl World {
             return Vec::new();
         };
         let masked = run.mask > 0;
+        if !masked {
+            match run.logs.iter_mut().find(|(host, _)| *host == here) {
+                Some((_, logged)) => *logged += noise,
+                None => run.logs.push((here, noise)),
+            }
+        }
         let mut shown = Vec::new();
         let mut watched = false;
         for ice in run
@@ -201,6 +210,7 @@ impl World {
         let entering = self.hosts[to.0].network;
         let bonus = entering.map_or(0, |network| self.ice_bonus(network));
         let alert = entering.and_then(|network| self.network_alert(network));
+        let analysts = entering.map_or_else(Vec::new, |network| self.staff(network));
         let Some(state) = self.players.get_mut(&player) else {
             return Vec::new();
         };
@@ -217,6 +227,8 @@ impl World {
                     proxy: false,
                     access: Level::Guest,
                     shells: Vec::new(),
+                    analysts,
+                    logs: Vec::new(),
                 });
                 let name = &self.networks[network.0].name;
                 let connect = match alert.filter(|&alert| alert > Alert::Green) {

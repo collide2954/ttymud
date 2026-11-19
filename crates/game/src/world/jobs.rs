@@ -279,6 +279,15 @@ impl World {
         ]))
     }
 
+    #[cfg(test)]
+    pub(crate) fn job_entry(&self) -> String {
+        let entry = self
+            .networks
+            .last()
+            .and_then(|network| network.entries.first());
+        entry.map_or_default(|entry| self.hosts[entry.0].id.clone())
+    }
+
     pub(super) fn resume_posting(&mut self, fixer: &str, day: u64, slot: u64) -> Option<usize> {
         let fixer = self.fixers.iter().position(|known| known.id == fixer)?;
         let offer = self.posted(fixer, day, slot)?;

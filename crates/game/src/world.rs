@@ -25,6 +25,7 @@ mod roles;
 mod run;
 mod save;
 mod shop;
+mod soc;
 mod stash;
 mod tell;
 mod topics;
@@ -351,6 +352,7 @@ impl World {
                 state.rig.tick();
             }
             let mut shown = self.tick_ice(player);
+            shown.extend(self.tick_soc(player));
             shown.extend(self.hint(player));
             if let Some((before, after)) = self.cool(player) {
                 shown.push(Message::game(format!(

@@ -78,10 +78,12 @@ impl World {
         if step.shown.is_empty() {
             step.shown.push(Message::game("scan finds no ICE here."));
         }
+        step.shown.extend(self.soc_line(player));
         Ok(step)
     }
 
     pub(super) fn scrub(&mut self, player: PlayerId) -> Result<Step, Message> {
+        let here = self.here(player);
         let Some(run) = self
             .players
             .get_mut(&player)
@@ -94,6 +96,7 @@ impl World {
         }
         let before = run.trace;
         run.trace = before.saturating_sub(SCRUB);
+        run.logs.retain(|&(host, _)| host != here);
         let after = run.trace;
         Ok(Step::show(vec![Message::game(format!(
             "scrub deletes your log lines. Trace: {before}% -> {after}%."

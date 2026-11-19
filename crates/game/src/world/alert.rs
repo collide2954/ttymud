@@ -84,7 +84,7 @@ impl World {
     }
 
     pub(super) fn ice_bonus(&self, network: NetworkId) -> u32 {
-        self.network_alert(network).map_or(0, Alert::steps)
+        self.network_alert(network).map_or(0, Alert::steps) + self.night_bonus(network)
     }
 }
 
@@ -96,7 +96,7 @@ mod tests {
     use crate::world::HostId;
     use crate::{PlayerId, World};
 
-    const DAY: u64 = 20_000 * 86_400 + 100;
+    const DAY: u64 = 20_000 * 86_400 + 12 * 3_600;
 
     fn acme() -> (World, PlayerId, usize) {
         let mut world = world();

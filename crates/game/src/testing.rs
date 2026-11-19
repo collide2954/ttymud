@@ -55,6 +55,21 @@ pub(crate) fn hacker(world: &mut World, account: &str, name: &str) -> PlayerId {
     player
 }
 
+pub(crate) fn hired_at(time: u64) -> (World, PlayerId) {
+    let mut world = world();
+    world.set_time(time);
+    let (player, _) = world.join("ghost");
+    for line in ["go bazaar", "accept 1", "go relay", "go back-room"] {
+        world.command(player, line);
+    }
+    (world, player)
+}
+
+pub(crate) fn enter_job(world: &mut World, player: PlayerId) -> Vec<String> {
+    let id = world.job_entry();
+    plain(&world.command(player, &format!("go {id}")))
+}
+
 pub(crate) fn joined() -> (World, PlayerId) {
     let mut world = world();
     let (player, _) = world.join("ghost");
