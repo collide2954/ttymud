@@ -162,16 +162,19 @@ fn a_corp_has_a_budget_and_data() {
 fn a_template_makes_hosts_for_one_layer() {
     let text = format!(
         "{NET}[template vpn]\nlayer = edge\nname = VPN Gateway\ndesc = An old box.\n\
-         [file vpn/motd.txt]\nline = Hi.\n"
+         software = Gatekeep VPN\n[file vpn/motd.txt]\nline = Hi.\n"
     );
     let template = TemplateDef {
         id: "vpn".to_owned(),
         layer: Layer::Edge,
         name: "VPN Gateway".to_owned(),
         description: "An old box.".to_owned(),
+        software: Some("Gatekeep VPN".to_owned()),
         files: vec![File::new("motd.txt", vec!["Hi.".to_owned()])],
     };
     assert_eq!(Content::parse(&text).unwrap().templates, [template]);
+    let plain = Content::parse(&format!("{NET}{TEMPLATES}")).unwrap();
+    assert!(plain.templates.iter().all(|def| def.software.is_none()));
 }
 
 const CORPS: &str = "\

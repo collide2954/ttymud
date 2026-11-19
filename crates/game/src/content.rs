@@ -80,6 +80,7 @@ pub(crate) struct TemplateDef {
     pub(crate) layer: Layer,
     pub(crate) name: String,
     pub(crate) description: String,
+    pub(crate) software: Option<String>,
     pub(crate) files: Vec<File>,
 }
 

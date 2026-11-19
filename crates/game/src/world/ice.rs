@@ -386,6 +386,7 @@ mod tests {
             files: Vec::new(),
             ice,
             security: None,
+            software: None,
         };
         let warden = IceDef {
             name: "warden".to_owned(),

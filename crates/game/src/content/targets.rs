@@ -155,7 +155,7 @@ impl Reader {
             );
             return;
         }
-        self.allow(section, &["layer", "name", "desc"]);
+        self.allow(section, &["layer", "name", "desc", "software"]);
         self.check_name(section.line, id, Name::Plain);
         let layer = self.single(section, "layer").and_then(|(word, line)| {
             let layer = Layer::find(&word);
@@ -169,12 +169,14 @@ impl Reader {
         });
         let name = self.single(section, "name").unwrap_or_default().0;
         let description = self.single(section, "desc").unwrap_or_default().0;
+        let software = self.optional(section, "software").map(|(name, _)| name);
         if let Some(layer) = layer {
             let template = TemplateDef {
                 id: id.to_owned(),
                 layer,
                 name,
                 description,
+                software,
                 files: Vec::new(),
             };
             self.templates.push((template, section.line));

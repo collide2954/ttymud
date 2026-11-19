@@ -78,6 +78,7 @@ impl World {
         if step.shown.is_empty() {
             step.shown.push(Message::game("scan finds no ICE here."));
         }
+        step.shown.extend(self.software_line(player));
         step.shown.extend(self.soc_line(player));
         Ok(step)
     }

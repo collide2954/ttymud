@@ -12,6 +12,7 @@ impl World {
             Level::User => Level::Admin,
             Level::Admin => return Err(Message::error("You already have admin access here.")),
         };
+        self.refuse_patched(player)?;
         let Some(run) = self
             .players
             .get_mut(&player)
@@ -24,7 +25,11 @@ impl World {
         let shell = Message::game("exploit opens a shell on ")
             .span(Style::Host, &self.hosts[here.0].id)
             .text(format!(". Your access here: {}.", next.word()));
-        Ok(Step::show(vec![shell]))
+        let mut shown = vec![shell];
+        if let Some((corp, software)) = self.exposed(player) {
+            shown.extend(self.expose(corp, &software));
+        }
+        Ok(Step::show(shown))
     }
 
     pub(super) fn access(&self, player: PlayerId) -> Level {

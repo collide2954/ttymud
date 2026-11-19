@@ -49,6 +49,7 @@ pub(crate) struct TargetHost {
     pub(crate) description: String,
     pub(crate) layer: Layer,
     pub(crate) security: Security,
+    pub(crate) software: Option<String>,
     pub(crate) routes: Vec<usize>,
     pub(crate) files: Vec<File>,
     pub(crate) ice: Vec<IceDef>,
@@ -143,6 +144,7 @@ impl Target {
                 description: template.description.clone(),
                 layer,
                 security: security(corp.budget, layer),
+                software: template.software.clone(),
                 routes: Vec::new(),
                 files: template.files.clone(),
                 ice: Vec::new(),
@@ -380,6 +382,24 @@ mod tests {
                 assert!(ids.contains(&"ws-1".to_owned()), "{ids:?}");
             }
         }
+    }
+
+    #[test]
+    fn hosts_run_the_software_of_their_template() {
+        let content = Content::parse(CITY).unwrap();
+        for seed in 0..20 {
+            for host in target(seed).hosts {
+                let template = host.id.split('-').next().unwrap_or_default();
+                let def = content.templates.iter().find(|def| def.id == template);
+                assert_eq!(host.software, def.and_then(|def| def.software.clone()));
+            }
+        }
+        let software = |id: &str| {
+            let def = content.templates.iter().find(|def| def.id == id);
+            def.and_then(|def| def.software.clone())
+        };
+        assert_eq!(software("share"), software("ws"));
+        assert_eq!(software("backup"), None);
     }
 
     #[test]

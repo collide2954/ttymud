@@ -503,7 +503,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         verb: Verb::Exploit,
         names: &["exploit"],
         usage: "exploit",
-        summary: "Raise your access on this host by one level. It makes much noise.",
+        summary: "Raise your access on this host by one level. It makes much noise. A corp patches software that gets many exploits.",
         example: "exploit",
         takes: Takes::Nothing,
         gives: Gives::Nothing,

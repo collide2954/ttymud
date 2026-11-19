@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use super::{NetworkId, PlayerId, World};
 
 const COOLING: u64 = 5 * 60;
@@ -43,10 +45,12 @@ impl Alert {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct CorpState {
     pub(super) alert: u32,
     pub(super) since: u64,
+    pub(super) used: BTreeMap<String, u32>,
+    pub(super) patched: BTreeMap<String, u64>,
 }
 
 impl World {
@@ -239,7 +243,7 @@ mod tests {
             .find(|(path, _)| path == "world.ini")
             .map_or_default(|(_, text)| text.clone());
         assert!(
-            text.ends_with(&format!("\n\n[alert acme]\npoints = 60\nsince = {DAY}\n")),
+            text.ends_with(&format!("\n\n[corp acme]\nalert = 60\nsince = {DAY}\n")),
             "{text}"
         );
         let mut fresh = crate::testing::world();
@@ -252,7 +256,7 @@ mod tests {
             fresh
                 .restore(
                     "world.ini",
-                    "[world test]\nseed = 7\n[alert gone]\npoints = 9\nsince = 1\n"
+                    "[world test]\nseed = 7\n[corp gone]\nalert = 9\nsince = 1\n"
                 )
                 .is_ok()
         );

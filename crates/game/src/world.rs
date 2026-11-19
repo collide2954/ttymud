@@ -26,6 +26,7 @@ mod run;
 mod save;
 mod shop;
 mod soc;
+mod software;
 mod stash;
 mod tell;
 mod topics;
@@ -105,6 +106,7 @@ struct Host {
     files: Vec<File>,
     ice: Vec<IceDef>,
     security: Option<Security>,
+    software: Option<String>,
 }
 
 #[derive(Debug)]
@@ -253,6 +255,7 @@ impl World {
                 files: def.files,
                 ice: def.ice,
                 security: None,
+                software: None,
             });
         }
         for (from, to) in links {

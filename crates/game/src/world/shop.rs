@@ -296,7 +296,7 @@ mod tests {
                 "The shop sells:",
                 "patch: 300 cr. Repair some integrity during a run.",
                 "firewall: 400 cr. Stop the next attack on your integrity.",
-                "exploit: 800 cr. Raise your access on this host by one level. It makes much noise.",
+                "exploit: 800 cr. Raise your access on this host by one level. It makes much noise. A corp patches software that gets many exploits.",
                 "ram: 900 cr. 12 GB of RAM, not 8 GB.",
                 "cpu: 1200 cr. 5 cycles, not 4.",
                 "The fence buys stolen data. Type sell <file>.",

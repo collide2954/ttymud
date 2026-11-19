@@ -340,6 +340,7 @@ impl World {
                 files: def.files.clone(),
                 ice: def.ice.clone(),
                 security: Some(def.security),
+                software: def.software.clone(),
             });
         }
         let security = target.hosts.iter().map(|host| host.security).max();

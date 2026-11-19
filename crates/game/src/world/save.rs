@@ -18,7 +18,7 @@ use crate::kits::{CYCLES, KITS, RAM};
 
 const ACCOUNTS: &str = "accounts/";
 
-type Alerts = Vec<(usize, CorpState)>;
+type Corps = Vec<(usize, CorpState)>;
 const BURNS: &str = "burns.ini";
 const WORLD: &str = "world.ini";
 
@@ -76,9 +76,9 @@ impl World {
             return Ok(());
         }
         if path == WORLD {
-            let (seed, alerts) = self.parse_world(text)?;
+            let (seed, corps) = self.parse_world(text)?;
             self.seed = seed;
-            for (corp, state) in alerts {
+            for (corp, state) in corps {
                 self.corp_states[corp] = state;
             }
             self.state_dirty = false;
@@ -189,18 +189,37 @@ impl World {
         text.section("world", &self.city_id);
         text.pair("seed", &self.seed.to_string());
         for (corp, state) in self.corp_states.iter().enumerate() {
-            if self.alert_points(corp) > 0 {
-                text.section("alert", &self.corps[corp].id);
-                text.pair("points", &state.alert.to_string());
-                text.pair("since", &state.since.to_string());
-            }
+            self.corp_text(&mut text, corp, state);
         }
         text.finish()
     }
 
-    fn parse_world(&self, text: &str) -> Result<(u64, Alerts), Vec<ContentError>> {
+    fn corp_text(&self, text: &mut Text, corp: usize, state: &CorpState) {
+        let alert = self.alert_points(corp) > 0;
+        let patches: Vec<(&String, &u64)> = state
+            .patched
+            .iter()
+            .filter(|&(_, &until)| until > self.now)
+            .collect();
+        if !alert && state.used.is_empty() && patches.is_empty() {
+            return;
+        }
+        text.section("corp", &self.corps[corp].id);
+        if alert {
+            text.pair("alert", &state.alert.to_string());
+            text.pair("since", &state.since.to_string());
+        }
+        for (software, uses) in &state.used {
+            text.pair("used", &format!("{software}: {uses}"));
+        }
+        for (software, until) in patches {
+            text.pair("patched", &format!("{software}: {until}"));
+        }
+    }
+
+    fn parse_world(&self, text: &str) -> Result<(u64, Corps), Vec<ContentError>> {
         let (sections, mut errors) = ini::read(text);
-        let (mut seed, mut alerts) = (None, Vec::new());
+        let (mut seed, mut corps) = (None, Vec::new());
         for section in &sections {
             match section.kind {
                 "world" if section.id == self.city_id => {
@@ -215,15 +234,10 @@ impl World {
                         format!("world {id} is not this city: {city}"),
                     ));
                 }
-                "alert" => {
-                    allow(section, &["points", "since"], &mut errors);
-                    let find = |key: &str| section.pairs.iter().find(|pair| pair.key == key);
-                    let alert = find("points").and_then(|pair| number(pair, &mut errors));
-                    let since = find("since").and_then(|pair| number(pair, &mut errors));
+                "corp" => {
+                    let state = corp_state(section, &mut errors);
                     let corp = self.corps.iter().position(|corp| corp.id == section.id);
-                    if let (Some(corp), Some(alert), Some(since)) = (corp, alert, since) {
-                        alerts.push((corp, CorpState { alert, since }));
-                    }
+                    corps.extend(corp.map(|corp| (corp, state)));
                 }
                 kind => errors.push(problem(
                     section.line,
@@ -234,7 +248,7 @@ impl World {
         if !sections.iter().any(|section| section.kind == "world") {
             errors.push(problem(0, format!("{WORLD} has no world section")));
         }
-        checked(errors, (seed.unwrap_or_default(), alerts))
+        checked(errors, (seed.unwrap_or_default(), corps))
     }
 
     fn burns_text(&self) -> String {
@@ -419,6 +433,38 @@ fn parse_burns(text: &str) -> Result<Vec<Burn>, Vec<ContentError>> {
         }
     }
     checked(errors, burns)
+}
+
+fn corp_state(section: &Section<'_>, errors: &mut Vec<ContentError>) -> CorpState {
+    allow(section, &["alert", "since", "used", "patched"], errors);
+    let mut state = CorpState::default();
+    for pair in &section.pairs {
+        match pair.key {
+            "alert" => state.alert = number(pair, errors).unwrap_or_default(),
+            "since" => state.since = number(pair, errors).unwrap_or_default(),
+            "used" => state.used.extend(software_number(pair, errors)),
+            "patched" => state.patched.extend(software_number(pair, errors)),
+            _ => {}
+        }
+    }
+    state
+}
+
+fn software_number<T: FromStr>(
+    pair: &Pair<'_>,
+    errors: &mut Vec<ContentError>,
+) -> Option<(String, T)> {
+    let parsed = pair.value.rsplit_once(':').and_then(|(name, value)| {
+        let name = name.trim();
+        let value = value.trim().parse().ok()?;
+        (!name.is_empty()).then(|| (name.to_owned(), value))
+    });
+    if parsed.is_none() {
+        let (key, value) = (pair.key, pair.value);
+        let usage = "use a software name, a colon, and a number";
+        errors.push(problem(pair.line, format!("bad {key}: {value} ({usage})")));
+    }
+    parsed
 }
 
 fn parse_file(section: &Section<'_>, errors: &mut Vec<ContentError>) -> File {
