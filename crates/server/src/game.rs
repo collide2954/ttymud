@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::mpsc;
 
-use ttymud_game::{Output, PlayerId, World};
+use ttymud_game::{Completion, Output, PlayerId, World};
 use ttymud_net::PublicKey;
 use ttymud_wire::ServerMessage;
 
@@ -16,6 +16,10 @@ pub(crate) enum Event {
     Command {
         connection: u64,
         line: String,
+    },
+    Complete {
+        connection: u64,
+        text: String,
     },
     Leave {
         connection: u64,
@@ -62,6 +66,7 @@ impl Game {
                 outbox,
             } => self.join(connection, key, outbox),
             Event::Command { connection, line } => self.command(connection, &line),
+            Event::Complete { connection, text } => self.complete(connection, &text),
             Event::Leave { connection } => self.leave(connection),
         }
     }
@@ -100,6 +105,14 @@ impl Game {
         let outputs = self.world.command(player, line);
         self.deliver(outputs);
         self.prompt(player);
+    }
+
+    fn complete(&self, connection: u64, text: &str) {
+        let Some(&player) = self.connections.get(&connection) else {
+            return;
+        };
+        let Completion { word, names } = self.world.complete(player, text);
+        self.send(player, ServerMessage::Candidates { word, names });
     }
 
     fn leave(&mut self, connection: u64) {

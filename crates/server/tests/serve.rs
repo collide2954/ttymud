@@ -126,6 +126,21 @@ fn others_see_a_disconnect() {
 }
 
 #[test]
+fn completion_requests_get_candidates() {
+    let (address, _) = start();
+    let (mut client, _) = Client::joined(address);
+    let request = ClientMessage::Complete("go n".to_owned());
+    client.sender.send(&request.encode()).unwrap();
+    assert_eq!(
+        client.next(),
+        ServerMessage::Candidates {
+            word: "n".to_owned(),
+            names: vec!["night-market".to_owned(), "newsstand".to_owned()],
+        }
+    );
+}
+
+#[test]
 fn a_new_connection_with_the_same_key_takes_over() {
     let (address, _) = start();
     let keys = Keys::generate().unwrap();

@@ -64,6 +64,10 @@ impl Limiter {
         }
         None
     }
+
+    pub(crate) fn completion(&mut self, now: Instant) -> bool {
+        self.commands.take(now)
+    }
 }
 
 #[derive(Debug)]
@@ -178,6 +182,15 @@ mod tests {
         assert!((0..5).all(|_| limiter.check("say hi", now).is_none()));
         assert_eq!(limiter.check("'hi", now), Some(TALKING_TOO_FAST));
         assert_eq!(limiter.check("look", now), None);
+    }
+
+    #[test]
+    fn completions_use_the_command_limit_but_not_the_chat_limit() {
+        let now = Instant::now();
+        let mut limiter = Limiter::new(now);
+        assert!((0..15).all(|_| limiter.completion(now)));
+        assert!((0..5).all(|_| limiter.check("say hi", now).is_none()));
+        assert!(!limiter.completion(now));
     }
 
     #[test]

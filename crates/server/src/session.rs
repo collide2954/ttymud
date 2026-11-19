@@ -46,14 +46,23 @@ fn serve(
     if events.send(joined).is_ok() {
         let mut limiter = Limiter::new(Instant::now());
         while let Ok(bytes) = receiver.receive() {
-            let Ok(ClientMessage::Command(line)) = ClientMessage::decode(&bytes) else {
-                break;
+            let event = match ClientMessage::decode(&bytes) {
+                Ok(ClientMessage::Command(line)) => {
+                    if let Some(warning) = limiter.check(&line, Instant::now()) {
+                        let _ = warnings.send(ServerMessage::Text(Message::error(warning)));
+                        continue;
+                    }
+                    Event::Command { connection, line }
+                }
+                Ok(ClientMessage::Complete(text)) => {
+                    if !limiter.completion(Instant::now()) {
+                        continue;
+                    }
+                    Event::Complete { connection, text }
+                }
+                Err(_) => break,
             };
-            if let Some(warning) = limiter.check(&line, Instant::now()) {
-                let _ = warnings.send(ServerMessage::Text(Message::error(warning)));
-                continue;
-            }
-            if events.send(Event::Command { connection, line }).is_err() {
+            if events.send(event).is_err() {
                 break;
             }
         }
