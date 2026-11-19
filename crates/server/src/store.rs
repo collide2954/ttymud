@@ -7,6 +7,8 @@ use std::thread;
 const ACCOUNTS: &str = "accounts";
 const BURNS: &str = "burns.ini";
 const WORLD: &str = "world.ini";
+pub(crate) const MODERATORS: &str = "moderators.ini";
+const AUDIT: &str = "audit.log";
 
 pub struct Store(mpsc::Sender<(String, String)>);
 
@@ -31,12 +33,9 @@ impl Store {
     }
 }
 
-pub fn load_saves(dir: &Path) -> io::Result<Vec<(String, String)>> {
+pub(crate) fn load_saves(dir: &Path) -> io::Result<Vec<(String, String)>> {
     let mut saves = Vec::new();
-    let world = dir.join(WORLD);
-    if world.is_file() {
-        saves.push((WORLD.to_owned(), fs::read_to_string(world)?));
-    }
+    load_file(dir, WORLD, &mut saves)?;
     let accounts = dir.join(ACCOUNTS);
     if accounts.is_dir() {
         let mut names = Vec::new();
@@ -52,11 +51,18 @@ pub fn load_saves(dir: &Path) -> io::Result<Vec<(String, String)>> {
             saves.push((format!("{ACCOUNTS}/{name}"), text));
         }
     }
-    let burns = dir.join(BURNS);
-    if burns.is_file() {
-        saves.push((BURNS.to_owned(), fs::read_to_string(burns)?));
+    for name in [BURNS, MODERATORS, AUDIT] {
+        load_file(dir, name, &mut saves)?;
     }
     Ok(saves)
+}
+
+fn load_file(dir: &Path, name: &str, saves: &mut Vec<(String, String)>) -> io::Result<()> {
+    let path = dir.join(name);
+    if path.is_file() {
+        saves.push((name.to_owned(), fs::read_to_string(path)?));
+    }
+    Ok(())
 }
 
 pub(crate) fn write(dir: &Path, path: &str, text: &str) -> io::Result<()> {
@@ -69,7 +75,8 @@ pub(crate) fn write(dir: &Path, path: &str, text: &str) -> io::Result<()> {
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent)?;
     }
-    let temporary = target.with_extension("ini.tmp");
+    let mut temporary = target.clone().into_os_string();
+    temporary.push(".tmp");
     let mut file = fs::File::create(&temporary)?;
     file.write_all(text.as_bytes())?;
     file.sync_all()?;
@@ -78,7 +85,7 @@ pub(crate) fn write(dir: &Path, path: &str, text: &str) -> io::Result<()> {
 }
 
 fn target(dir: &Path, path: &str) -> Option<PathBuf> {
-    if path == BURNS || path == WORLD {
+    if [BURNS, WORLD, MODERATORS, AUDIT].contains(&path) {
         return Some(dir.join(path));
     }
     let name = path.strip_prefix("accounts/")?.strip_suffix(".ini")?;
@@ -92,24 +99,19 @@ fn target(dir: &Path, path: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::path::PathBuf;
 
     use super::{load_saves, write};
-
-    fn scratch(name: &str) -> PathBuf {
-        let id = std::process::id();
-        let path = std::env::temp_dir().join(format!("ttymud-store-{id}-{name}"));
-        let _ = fs::remove_dir_all(&path);
-        path
-    }
+    use crate::testing::scratch;
 
     #[test]
     fn saves_come_back_after_a_write() {
-        let dir = scratch("back");
+        let dir = scratch("store-back");
         write(&dir, "accounts/a1.ini", "[account a1]\n").unwrap();
         write(&dir, "burns.ini", "[burn nyx]\nwhen = 1\n").unwrap();
         write(&dir, "accounts/a1.ini", "[account a1]\nknow = scan\n").unwrap();
         write(&dir, "world.ini", "[world c]\nseed = 7\n").unwrap();
+        write(&dir, "moderators.ini", "[moderator a1]\n").unwrap();
+        write(&dir, "audit.log", "x mutes y.\n").unwrap();
         assert_eq!(
             load_saves(&dir).unwrap(),
             [
@@ -119,15 +121,18 @@ mod tests {
                     "[account a1]\nknow = scan\n".to_owned()
                 ),
                 ("burns.ini".to_owned(), "[burn nyx]\nwhen = 1\n".to_owned()),
+                ("moderators.ini".to_owned(), "[moderator a1]\n".to_owned()),
+                ("audit.log".to_owned(), "x mutes y.\n".to_owned()),
             ]
         );
         assert!(!dir.join("accounts/a1.ini.tmp").exists());
+        assert!(!dir.join("audit.log.tmp").exists());
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn a_new_directory_has_no_saves() {
-        let dir = scratch("empty");
+        let dir = scratch("store-empty");
         fs::create_dir_all(&dir).unwrap();
         assert_eq!(load_saves(&dir).unwrap(), Vec::<(String, String)>::new());
         let _ = fs::remove_dir_all(&dir);
@@ -135,7 +140,7 @@ mod tests {
 
     #[test]
     fn only_save_paths_can_be_written() {
-        let dir = scratch("paths");
+        let dir = scratch("store-paths");
         for path in [
             "../x.ini",
             "/x.ini",

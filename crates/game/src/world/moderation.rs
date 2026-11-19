@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use ttymud_text::Message;
 
+use super::save::Text;
 use super::{Output, PlayerId, Step, World, minute_word};
 use crate::content::ContentError;
 use crate::date::stamp;
@@ -62,6 +63,49 @@ impl Moderation {
 }
 
 impl World {
+    #[must_use]
+    pub fn moderators(&self) -> Vec<String> {
+        let ids = self.moderation.moderators.iter();
+        let mut names: Vec<String> = ids
+            .map(|id| self.person_label(id).unwrap_or(id).to_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    pub fn add_moderator(&mut self, handle: &str) -> Result<String, String> {
+        let (id, name) = self
+            .saved_handle(handle)
+            .ok_or_else(|| format!("No handle named {handle}."))?;
+        if !self.moderation.moderators.insert(id) {
+            return Err(format!("{name} is already a moderator."));
+        }
+        Ok(name)
+    }
+
+    pub fn remove_moderator(&mut self, word: &str) -> Result<String, String> {
+        let (id, name) = self
+            .saved_handle(word)
+            .unwrap_or_else(|| (word.to_owned(), word.to_owned()));
+        if !self.moderation.moderators.remove(&id) {
+            return Err(format!("{name} is not a moderator."));
+        }
+        Ok(name)
+    }
+
+    #[must_use]
+    pub fn moderators_text(&self) -> String {
+        let mut text = Text::new("# The moderators of this server.");
+        for id in &self.moderation.moderators {
+            text.section("moderator", id);
+            let account = self.accounts.get(id);
+            if let Some(handle) = account.and_then(|account| account.handle.as_ref()) {
+                text.pair("handle", &handle.name);
+            }
+        }
+        text.finish()
+    }
+
     pub(super) fn is_moderator(&self, player: PlayerId) -> bool {
         let account = self
             .players
@@ -356,6 +400,34 @@ mod tests {
             let completed = world.complete(player, "mu").names == ["mute"];
             assert_eq!([available, helped, completed], [moderator; 3]);
         }
+    }
+
+    #[test]
+    fn the_operator_adds_and_removes_moderators() {
+        let mut world = world();
+        hacker(&mut world, "a", "nyx");
+        hacker(&mut world, "b", "zer0");
+        assert_eq!(world.moderators(), Vec::<String>::new());
+        assert_eq!(world.add_moderator("NYX"), Ok("nyx".to_owned()));
+        assert_eq!(world.add_moderator("zer0"), Ok("zer0".to_owned()));
+        assert_eq!(world.moderators(), ["nyx", "zer0"]);
+        assert_eq!(
+            world.moderators_text(),
+            "# The moderators of this server.\n\n[moderator a]\nhandle = nyx\n\n[moderator b]\nhandle = zer0\n"
+        );
+        let failed = |result: Result<String, String>| result.unwrap_err();
+        assert_eq!(
+            failed(world.add_moderator("nyx")),
+            "nyx is already a moderator."
+        );
+        assert_eq!(failed(world.add_moderator("ny")), "No handle named ny.");
+        assert_eq!(world.remove_moderator("zer0"), Ok("zer0".to_owned()));
+        assert_eq!(
+            failed(world.remove_moderator("zer0")),
+            "zer0 is not a moderator."
+        );
+        assert_eq!(world.remove_moderator("a"), Ok("a".to_owned()));
+        assert_eq!(world.moderators(), Vec::<String>::new());
     }
 
     #[test]

@@ -253,6 +253,11 @@ impl World {
     }
 
     #[must_use]
+    pub fn account_count(&self) -> usize {
+        self.accounts.len()
+    }
+
+    #[must_use]
     pub fn handle(&self, player: PlayerId) -> Option<&str> {
         let state = self.players.get(&player)?;
         (state.phase == Phase::Playing).then_some(state.name.as_str())

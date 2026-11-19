@@ -325,19 +325,19 @@ impl World {
     }
 }
 
-struct Text(Vec<String>);
+pub(super) struct Text(Vec<String>);
 
 impl Text {
-    fn new(comment: &str) -> Self {
+    pub(super) fn new(comment: &str) -> Self {
         Self(vec![comment.to_owned()])
     }
 
-    fn section(&mut self, kind: &str, id: &str) {
+    pub(super) fn section(&mut self, kind: &str, id: &str) {
         self.0.push(String::new());
         self.0.push(format!("[{kind} {id}]"));
     }
 
-    fn pair(&mut self, key: &str, value: &str) {
+    pub(super) fn pair(&mut self, key: &str, value: &str) {
         self.0.push(format!("{key} = {value}"));
     }
 
@@ -351,7 +351,7 @@ impl Text {
         }
     }
 
-    fn finish(self) -> String {
+    pub(super) fn finish(self) -> String {
         let mut text = self.0.join("\n");
         text.push('\n');
         text

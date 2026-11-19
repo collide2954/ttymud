@@ -24,16 +24,9 @@ pub fn load_keys(dir: &Path) -> io::Result<Keys> {
 mod tests {
     use std::fs;
     use std::io::ErrorKind;
-    use std::path::PathBuf;
 
     use super::{init, load_keys};
-
-    fn scratch(name: &str) -> PathBuf {
-        let id = std::process::id();
-        let path = std::env::temp_dir().join(format!("ttymud-{id}-{name}"));
-        let _ = fs::remove_dir_all(&path);
-        path
-    }
+    use crate::testing::scratch;
 
     #[test]
     fn init_makes_a_directory_with_a_key() {
@@ -56,7 +49,7 @@ mod tests {
 
     #[test]
     fn a_directory_without_init_has_no_key() {
-        let dir = scratch("empty");
+        let dir = scratch("data-empty");
         fs::create_dir_all(&dir).unwrap();
         let error = load_keys(&dir).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::NotFound);

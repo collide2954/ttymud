@@ -4,15 +4,19 @@ use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use ttymud_server::Moderation;
+
 const USAGE: &str = "\
 Usage: ttymud-server [OPTION]
        ttymud-server init <DIR>
        ttymud-server run <DIR> [--listen ADDRESS]
+       ttymud-server mod <DIR> [add|remove <HANDLE>]
        ttymud-server play [NAME]
 
 Commands:
   init <DIR>     Make a data directory with a new server key.
   run <DIR>      Open the city to players. The default address is 0.0.0.0:7331.
+  mod <DIR>      Show the moderators, or add or remove a moderator by handle.
   play [NAME]    Walk Port Ostra alone, offline.
 
 Options:
@@ -28,6 +32,7 @@ enum Cli {
     Version,
     Init(PathBuf),
     Run { dir: PathBuf, listen: String },
+    Mod { dir: PathBuf, action: Moderation },
     Play(Option<String>),
 }
 
@@ -50,9 +55,18 @@ fn parse(args: &[OsString]) -> Result<Cli, String> {
             dir: dir(),
             listen: (*address).to_owned(),
         }),
+        ["mod", rest @ ..] if !rest.is_empty() => {
+            let action = match &rest[1..] {
+                [] => Moderation::List,
+                ["add", handle] => Moderation::Add((*handle).to_owned()),
+                ["remove", handle] => Moderation::Remove((*handle).to_owned()),
+                _ => return Err("mod takes add <HANDLE> or remove <HANDLE>".to_owned()),
+            };
+            Ok(Cli::Mod { dir: dir(), action })
+        }
         ["play"] => Ok(Cli::Play(None)),
         ["play", name] => Ok(Cli::Play(Some((*name).to_owned()))),
-        [command @ ("init" | "run")] => Err(format!("{command} needs a data directory")),
+        [command @ ("init" | "run" | "mod")] => Err(format!("{command} needs a data directory")),
         [word] => Err(format!("unknown argument '{word}'")),
         _ => Err("too many arguments".to_owned()),
     }
@@ -78,6 +92,9 @@ fn main() -> ExitCode {
         }
         Cli::Init(dir) => init(&dir),
         Cli::Run { dir, listen } => run(&dir, &listen),
+        Cli::Mod { dir, action } => {
+            ttymud_server::moderate(&dir, &action).map(|done| println!("{done}"))
+        }
         Cli::Play(name) => ttymud_server::play(
             name.as_deref(),
             io::BufReader::new(io::stdin()),
@@ -108,26 +125,12 @@ fn init(dir: &Path) -> io::Result<()> {
 
 fn run(dir: &Path, listen: &str) -> io::Result<()> {
     let keys = ttymud_server::load_keys(dir).map_err(|error| missing_key(dir, error))?;
-    let mut world = ttymud_server::port_ostra(ttymud_server::seed())?;
-    let saves = ttymud_server::load_saves(dir)?;
-    for (path, text) in &saves {
-        world.restore(path, text).map_err(|errors| {
-            let lines: Vec<String> = errors
-                .iter()
-                .map(|error| format!("{path}: {error}"))
-                .collect();
-            io::Error::other(lines.join("\n"))
-        })?;
-    }
+    let world = ttymud_server::load_world(dir)?;
     let store = ttymud_server::Store::start(dir)?;
     let listener = TcpListener::bind(listen)?;
     println!("{} is open on {}.", world.city(), listener.local_addr()?);
     println!("Fingerprint: {}", keys.public().fingerprint());
-    let accounts = saves
-        .iter()
-        .filter(|(path, _)| path.starts_with("accounts/"))
-        .count();
-    println!("Accounts: {accounts}");
+    println!("Accounts: {}", world.account_count());
     ttymud_server::serve(&listener, keys, world, Some(store))
 }
 
@@ -144,6 +147,7 @@ fn missing_key(dir: &Path, error: io::Error) -> io::Error {
 mod tests {
     use super::{Cli, parse};
     use std::ffi::OsString;
+    use ttymud_server::Moderation;
 
     fn args(list: &[&str]) -> Vec<OsString> {
         list.iter().map(OsString::from).collect()
@@ -207,6 +211,34 @@ mod tests {
                 dir: "data".into(),
                 listen: "127.0.0.1:4000".to_owned()
             })
+        );
+    }
+
+    #[test]
+    fn mod_shows_adds_or_removes_moderators() {
+        let action = |list: &[&str]| match parse(&args(list)) {
+            Ok(Cli::Mod { dir, action }) => Ok((dir, action)),
+            other => Err(other),
+        };
+        assert_eq!(
+            action(&["mod", "data"]),
+            Ok(("data".into(), Moderation::List))
+        );
+        assert_eq!(
+            action(&["mod", "data", "add", "nyx"]),
+            Ok(("data".into(), Moderation::Add("nyx".to_owned())))
+        );
+        assert_eq!(
+            action(&["mod", "data", "remove", "nyx"]),
+            Ok(("data".into(), Moderation::Remove("nyx".to_owned())))
+        );
+        assert_eq!(
+            parse(&args(&["mod"])),
+            Err("mod needs a data directory".to_owned())
+        );
+        assert_eq!(
+            parse(&args(&["mod", "data", "promote", "nyx"])),
+            Err("mod takes add <HANDLE> or remove <HANDLE>".to_owned())
         );
     }
 

@@ -35,14 +35,18 @@ impl World {
         {
             return Ok((state.key(), name.to_owned()));
         }
-        let saved = self.accounts.iter().find_map(|(id, account)| {
+        self.saved_handle(word)
+            .ok_or_else(|| Message::error(format!("No handle named {word}.")))
+    }
+
+    pub(super) fn saved_handle(&self, word: &str) -> Option<(String, String)> {
+        self.accounts.iter().find_map(|(id, account)| {
             let handle = account.handle.as_ref()?;
             handle
                 .name
                 .eq_ignore_ascii_case(word)
                 .then(|| (id.clone(), handle.name.clone()))
-        });
-        saved.ok_or_else(|| Message::error(format!("No handle named {word}.")))
+        })
     }
 
     pub(super) fn person_label<'a>(&'a self, key: &'a str) -> Option<&'a str> {
