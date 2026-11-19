@@ -57,7 +57,7 @@ This table records the main design decisions. When a decision changes, change th
 | Death | Each trace adds heat. Heat goes down over real time. At maximum heat, the handle burns. |
 | Legacy | After a burn, the account keeps its know-how and an offshore stash of 3 files. |
 | Handles | One handle for each account. The player selects the name and a starter kit in the game. |
-| Heat | The security level of the target sets the heat for a trace. Heat goes down by 1 for each 24 hours. |
+| Heat | The security level of the host sets the heat for a trace. Heat goes down by 1 for each 24 hours. |
 | Burn list | A file on a hub host. In Port Ostra, it is on the Newsstand. |
 | World | Hubs that authors make by hand, and targets that the server makes from a seed. |
 | Progression | No levels. Rig hardware, program versions, and faction reputation. |
@@ -81,9 +81,15 @@ This table records the main design decisions. When a decision changes, change th
 | Storage | Plain text files in the data directory. A storage thread writes them. |
 | Noise | Noise raises the trace at once. A working Sentry doubles it. The trace does not increase while you wait. |
 | ICE in version 0.1 | Sentry, Warden, Hound, and Scorch. The other types come later. |
-| RAM | A rig has 8 GB. A starter kit fills it with five programs. `load` and `unload` work only at the home host. |
-| First contract | The fixer Pell offers it on connect. Its steps and hints come from the content file. |
-| Repair | The `repair` command at the home host. It is free until credits come in M5. |
+| RAM | A new rig has 8 GB. A starter kit fills it with five programs. `load` and `unload` work only at the home host. |
+| First contract | The fixer Pell offers it to each new handle. Its steps and hints come from the content file. |
+| Repair | The `repair` command at the home host. It is free up to 50 integrity. Above 50, each point costs 2 credits. |
+| Job board | Each fixer posts 3 jobs each day. All players see the same jobs. One contract at a time, with no time limit. |
+| Reputation | Each clean contract adds 1 reputation with its fixer. Jobs against bigger budgets need more reputation. |
+| Targets | The server makes each target from the world seed: an edge, a LAN, and a core with 5 to 8 hosts. The vault comes later. |
+| Access | Guest, user, and admin. Stolen credentials raise the access quietly. The `exploit` program raises it with noise. |
+| Money | Credits for each handle. Contracts and the fence pay. Shops sell programs, RAM, and CPUs. |
+| World seed | The file `world.ini` keeps it. Targets and boards stay the same after a restart. |
 | Hosting | A public GitHub repository. The default branch is `main`. |
 | Documents | ASD-STE100 Simplified Technical English. A test checks the basic rules. |
 

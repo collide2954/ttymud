@@ -61,8 +61,9 @@ The connections are encrypted, but the server can read all text that players sen
 
 The server keeps the game data in plain text files in the data directory:
 
-- `accounts/`: one file for each account. The file has the handle, the rig, the contract, the know-how, and the stash of the account. The name of the file is the public key of the account in hexadecimal.
+- `accounts/`: one file for each account. The file has the handle, the rig, the credits, the reputation, the contract, the know-how, and the stash of the account. The name of the file is the public key of the account in hexadecimal.
 - `burns.ini`: the burn list.
+- `world.ini`: the seed of the world. The server makes the file at its first start.
 
 The server writes a file each time its data changes. A storage thread writes the files, so a slow disk does not stop the game. The server writes each file to a temporary file first, and then it renames the file. As a result, a crash cannot leave a damaged file.
 
@@ -72,7 +73,11 @@ When the server starts, it reads all the files. If a file has an error, the serv
 
 To make a backup, stop the server and copy the data directory. To delete an account, stop the server and delete the file of the account.
 
-The ICE selects its actions with random numbers. The server takes the seed from the clock when it starts. As a result, the ICE acts in a different order after each start. A seed in the data directory comes in M5.
+The seed in `world.ini` sets the job board and the target networks. As a result, a job has the same network after a restart. Keep the file. If you lose it, the server makes a new seed. Then the jobs on the board and the accepted jobs change.
+
+Do not show the seed to players. With the seed and the server code, a person can make the same targets and find each goal file before a run.
+
+The ICE selects its actions with a different seed, which the server takes from the clock when it starts. As a result, the ICE acts in a different order after each start.
 
 ## Try the city offline
 

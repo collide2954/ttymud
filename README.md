@@ -8,9 +8,11 @@ TTYmud is a MUD (multi-user dungeon). The networks are the dungeons. The hostile
 
 ## Status
 
-TTYmud is in early development. Milestones M0 to M4 are complete. You can run a server and play the default city with other players over an encrypted connection.
+TTYmud is in early development. Milestones M0 to M5 are complete. You can run a server and play the default city with other players over an encrypted connection.
 
-You select a handle and a starter kit, and the server keeps them. Your first job is a hack into the network of a dental office. If the targets trace you too often, your handle burns. Contracts and credits come in M5. The [roadmap](docs/roadmap.md) gives the plan.
+You select a handle and a starter kit, and the server keeps them. Your first job is a hack into the network of a dental office. After that, fixers post new jobs each day against six corporations. The server makes a new network for each job. You earn credits, buy programs and hardware, and sell stolen data to a fence.
+
+If the targets trace you too often, your handle burns. Chat channels come in M6. The [roadmap](docs/roadmap.md) gives the plan.
 
 ## Build
 
@@ -25,7 +27,7 @@ Use this command to walk Port Ostra alone, without a network:
 
     cargo run -p ttymud-server -- play
 
-Type a handle, and then select a starter kit. Type `help` to see the commands. Type `contract` to see your first job. Type `quit` to leave.
+Type a handle, and then select a starter kit. Type `help` to see the commands. Type `contract` to see your first job, and type `jobs` in the Back Room for more work. Type `quit` to leave.
 
 ## Play on a network
 

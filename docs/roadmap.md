@@ -49,11 +49,17 @@ TTYmud grows in small milestones. At the end of each milestone, the game works a
 - A disconnect during a run counts as a jack out.
 - Storage in plain text files, with a storage thread.
 
-### M5: Contracts
+### M5: Contracts (done)
 
-- The target generator, with the server seed.
-- Defense in depth: the edge, LAN, core, and vault layers, and privilege levels.
-- Fixers, contracts, loot, credits, and shops.
+- The world seed in `world.ini`.
+- The target generator: corps and host templates in the content file, and targets with an edge, a LAN, and a core.
+- Security levels for each host, and ICE versions that follow them.
+- Access levels: guest, user, and admin. Credentials in the targets, and the `exploit` program.
+- Fixers with a daily job board, `jobs` and `accept`, and reputation with each fixer.
+- Credits, contract pay, fees at heat 4, and repairs that cost credits above 50 integrity.
+- Shops with programs, RAM, and CPUs, and a fence that buys stolen data.
+
+The vault layer comes with bridges in M9.
 
 ### M6: Chat relay
 

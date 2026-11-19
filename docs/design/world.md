@@ -27,9 +27,9 @@ Hubs are content files. A server operator can change the hubs or add new hubs.
 
 ## Targets
 
-A target is the network of a corporation. The server makes a new target network for each contract. It uses the server seed, the corporation, and the contract number. As a result, two servers with different seeds have different targets.
+A target is the network of a corporation. The server makes a new target network for each job on the job board. It uses the server seed, the day, the fixer, and the number of the job. As a result, two servers with different seeds have different targets. The same job also has the same network after a restart.
 
-In version 0.1, the target of the first contract is a network in the content file: the dental office Bright Smile Dental. The target generator comes in M5.
+In version 0.1, a target has an edge, a LAN, and a core. The vault comes with crews in M9. The first contract of a new handle uses a network that an author made by hand: the dental office Bright Smile Dental.
 
 Each target has layers. This is defense in depth.
 
@@ -48,6 +48,19 @@ The vault has no network route. To get in, a crew must make a bridge. These are 
 - A Face tricks an employee, who then puts a USB drive into a vault computer.
 - A Phreak finds an old modem line that the corporation forgot.
 
+### Generated targets in version 0.1
+
+The server makes each target from the corp sections and the template sections of the content file:
+
+- 1 or 2 edge hosts. Each edge host is a way in from your home host, and each one has a Sentry.
+- 2 or 3 LAN hosts, and a Hound on one of them. Above low security, a second LAN host has a Sentry.
+- 2 or 3 core hosts, each with a Scorch. A Warden guards one route from the LAN into the core.
+- ICE of version 1, 2, 3, or 4 for the security levels low, medium, high, and top.
+- The data files of the corporation on the LAN hosts and the core hosts. The goal of the job is on a core host.
+- Two credentials files. The first gives user access, and the second gives admin access.
+
+The [gameplay](gameplay.md#access-in-version-01) document tells how access works.
+
 ## Security levels
 
 Each host has a security level: low, medium, high, or top. The layer of the host and the security budget of the corporation set the level.
@@ -61,7 +74,7 @@ Each host has a security level: low, medium, high, or top. The layer of the host
 
 The security level sets the strength of the ICE and the heat for a trace.
 
-In version 0.1, each target network has one security level, and the content file sets it. The security level sets only the heat for a trace. Bright Smile Dental has the security level low.
+In version 0.1, each host of a generated target gets its security level from this table. The level sets the heat for a trace and the version of the ICE. A network that an author makes by hand has one security level for all its hosts. Bright Smile Dental has the security level low.
 
 ## Contracts
 
@@ -75,6 +88,8 @@ Fixers give contracts. A contract has a target, an objective, a payment, and a t
 
 Higher reputation with a fixer opens contracts against deeper layers and stronger corporations.
 
+In version 0.1, the only objective is to steal a file, and a contract has no time limit. Each clean contract adds 1 reputation with its fixer. The [gameplay](gameplay.md#jobs) document gives the pay and the necessary reputation for each budget.
+
 ## Corporations
 
 Each corporation has a business, a security budget, a software stack, and a SOC. Port Ostra has these corporations:
@@ -87,6 +102,8 @@ Each corporation has a business, a security budget, a software stack, and a SOC.
 | Arcadia Bank | Accounts and loans | High |
 | Civic Grid | Power and water for the city | High |
 | Greyward Defense | Weapons and private security | Top |
+
+In Port Ostra, two fixers work in the Back Room. Pell works against Mosaic Media, Kestrel Health, and Orrery Logistics. Wren works against Mosaic Media, Arcadia Bank, Civic Grid, and Greyward Defense. Wren does not work with handles at heat 4 or more.
 
 ## The SOC
 
@@ -141,6 +158,8 @@ The currency is the credit (cr).
 | | Auction bids |
 
 The price of stolen data changes with supply and demand. If many players sell medical records, the price of medical records goes down.
+
+In version 0.1, credits come from contracts and from the fence, which pays fixed prices. Credits go to repairs, programs, and hardware. Prices with supply and demand come in M10.
 
 ## Crews and heists
 

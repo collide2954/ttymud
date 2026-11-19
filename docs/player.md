@@ -115,7 +115,32 @@ Do these steps:
 4. Find the weak point of the Sentry, and crack it in the same pipeline: `probe sentry | crack`.
 5. Find the host with the file `patients.db`. Then download the file: `download patients.db`.
 6. If your kit has `scrub`, lower your trace: `scrub`.
-7. Go back the way that you came in: `back`. Then the contract is complete.
+7. Go back the way that you came in: `back`. Then the contract is complete, and Pell pays you 250 cr.
+
+## The job board
+
+After the first job, go to the Back Room: `go back-room`. Type `jobs` to see the jobs of the fixers Pell and Wren. All players see the same jobs, and the jobs change each day. To take a job, type `accept` and the number of the job.
+
+When you take a job, your safehouse gets routes into the network of the target. Each target has an edge, a LAN, and a core. The goal file is on a core host. Each clean job adds 1 reputation with its fixer. Jobs against bigger companies pay more, but they need more reputation.
+
+## Access
+
+In a target, you start with guest access on each host. Some files need more access. The `look` and `ls` commands mark them, for example `payroll.db (needs user)`. Find the credentials of the company and read them:
+
+1. Find a credentials file on an edge host, for example `helpdesk.txt`. Read it to get user access in the whole network.
+2. Find a second credentials file on a LAN host. Read it to get admin access.
+
+Your access goes back to guest when the run ends. If you download a credentials file, you can read it from your rig in the next run. The `exploit` program raises your access on one host by one level, but it makes much noise. You can buy it at the Night Market.
+
+## Money
+
+Type `status` to see your credits. A clean exit with the goal file gets the pay of your contract. Use these commands at the Night Market:
+
+- `shop` shows the programs and the hardware that you can buy.
+- `buy <item>` buys a program, more RAM (`buy ram`), or a faster CPU (`buy cpu`).
+- `sell <file>` sells stolen data to the fence. Files from bigger companies give more credits.
+
+A repair up to 50 integrity is free. Each point above 50 costs 2 cr. A burn takes your credits and your hardware.
 
 ## Cycles and noise
 
@@ -125,9 +150,9 @@ Programs also make noise, and noise raises your trace. A Sentry on the host doub
 
 ## Programs and RAM
 
-Your rig has 8 GB of RAM. A program must be in RAM before you can run it. Type `status` to see the programs in RAM. At your safehouse, use `unload <program>` and `load <program>` to change them.
+A new rig has 8 GB of RAM. A program must be in RAM before you can run it. Type `status` to see the programs in RAM. At your safehouse, use `unload <program>` and `load <program>` to change them.
 
-You can load only the programs that your account knows. A new account knows the programs of its starter kit. After a burn, your account also knows the programs of the next kit.
+You can load only the programs that your account knows. A new account knows the programs of its starter kit. A shop sells the other programs. After a burn, your account also knows the programs of the next kit.
 
 ## Telegraphs
 
@@ -141,7 +166,7 @@ In this example, you have two ticks to answer. You can crack the ICE, leave the 
 
 A run ends in one of four ways:
 
-- **Clean exit.** You leave through the host where you came in. You keep the loot.
+- **Clean exit.** You leave through the host where you came in. You keep the loot. If you have the goal file of your contract, the fixer takes it and pays you.
 - **Jack out.** You type `jackout`. You keep the loot, but the shock costs your rig 20 integrity. If the trace is 75% or more, you also get 1 heat.
 - **Traced.** The trace gets to 100%. You lose the loot of the run, and you get heat.
 - **Crash.** The integrity of your rig gets to 0. You lose the loot of the run.
@@ -150,13 +175,13 @@ If you disconnect from the server during a run, the game jacks you out. After a 
 
 ## Heat
 
-Each time a target traces you, your heat increases. The security level of the target sets the quantity: 1, 2, 3, or 5 heat. Type `status` to see your heat.
+Each time a target traces you, your heat increases. The security level of the host where the trace gets to 100% sets the quantity: 1, 2, 3, or 5 heat. Type `status` to see your heat.
 
-At heat 3 or more, Sentries alert faster. Your heat decreases by 1 for each 24 hours of real time without new heat. It also decreases while you are offline. At heat 5, your handle burns.
+At heat 3 or more, Sentries alert faster. At heat 4 or more, fixers keep 25% of your pay, and Wren gives you no jobs. Your heat decreases by 1 for each 24 hours of real time without new heat. It also decreases while you are offline. At heat 5, your handle burns.
 
 ## A burn
 
-When your handle burns, the police seize your rig and its files. The handle goes on the burn list, the file `burn-list.txt` on the Newsstand. Nobody can use the name again.
+When your handle burns, the police seize your rig and its files. You also lose your credits and your reputation. The handle goes on the burn list, the file `burn-list.txt` on the Newsstand. Nobody can use the name again.
 
 Your account keeps its know-how and its stash. The know-how is the programs that your handles knew. After the burn, select a new handle and a starter kit.
 
