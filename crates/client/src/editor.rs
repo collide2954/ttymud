@@ -1,5 +1,5 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Key {
+pub(crate) enum Key {
     Char(char),
     Enter,
     Backspace,
@@ -19,7 +19,7 @@ pub enum Key {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Action {
+pub(crate) enum Action {
     Nothing,
     Redraw,
     Submit(String),
@@ -28,7 +28,7 @@ pub enum Action {
 }
 
 #[derive(Debug, Default)]
-pub struct Editor {
+pub(crate) struct Editor {
     buffer: Vec<char>,
     cursor: usize,
     history: Vec<String>,
@@ -37,7 +37,7 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn press(&mut self, key: Key) -> Action {
+    pub(crate) fn press(&mut self, key: Key) -> Action {
         match key {
             Key::Char(c) => {
                 self.insert(c.encode_utf8(&mut [0; 4]));
@@ -72,16 +72,16 @@ impl Editor {
     }
 
     #[must_use]
-    pub fn line(&self) -> String {
+    pub(crate) fn line(&self) -> String {
         self.buffer.iter().collect()
     }
 
     #[must_use]
-    pub fn cursor(&self) -> usize {
+    pub(crate) fn cursor(&self) -> usize {
         self.cursor
     }
 
-    pub fn insert(&mut self, text: &str) {
+    pub(crate) fn insert(&mut self, text: &str) {
         for c in text.chars().filter(|c| !c.is_control()) {
             self.buffer.insert(self.cursor, c);
             self.cursor += 1;

@@ -8,6 +8,7 @@ use ttymud_net::{Receiver, Sender};
 use ttymud_text::clean;
 use ttymud_wire::{ClientMessage, ServerMessage};
 
+use crate::editor::Key;
 use crate::{Link, Shown, render};
 
 const DRAIN: Duration = Duration::from_secs(5);
@@ -20,12 +21,15 @@ pub enum Ending {
 
 pub(crate) enum Event {
     Line(String),
+    Key(Key),
+    Resize(u16),
     InputEnded,
     Server(ServerMessage),
     LinkEnded,
 }
 
-enum Typed {
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Typed {
     Nothing,
     Line(String),
     Quit,
@@ -33,6 +37,14 @@ enum Typed {
 
 pub(crate) trait View {
     fn show(&mut self, shown: Shown) -> io::Result<()>;
+
+    fn press(&mut self, _key: Key) -> io::Result<Typed> {
+        Ok(Typed::Nothing)
+    }
+
+    fn resize(&mut self, _width: u16) -> io::Result<()> {
+        Ok(())
+    }
 
     fn finish(&mut self) -> io::Result<()> {
         Ok(())
@@ -113,6 +125,12 @@ fn play(
             Event::LinkEnded => return Ok(Ending::Closed),
             Event::InputEnded => Typed::Quit,
             Event::Line(line) => Typed::Line(line),
+            Event::Key(key) if !draining => view.press(key)?,
+            Event::Key(_) => Typed::Nothing,
+            Event::Resize(width) => {
+                view.resize(width)?;
+                Typed::Nothing
+            }
         };
         match typed {
             Typed::Line(line) if !draining && !is_quit(&line) => {
