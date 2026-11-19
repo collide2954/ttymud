@@ -8,9 +8,12 @@ impl World {
         host: HostId,
         except: PlayerId,
     ) -> impl Iterator<Item = (PlayerId, &str)> {
+        let shared = self.hosts[host.0].network.is_none();
         self.players
             .iter()
-            .filter(move |&(&id, state)| id != except && state.chain.last() == Some(&host))
+            .filter(move |&(&id, state)| {
+                shared && id != except && state.chain.last() == Some(&host)
+            })
             .map(|(&id, state)| (id, state.name.as_str()))
     }
 
@@ -94,6 +97,28 @@ mod tests {
         world.command(ghost, "go back-room");
         assert_eq!(
             to(&world.command(nyx, "go market"), ghost),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn each_run_is_private() {
+        let (mut world, ghost, nyx) = two();
+        for line in ["go back-room", "go gate"] {
+            world.command(ghost, line);
+            world.command(nyx, line);
+        }
+        let shown = plain(&world.command(ghost, "look"));
+        assert!(
+            !shown.iter().any(|line| line.starts_with("Here:")),
+            "{shown:?}"
+        );
+        assert_eq!(
+            to(&world.command(nyx, "say hi"), ghost),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            to(&world.command(nyx, "go core"), ghost),
             Vec::<String>::new()
         );
     }
