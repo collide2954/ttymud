@@ -59,9 +59,11 @@ The connections are encrypted, but the server can read all text that players sen
 
 ## Game data
 
-In version 0.1, the server does not save the game state. When a player disconnects, the player loses the files on the rig. When the server stops, all players lose their files.
+In version 0.1, the server does not save the game state. When a player disconnects, the player loses the rig and the contract. When the server stops, all players lose them.
 
 To make a backup, copy the data directory. At this time, the data directory contains only the server key.
+
+The ICE selects its actions with random numbers. The server takes the seed from the clock when it starts. As a result, the ICE acts in a different order after each start. A seed in the data directory comes in M5.
 
 ## Try the city offline
 
@@ -69,4 +71,4 @@ Use this command to walk Port Ostra alone, without a network:
 
     ttymud-server play
 
-To use a different name, give the name after `play`. Type `quit` to stop.
+To use a different name, give the name after `play`. Type `quit` to stop. The offline mode uses real time, as the server does. As a result, the ICE acts on each tick of two seconds.

@@ -70,7 +70,14 @@ This table records the main design decisions. When a decision changes, change th
 | Code | A Cargo workspace with two binaries: `ttymud` and `ttymud-server`. |
 | Text model | A small `ttymud-text` crate holds styles, spans, and messages. |
 | Look and list | `look` describes the host in words. `ls` gives a short list. `cd` works like `go`, and `cd ..` goes back. |
-| Offline mode | `ttymud-server play` lets one player walk Port Ostra without a network. |
+| Offline mode | `ttymud-server play` lets one player walk Port Ostra without a network. It uses real time, as the server does. |
+| Programs | A program acts at once and costs cycles. The rig gets 1 cycle on each tick. |
+| Runs | Each run is a private copy of the target network. Crews share a copy later. |
+| Noise | Noise raises the trace at once. A working Sentry doubles it. The trace does not increase while you wait. |
+| ICE in version 0.1 | Sentry, Warden, Hound, and Scorch. The other types come later. |
+| RAM in version 0.1 | A fixed rig with 8 GB and five programs. Loads and starter kits come in M4. |
+| First contract | The fixer Pell offers it on connect. Its steps and hints come from the content file. |
+| Repair | The `repair` command at the home host. It is free until credits come in M5. |
 | Hosting | A public GitHub repository. The default branch is `main`. |
 | Documents | ASD-STE100 Simplified Technical English. A test checks the basic rules. |
 

@@ -29,6 +29,8 @@ Hubs are content files. A server operator can change the hubs or add new hubs.
 
 A target is the network of a corporation. The server makes a new target network for each contract. It uses the server seed, the corporation, and the contract number. As a result, two servers with different seeds have different targets.
 
+In version 0.1, the target of the first contract is a network in the content file: the dental office Bright Smile Dental. The target generator comes in M5.
+
 Each target has layers. This is defense in depth.
 
 | Layer | Hosts |

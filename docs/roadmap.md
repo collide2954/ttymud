@@ -28,18 +28,20 @@ TTYmud grows in small milestones. At the end of each milestone, the game works a
 - The client in line mode and edit mode, with tab completion.
 - `say`, with the text sanitizer, rate limits, and connection limits.
 
-### M3: First hack
+### M3: First hack (done)
 
-- Trace and integrity.
-- ICE with telegraphs.
+- Game ticks in the server and in offline play, and a Refresh message for the prompt.
+- Trace and integrity, with noise from programs.
+- ICE with telegraphs: Sentry, Warden, Hound, and Scorch.
 - Programs, RAM, and cycles: `scan`, `probe`, `crack`, `scrub`, and `patch`.
-- Pipelines as combos.
-- The tutorial contract: the network of a dental office.
+- Pipelines as combos: one setup cycle, one connection, the weak point, and checks of the items.
+- The tutorial contract from Pell: the network of a dental office, with steps and hints.
 - The four ends of a run: clean exit, jack out, traced, and crash.
+- `status`, `jackout`, `repair`, and `contract`.
 
 ### M4: Handles and heat
 
-- Handles under accounts, and the four starter kits.
+- Handles under accounts, and the four starter kits, with `load` and `unload`.
 - Heat, burns, the burn list, know-how, and the offshore stash.
 - Storage in plain text files.
 
