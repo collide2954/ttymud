@@ -113,7 +113,7 @@ Three values show how much danger you are in.
 
 **Trace** is a value from 0% to 100% for the current run. Noise from your actions increases the trace. A working Sentry on the host doubles the trace from noise. Some ICE attacks also increase the trace. The `scrub` program deletes log lines and decreases the trace. When the trace gets to 100%, the target traces you.
 
-The trace does not increase while you wait. The pressure comes from ICE. Later, it also comes from the SOC.
+The trace does not increase while you wait. The pressure comes from ICE and from the analysts of the SOC.
 
 **Integrity** is the health of your rig, from 100 to 0. Black ICE attacks decrease integrity. The `patch` program repairs some integrity during a run. When integrity gets to 0, your rig crashes.
 
@@ -185,6 +185,48 @@ You do not know the ICE on a host before you scan the host. The `look` command s
 
 When the integrity of an ICE gets to 0, the ICE breaks. A broken ICE does not act. A broken Warden opens its route.
 
+## Alert levels
+
+Each corporation has an alert level from 0 to 100 points. The points set the level:
+
+| Points | Level |
+| --- | --- |
+| 0 to 24 | Green |
+| 25 to 49 | Yellow |
+| 50 to 74 | Orange |
+| 75 to 100 | Red |
+
+The actions of all players raise the points. Each point of noise in a network of the corporation adds 1 point. A trace adds 25 points, and a completed contract against the corporation adds 15 points. The points go down by 1 every 5 minutes. As a result, the change from red to green takes about 6 hours.
+
+The alert level at the start of a run sets how difficult the run is. Each level above green adds 25% to the trace from noise, 1 analyst, and 1 version to each ICE. The maximum ICE version is 9. During a run, a change of the level changes only the trace from noise.
+
+## The SOC
+
+Each corporation has a SOC with a pool of 6 analysts. The world seed sets their names and their habits. The analysts work in shifts on the UTC clock:
+
+| Shift | Time | Analysts | ICE |
+| --- | --- | --- | --- |
+| Day | 08:00 to 20:00 | 2 | Normal |
+| Night | 20:00 to 08:00 | 1 | 1 version stronger |
+
+Each alert level above green adds 1 analyst to the shift. The `scan` command shows the analysts on shift and their habits.
+
+The noise of your actions goes into the logs of the host. Each analyst reads the logs of one host at a time. Two ticks before the read, a telegraph gives the name of the host. The habit of the analyst sets the host and the time between two reads:
+
+| Habit | Host | Time between reads |
+| --- | --- | --- |
+| Careful | The host with the most noise in the logs. | 8 ticks |
+| Strict | The host where you are. | 6 ticks |
+| Lazy | A random host of the network. | 12 ticks |
+
+If the analyst finds your noise, the trace increases by 5% and by the noise in the logs. Then the logs of that host are empty. If your access comes from stolen credentials, a careful or a strict analyst also locks the account. Your access in the network goes back to guest, but a shell from `exploit` stays open.
+
+Three programs work against the SOC:
+
+- `scrub` deletes your logs on the host where you are.
+- While `mask` is up, noise does not go into the logs, and an analyst finds nothing.
+- `pretext <analyst>` tricks an analyst who is not strict. Then the analyst does not watch your run.
+
 ## Programs
 
 A program is software that you run to do an action. Each program has these properties:
@@ -214,22 +256,37 @@ In version 0.1, a new rig has 8 GB of RAM, and its CPU holds 4 cycles. A shop se
 
 | Program | RAM | Cycles | Noise | Action |
 | --- | --- | --- | --- | --- |
-| `scan` | 1 GB | 1 | 1 | It shows the ICE on this host. After the scan, you know the names of the ICE. |
+| `scan` | 1 GB | 1 | 1 | It shows the ICE and the software of this host, and the analysts on shift. After the scan, you know the names of the ICE. |
 | `probe` | 1 GB | 1 | 1 | It shows the weak point of an ICE. |
 | `crack` | 2 GB | 2 | 2 | It does 15 damage to an ICE. After a probe in the same pipeline, it does 30 damage. |
-| `scrub` | 2 GB | 2 | 0 | It decreases the trace by 15%. |
+| `scrub` | 2 GB | 2 | 0 | It decreases the trace by 15% and deletes your logs on this host. |
 | `patch` | 2 GB | 2 | 0 | It repairs 20 integrity. |
 | `firewall` | 2 GB | 2 | 0 | It stops the next ICE attack on your integrity. Only one firewall can be up. |
-| `mask` | 2 GB | 2 | 0 | For 5 ticks, ICE does not see your noise, and noise adds only half the trace. |
+| `mask` | 2 GB | 2 | 0 | For 5 ticks, ICE and analysts do not see your noise, and noise adds only half the trace. |
 | `proxy` | 2 GB | 3 | 1 | Until the run ends, ICE attacks on your trace do half damage. |
-| `pretext` | 2 GB | 2 | 2 | It tricks a Warden. Until the run ends, the Warden lets you through. |
-| `exploit` | 2 GB | 3 | 3 | It raises your access on this host by one level. |
+| `pretext` | 2 GB | 2 | 2 | It tricks a Warden or an analyst who is not strict. Until the run ends, the Warden lets you through, or the analyst does not watch you. |
+| `exploit` | 2 GB | 3 | 3 | It raises your access on this host by one level. It does not work on software that the corporation patched. |
 
 A new rig holds a maximum of 4 cycles. It gets 1 cycle on each tick. The programs work only in a target network. In a target network, a download also makes 2 noise.
 
 A command line that runs programs costs 1 more cycle for the setup. If the programs make noise, the connection adds 1 more noise. As a result, `probe sentry | crack` costs 4 cycles and makes 4 noise. The same two commands on two lines cost 5 cycles and make 5 noise.
 
 If you do not have enough cycles, the command does not run. It costs nothing.
+
+## Exploit decay
+
+A host template can give a software family, for example `Deskline OS 11`. The hosts from the template run that software, and `scan` shows it. Two templates can have the same family.
+
+Each corporation counts the uses of `exploit` against each family. The count is for all players. When the count gets to the limit of the corporation, the corporation patches the family:
+
+| Budget | Uses before a patch | Time of the patch |
+| --- | --- | --- |
+| Low | 12 | 2 days |
+| Medium | 8 | 4 days |
+| High | 5 | 7 days |
+| Top | 3 | 14 days |
+
+The use that gets to the limit still opens its shell. After the patch, `exploit` does not work on that family at that corporation, and it costs nothing. The `scan` command shows the patch, for example `Software: Deskline OS 11 (patched)`. When the time of the patch ends, somebody finds a new hole, and the count starts at 0 again. On a host without software, `exploit` always works.
 
 ## Roles
 
@@ -278,6 +335,36 @@ Type `jobs` on the host of a fixer to see the board. Type `accept <number>` to t
 | Top | About 3000 cr | 9 |
 
 The pay of a job can be up to 20% more or less. Each clean contract adds 1 reputation with its fixer. The first job of each fixer is always against its company with the lowest budget. As a result, a new handle can always find work.
+
+## News
+
+The news feed reports the events of the city:
+
+- A breach: a handle completes a contract against a corporation.
+- A trace in a network of a corporation.
+- A burn. This is the only headline with the name of a handle.
+- A patch, and the new hole after the patch.
+- A change of an alert level.
+
+The news reports a higher level immediately. It reports a lower level only when the points are more than 5 below the limit of the level. As a result, a level that goes up and down at its limit does not fill the news.
+
+Type `news` on any host to see the 10 newest headlines, with the UTC time. The `news` key of the city section gives a host with the same headlines in the file `news.txt`. In Port Ostra, the file is on the Newsstand. The Status message carries the newest headline, and the HUD shows it.
+
+## Rumors
+
+Type `rumors` on the host of a fixer to hear rumors. Each fixer tells each handle 3 rumors each UTC day. A rumor is about a corporation of the fixer: its alert level, a patch, or an analyst and the shift of the analyst. Rumors are free.
+
+A rumor can be true, old, or false. A true rumor tells the state of the world now. An old rumor tells the state before the last change, for example the alert level after its last increase. A false rumor tells a different state. With more reputation, more rumors are true:
+
+| Reputation with the fixer | True rumors |
+| --- | --- |
+| 0 | 50% |
+| 1 | 60% |
+| 2 | 70% |
+| 3 | 80% |
+| 4 or more | 90% |
+
+Half of the other rumors are old, and half are false.
 
 ## Progression
 

@@ -109,33 +109,33 @@ In Port Ostra, two fixers work in the Back Room. Pell works against Mosaic Media
 
 Each corporation has a security operations center (SOC). Analysts are NPCs who work in the SOC. They work in shifts on the server clock. The day shift has more analysts. The night shift has fewer analysts, but the automatic ICE is stronger.
 
-Analysts act like people. They read logs, lock accounts, reset passwords, and cut routes between hosts. Each analyst has traits, for example careful, lazy, or strict. The game shows their actions as log lines:
+Analysts act like people. They read logs and lock stolen accounts. Later, they will also reset passwords and cut routes between hosts. Each analyst has a habit: careful, lazy, or strict. The game shows their actions as log lines:
 
-    [SOC] Analyst m.ortiz reads the auth log on mail-gw.
+    [SOC] Analyst m.ortiz reads the logs of mail-gw and finds your trail. Trace: 12% -> 20%.
 
-A Face can trick an analyst. A Ghost can hide from an analyst.
+A Face can trick an analyst with `pretext`. A Ghost can hide from an analyst with `mask`. The [gameplay](gameplay.md#the-soc) document gives the rules.
 
 Each corporation has an alert level: green, yellow, orange, or red. Noise and traces from all players increase the alert level. The alert level decreases over time. A higher alert level adds analysts and ICE. For example, if a different player made noise at Arcadia Bank one hour ago, Arcadia Bank can still be on alert when you arrive.
 
 ## Exploit decay
 
-An exploit attacks a weakness in a software family, for example version 4 of a mail server. Each corporation keeps an exposure value for each exploit. Each use of the exploit against the corporation increases the exposure. A noisy use or a trace increases it more.
+An exploit attacks a weakness in a software family, for example version 3 of a mail server. Each corporation keeps an exposure value for each family. Each use of `exploit` against the family increases the exposure. Later, a noisy use or a trace will increase it more.
 
-When the exposure gets to the limit of the corporation, the corporation patches the weakness. After the patch, the exploit does not work against that corporation on that server. The news feed reports the patch. A corporation with a higher security budget has a lower limit, so it patches faster.
+When the exposure gets to the limit of the corporation, the corporation patches the family. After the patch, `exploit` does not work on that family at that corporation. The news feed reports the patch. A corporation with a higher security budget has a lower limit, so it patches faster. Its patch also stays for a longer time.
 
-New exploits come from loot, from research, and from vendors. A player who uses a new exploit carefully can use it for a long time. As a result, the best tactics change all the time, and a secret exploit has a real value.
+When the patch gets old, somebody finds a new hole in the family. Then the exploit works again, and the exposure starts at 0. Corporations with a low budget patch slowly, and their patches stay for a short time. The [gameplay](gameplay.md#exploit-decay) document gives the limits.
 
-Sometimes a corporation makes an error and brings back an old weakness. Corporations with a low budget patch slowly.
+Later, new exploits will come from loot, from research, and from vendors. A player who uses a new exploit carefully can use it for a long time. As a result, the best tactics change all the time, and a secret exploit has a real value.
 
 ## News feed and rumors
 
-The news feed reports events in the city: breaches, traces, burns, patches, alert levels, bounties, and auctions. Use the `news` command to read it. The HUD also shows the latest headline.
+The news feed reports events in the city: breaches, traces, burns, patches, and alert levels. Later, it will also report bounties and auctions. Use the `news` command to read it. The HUD also shows the latest headline.
 
-    Kestrel Health confirms the theft of 40,000 patient records.
+    2026-03-14 22:13 Kestrel Health loses patients.db in a breach.
 
-Fixers and NPCs in the Back Room tell rumors. A rumor gives a hint about a weak target. Some rumors are true, some are old, and some are false. A source with a higher reputation gives better rumors.
+The fixers in the Back Room tell rumors. A rumor gives a hint about a target. Some rumors are true, some are old, and some are false. A fixer gives more true rumors to a handle with a higher reputation. Later, other NPCs will also tell rumors.
 
-    "The night admin at Orrery leaves the VPN open on Fridays."
+    Pell: I hear that the hole in Gatehouse VPN 4 at Orrery Logistics is still open.
 
 ## Evidence auctions
 

@@ -106,10 +106,13 @@ The check cannot find all STE problems. A person must also read each document.
 | display layer | One level of the client display: line, edit, color, or HUD. |
 | fence | An NPC who buys stolen data. |
 | fixer | An NPC who gives contracts. |
+| habit | How an analyst works: careful, lazy, or strict. |
 | handle | A character under an account. A handle can burn. |
+| headline | One item of the news feed. |
 | heat | How much the police know about a handle, from 0 to 5. |
 | heist | A large contract for a crew, with more than one stage. |
 | hint | A help text for the next step of a contract. |
+| hole | A weakness in a software family. The `exploit` program uses it until the corporation patches the family. |
 | home host | The private hub host where a handle repairs the rig, changes the RAM, and uses the stash. |
 | host | A computer in the game world. It is the TTYmud equivalent of a room. |
 | hub | A safe zone that an author makes by hand. |
@@ -122,6 +125,7 @@ The check cannot find all STE problems. A person must also read each document.
 | link code | A code for one use that adds a new device to an account. |
 | loot | Data and items that a handle takes from a target. |
 | moderator | A player who can mute, kick, and ban other players. The operator selects the moderators. |
+| news feed, news | The public list of the latest events in a city. |
 | noise | The evidence that an action leaves in a target. Noise increases the trace. |
 | NPC | A character that the server controls. |
 | offshore stash, stash | A store of credits and items that stays after a burn. |
@@ -133,10 +137,13 @@ The check cannot find all STE problems. A person must also read each document.
 | reputation | The trust of a fixer in a handle. More reputation opens bigger jobs. |
 | rig | The computer of a handle. |
 | route | A network path from one host to a different host. |
+| rumor | A hint from a fixer about a corporation. A rumor can be true, old, or false. |
 | run | One visit of a handle to a target, from entry to exit. |
 | security level | The strength of the security of a host: low, medium, high, or top. |
+| shift | The time when a group of analysts works in a SOC: the day shift or the night shift. |
 | shop | A place on a hub host that sells programs and hardware. |
 | SOC | The security operations center of a corporation. |
+| software family, software | The software that a host runs, for example a mail server. An exploit attacks one software family. |
 | starter kit, kit | The first programs of a new handle. A kit sets the first role of the handle. |
 | step | One part of a contract. A step teaches one command. |
 | target | A network that a handle attacks. |

@@ -192,8 +192,29 @@ mod tests {
     fn help_names_the_topics() {
         assert_eq!(
             run("help").last().map(String::as_str),
-            Some("Topics: heat, ice, pipes, runs. Example: help ice")
+            Some("Topics: heat, ice, pipes, runs, soc. Example: help ice")
         );
+    }
+
+    #[test]
+    fn help_explains_the_soc_alerts_patches_news_and_rumors() {
+        let soc = run("help soc");
+        assert_eq!(soc[0], "The SOC");
+        for word in [
+            "alert level",
+            "analyst",
+            "pretext",
+            "patches",
+            "news",
+            "rumors",
+        ] {
+            assert!(
+                soc.iter().any(|line| line.contains(word)),
+                "{word}: {soc:?}"
+            );
+        }
+        assert_eq!(run("help alert"), soc);
+        assert_eq!(run("help patches"), soc);
     }
 
     #[test]

@@ -1,6 +1,17 @@
 use ttymud_text::{Kind, Message, Style};
 
-pub(super) const TOPICS: &[&str] = &["burn", "heat", "ice", "pipes", "pipelines", "runs", "trace"];
+pub(super) const TOPICS: &[&str] = &[
+    "alert",
+    "burn",
+    "heat",
+    "ice",
+    "patches",
+    "pipes",
+    "pipelines",
+    "runs",
+    "soc",
+    "trace",
+];
 
 pub(super) fn topic(name: &str) -> Option<Vec<Message>> {
     match name {
@@ -8,12 +19,49 @@ pub(super) fn topic(name: &str) -> Option<Vec<Message>> {
         "ice" => Some(ice()),
         "pipes" | "pipelines" => Some(pipes()),
         "runs" | "trace" => Some(runs()),
+        "soc" | "alert" | "patches" => Some(soc()),
         _ => None,
     }
 }
 
 pub(super) fn index() -> Message {
-    Message::game("Topics: heat, ice, pipes, runs. Example: ").span(Style::Command, "help ice")
+    Message::game("Topics: heat, ice, pipes, runs, soc. Example: ").span(Style::Command, "help ice")
+}
+
+fn soc() -> Vec<Message> {
+    let command = |text: &str| Message::new(Kind::Game).span(Style::Command, text);
+    vec![
+        title("The SOC"),
+        Message::game("Each corp has an alert level: green, yellow, orange, or red."),
+        Message::game(
+            "The noise, traces, and breaches of all players raise it. It cools by 1 point every 5 minutes.",
+        ),
+        Message::game(
+            "A higher alert adds trace from noise, analysts on shift, and stronger ICE in new runs.",
+        ),
+        Message::game(
+            "An analyst reads the logs of one host. If your noise is there, your trace goes up.",
+        ),
+        Message::game(
+            "A careful or strict analyst also locks your stolen account. Then your access is guest again.",
+        ),
+        Message::game("Type ")
+            .span(Style::Command, "scrub")
+            .text(" to delete your logs on this host. While ")
+            .span(Style::Command, "mask")
+            .text(" is up, your noise stays out of the logs."),
+        command("pretext <analyst>").text(
+            " makes an analyst stop watching your run. A strict analyst does not believe you.",
+        ),
+        Message::game(
+            "A corp patches software after many exploits. Later, somebody finds a new hole.",
+        ),
+        Message::game("Type ")
+            .span(Style::Command, "news")
+            .text(" to read the news. At a fixer, type ")
+            .span(Style::Command, "rumors")
+            .text(" to hear rumors."),
+    ]
 }
 
 fn title(text: &str) -> Message {

@@ -28,6 +28,7 @@ Each content file has one city section.
 | `start` | 1 | The host where new players start. |
 | `home` | 0 or 1 | The host where players repair their rigs, change their RAM, and use their stash. It must be a hub host. Other players do not see a player there. |
 | `burns` | 0 or 1 | The host with the burn list, the file `burn-list.txt`. It must be a hub host. |
+| `news` | 0 or 1 | The host with the news feed, the file `news.txt`. It must be a hub host. The `news` command works without this key. |
 | `contract` | 0 or 1 | The contract that each new handle gets. |
 
 ### Network
@@ -129,8 +130,11 @@ A template section describes one type of host for the targets. The server makes 
 | `layer` | 1 | `edge`, `lan`, or `core`. |
 | `name` | 1 | The name of the host type, for example `VPN Gateway`. The server puts the name of the corporation before it. |
 | `desc` | 1 | The description of the host. |
+| `software` | 0 or 1 | The software family of the host, for example `Gatehouse VPN 4`. The `scan` command shows it. |
 
 A file section can put a file on a template, for example `[file vpn/banner.txt]`. Each host from the template gets the file. If the content file has corps, each layer must have at least one template. A template cannot have the name of a host.
+
+Each corporation counts the uses of `exploit` against each software family, and it patches a family after too many uses. Two templates with the same `software` value share one count. On a host without software, `exploit` always works. The [gameplay](design/gameplay.md#exploit-decay) document gives the limits.
 
 ### Shop
 
@@ -160,6 +164,7 @@ A channel section makes one chat channel. Players talk in a channel with `#<chan
     start = relay
     home = safehouse
     burns = relay
+    news = relay
     contract = first-job
 
     [host relay]
@@ -220,16 +225,19 @@ A channel section makes one chat channel. Players talk in a channel with `#<chan
     layer = edge
     name = VPN Gateway
     desc = The remote door for staff who work from home.
+    software = Gatehouse VPN 4
 
     [template share]
     layer = lan
     name = File Share
     desc = Shared folders for every team.
+    software = Ironside Server 8
 
     [template db]
     layer = core
     name = Database Server
     desc = The main database of the company.
+    software = Ledgerbase 9
 
     [file vpn/banner.txt]
     line = Authorized users only.
@@ -246,7 +254,7 @@ The server checks a content file before it uses the file. It finds these errors 
 - Routes and files on unknown hosts, and routes from a host to itself.
 - A start host that does not exist.
 - Hosts that players cannot reach from the start host.
-- A home host, a burns host, a fixer host, or a shop host that does not exist, or that is in a network.
+- A home, burns, news, fixer, or shop host that does not exist, or that is in a network.
 - Networks without hosts, hosts in unknown networks, and routes between two networks.
 - Unknown security levels, budgets, and layers.
 - ICE on unknown hosts or on hub hosts, unknown ICE types, and bad versions.

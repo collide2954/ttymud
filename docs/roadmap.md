@@ -82,11 +82,13 @@ Crew channels come with crews in M9.
 - The HUD, with two status bars, an output pane with scrollback, a chat pane, and the input line.
 - A settings file, and the verbose setting for screen readers.
 
-### M8: The city reacts
+### M8: The city reacts (done)
 
-- SOC shifts, analysts, and alert levels.
-- Exploit decay.
-- The news feed and rumors.
+- Alert levels for each corporation, from the noise, traces, and breaches of all players. A higher alert adds trace, analysts, and ICE versions.
+- SOC shifts on the UTC clock, with analysts who read the logs of a run and lock stolen accounts. `pretext` tricks an analyst who is not strict.
+- Exploit decay: software families in the templates, and patches that stay until somebody finds a new hole.
+- The news feed with `news` and `news.txt`, and the newest headline in the Status message and the HUD.
+- Rumors from the fixers with `rumors`: true, old, or false.
 
 ### M9: Crews and heists
 

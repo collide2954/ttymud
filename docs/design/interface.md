@@ -45,25 +45,28 @@ The client obeys the `NO_COLOR` environment variable. Color never gives informat
 
 The HUD uses the full terminal window:
 
-    ┌ arcadia-db · Arcadia Health · user ───── trace ▓▓▓░░░░░░░ 31% ┐
-    │ The ledger server hums behind two firewalls.                  │
-    │ Sentry v2 watches port 8443.                                  │
-    │ $ probe sentry | crack                                        │
-    │ crack: overflow lands. Sentry integrity 40 -> 12              │
-    │ Sentry v2 starts to compile TRACE BURST (2 ticks)             │
-    ├ chat ─────────────────────────────────────────────────────────┤
-    │ [ostra] <nyx> arcadia patched crack v2. anyone got v3?        │
-    ├───────────────────────────────────────────────────────────────┤
-    │ ghost@arcadia-db $ _                                          │
-    └ integ 82 · heat ▲▲△△△ · ram 6/8 GB · cycles ●●●○ · 1250 cr ───┘
+    ┌ arcadia-db · Arcadia Bank · user · red alert ── trace ▓▓▓░░░░░░░ 31% ┐
+    │ The ledger server hums behind two firewalls.                         │
+    │ Sentry v2 watches port 8443.                                         │
+    │ $ probe sentry | crack                                               │
+    │ crack: overflow lands. Sentry integrity 40 -> 12                     │
+    │ Sentry v2 starts to compile TRACE BURST (2 ticks)                    │
+    ├ chat ────────────────────────────────────────────────────────────────┤
+    │ [ostra] <nyx> arcadia patched ledgerbase. anyone got a new hole?     │
+    ├ news: Arcadia Bank raises its alert to red. ─────────────────────────┤
+    │ ghost@arcadia-db $ _                                                 │
+    └ integ 82 · heat ▲▲△△△ · ram 6/8 GB · cycles ●●●○ · 1250 cr ──────────┘
 
 The HUD has these parts:
 
-- The top bar shows the host. During a run, it also shows the network, the access, and the trace.
+- The top bar shows the host. During a run, it also shows the network, the access, the alert level of the corporation, and the trace.
 - The output pane shows the game text. It keeps the last 1,000 lines.
 - The chat pane shows `say` messages, channel messages, and private messages.
+- The line above the input line shows the latest headline of the news.
 - The input line shows the prompt and the line editor.
 - The bottom bar shows the integrity, the heat, the RAM, the cycles, and the credits.
+
+The color of the alert level goes from green to red. In a narrow window, the top bar cuts the end of its left part. As a result, the alert level is the first part to go.
 
 PgUp and PgDn scroll the output pane. When the pane shows older text, the line below the pane shows "more below", and new text does not move the pane. A new command moves the pane back to the newest text.
 
@@ -100,7 +103,7 @@ TTYmud supports screen readers.
 
 - Line mode does not redraw the screen and does not show animations.
 - The prompt and the status use words, not only symbols.
-- The `verbose` setting tells the client to write important changes of state as text lines, for example "Trace is now 50 percent." The client writes a line when a run starts or ends, and when the trace, the access, the integrity, or the heat changes.
+- The `verbose` setting tells the client to write important changes of state as text lines, for example "Trace is now 50 percent." The client writes a line when a run starts or ends. It writes a line when the trace, the access, the alert level, the integrity, or the heat changes. It also writes each new headline of the news.
 - When the `verbose` setting is on, each telegraph starts with the word "Alert". As a result, a screen reader user can recognize a telegraph immediately.
 
 ## First run

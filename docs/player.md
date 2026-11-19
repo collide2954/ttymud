@@ -58,9 +58,10 @@ To use a different directory, set the `TTYMUD_CONFIG` environment variable, or u
 
 In a terminal, the client shows the HUD. The HUD fills the window:
 
-- The top bar shows the host. During a run, it also shows the network, your access, and the trace.
+- The top bar shows the host. During a run, it also shows the network, your access, the alert level of the company, and the trace.
 - The output pane shows the game text.
 - The chat pane shows `say` messages, channel messages, and private messages.
+- The line above the input line shows the latest headline of the news.
 - The input line shows the prompt and the text that you type.
 - The bottom bar shows the integrity of your rig, your heat, your RAM, your cycles, and your credits.
 
@@ -122,7 +123,7 @@ To keep your choices, write them in the file `settings.ini` in your configuratio
 
 An option on the command line has priority over the file. The client never uses a layer that your terminal cannot show.
 
-The `verbose` setting writes a line when a run starts or ends, and when your trace, access, integrity, or heat changes. An example is `Trace is now 50 percent.` Each telegraph also starts with `Alert`.
+The `verbose` setting writes a line when a run starts or ends, and when your trace, access, alert level, integrity, or heat changes. An example is `Trace is now 50 percent.` It also writes each new headline of the news. Each telegraph also starts with `Alert`.
 
 ## Play
 
@@ -223,6 +224,12 @@ After the first job, go to the Back Room: `go back-room`. Type `jobs` to see the
 
 When you take a job, your safehouse gets routes into the network of the target. Each target has an edge, a LAN, and a core. The goal file is on a core host. Each clean job adds 1 reputation with its fixer. Jobs against bigger companies pay more, but they need more reputation.
 
+## News and rumors
+
+Type `news` on any host to see the 10 newest headlines of the city. The news reports breaches, traces, burns, patches, and changes of alert levels. It never gives the name of a handle, except for a burn. The Newsstand has the same headlines in the file `news.txt`.
+
+In the Back Room, type `rumors` to hear what the fixers know. Each fixer tells you 3 rumors each day, about alert levels, patches, and analysts. Some rumors are true, some are old, and some are false. With more reputation, a fixer tells you more true rumors. Rumors are free.
+
 ## Access
 
 In a target, you start with guest access on each host. Some files need more access. The `look` and `ls` commands mark them, for example `payroll.db (needs user)`. Find the credentials of the company and read them:
@@ -231,6 +238,12 @@ In a target, you start with guest access on each host. Some files need more acce
 2. Find a second credentials file on a LAN host. Read it to get admin access.
 
 Your access goes back to guest when the run ends. If you download a credentials file, you can read it from your rig in the next run. The `exploit` program raises your access on one host by one level, but it makes much noise. You can buy it at the Night Market.
+
+## Patches
+
+Each host of a company runs software, and `scan` shows it, for example `Software: Deskline OS 11`. Each time a handle uses `exploit` against a company, the company counts the use for that software. All players add to the same count. After too many uses, the company patches the software. Then `exploit` does not work on that software at that company, and `scan` shows `(patched)`.
+
+A company with a bigger budget patches after fewer uses, and its patch stays for a longer time. After some days, somebody finds a new hole in the software, and `exploit` works again. The news reports each patch and each new hole.
 
 ## Money
 
@@ -261,6 +274,28 @@ ICE acts on its own time. Before an ICE acts, it shows its next action in a tele
     hound starts to compile TRACE BURST (2 ticks).
 
 In this example, you have two ticks to answer. You can crack the ICE, leave the host, or scrub after the attack. Type `help ice` to see what each type of ICE does.
+
+## The SOC
+
+Each company has a security operations center (SOC). Its analysts read the logs of your run. The day shift, from 08:00 to 20:00 UTC, has two analysts. The night shift has one analyst, but the ICE is one version stronger. Type `scan` to see the analysts on shift and their habits.
+
+Before an analyst reads the logs of a host, a telegraph shows it:
+
+    [SOC] Analyst h.reyes turns to the logs of vpn.
+
+Two ticks later, the analyst reads the logs. If your noise is in the logs of that host, your trace goes up. A careful analyst reads the host with the most noise. A strict analyst reads the host where you are. A lazy analyst reads a random host, and reads less often.
+
+If you have access from stolen credentials, a careful or a strict analyst who finds your noise locks the account. Then your access in the network is guest again. These actions help you against the SOC:
+
+- `scrub` deletes your logs on the host where you are.
+- While `mask` is up, your noise does not go into the logs, and an analyst finds nothing.
+- `pretext <analyst>` tricks an analyst. Then the analyst does not watch your run. A strict analyst does not believe you.
+
+## Alert levels
+
+Each company has an alert level: green, yellow, orange, or red. The noise, traces, and breaches of all players raise it. The alert level goes down slowly. The change from red to green takes about 6 hours. The job board, `status`, and the HUD show the alert level.
+
+A higher alert level makes each new run more difficult. Each level above green adds 25% to the trace from noise, one analyst, and one version to each ICE. For example, if a different player made noise at Arcadia Bank one hour ago, the bank can still be on alert when you arrive. Type `help soc` for a summary.
 
 ## The end of a run
 
