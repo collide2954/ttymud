@@ -86,7 +86,18 @@ impl Game {
             Event::Complete { connection, text } => self.complete(connection, &text),
             Event::Leave { connection } => self.leave(connection),
         }
+        for (player, reason) in self.world.drops() {
+            self.close(player, reason);
+        }
         self.save();
+    }
+
+    fn close(&mut self, player: PlayerId, reason: String) {
+        let Some(connection) = self.links.get(&player).map(|link| link.connection) else {
+            return;
+        };
+        self.send(player, ServerMessage::Close(reason));
+        self.leave(connection);
     }
 
     fn save(&mut self) {
@@ -99,14 +110,9 @@ impl Game {
     }
 
     fn join(&mut self, connection: u64, key: PublicKey, outbox: mpsc::Sender<ServerMessage>) {
-        let earlier = self
-            .links
-            .iter()
-            .find(|(_, link)| link.key == key)
-            .map(|(&player, link)| (player, link.connection));
-        if let Some((player, old)) = earlier {
-            self.send(player, ServerMessage::Close(TAKEN_OVER.to_owned()));
-            self.leave(old);
+        let earlier = self.links.iter().find(|(_, link)| link.key == key);
+        if let Some(player) = earlier.map(|(&player, _)| player) {
+            self.close(player, TAKEN_OVER.to_owned());
         }
         let (player, outputs) = self.world.connect(&key.to_hex());
         let name = self
@@ -339,6 +345,26 @@ mod tests {
         assert!(matches!(drain(&second)[0], ServerMessage::Welcome { .. }));
         command(&mut game, 1, "look");
         assert_eq!(drain(&first), Vec::<ServerMessage>::new());
+    }
+
+    #[test]
+    fn a_kick_closes_the_connection_of_the_handle() {
+        let moderator = key();
+        let mut world = port_ostra(0).unwrap();
+        let file = format!("[moderator {}]\n", moderator.to_hex());
+        world.restore("moderators.ini", &file).unwrap();
+        let mut game = Game::new(world, None);
+        let first = join(&mut game, 1, moderator);
+        command(&mut game, 1, "ghost");
+        command(&mut game, 1, "breaker");
+        let second = hacker(&mut game, 2, "nyx");
+        drain(&first);
+        command(&mut game, 1, "kick nyx");
+        let closed = ServerMessage::Close("A moderator kicked you from the server.".to_owned());
+        assert_eq!(drain(&second).last(), Some(&closed));
+        assert_eq!(texts(&drain(&first)), ["You kick nyx.", "nyx disconnects."]);
+        command(&mut game, 2, "look");
+        assert_eq!(drain(&second), Vec::<ServerMessage>::new());
     }
 
     #[test]

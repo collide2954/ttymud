@@ -15,6 +15,7 @@ pub(super) struct Moderation {
     moderators: BTreeSet<String>,
     audit: Vec<String>,
     audit_dirty: bool,
+    drops: Vec<(PlayerId, String)>,
 }
 
 impl Moderation {
@@ -115,6 +116,31 @@ impl World {
         ))]))
     }
 
+    pub(super) fn kick(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
+        self.moderator_only(player, "kick")?;
+        let [word] = args else {
+            return Err(Message::error("Usage: kick <handle>."));
+        };
+        let (key, name) = self.find_person(word)?;
+        if self.moderation.moderators.contains(&key) {
+            return Err(Message::error("You cannot kick a moderator."));
+        }
+        let online = self.players_of(&key);
+        if online.is_empty() {
+            return Err(Message::error(format!("{name} is not online.")));
+        }
+        let reason = "A moderator kicked you from the server.";
+        let drops = online.into_iter().map(|id| (id, reason.to_owned()));
+        self.moderation.drops.extend(drops);
+        self.audit(player, &format!("kicks {name}."));
+        Ok(Step::show(vec![Message::game(format!("You kick {name}."))]))
+    }
+
+    #[must_use = "the server closes the connections of these players"]
+    pub fn drops(&mut self) -> Vec<(PlayerId, String)> {
+        std::mem::take(&mut self.moderation.drops)
+    }
+
     pub(super) fn muted(&self, player: PlayerId) -> Option<Message> {
         let until = self.players.get(&player)?.social.muted;
         let left = until.checked_sub(self.now).filter(|&left| left > 0)?;
@@ -146,17 +172,17 @@ impl World {
         }
     }
 
+    fn players_of(&self, key: &str) -> Vec<PlayerId> {
+        let online = self.players.iter().filter(|(_, state)| state.key() == key);
+        online.map(|(&player, _)| player).collect()
+    }
+
     fn alert(&mut self, key: &str, text: &str) {
         let message = Message::game(text);
-        let outputs = self
-            .players
-            .iter()
-            .filter(|(_, state)| state.key() == key)
-            .map(|(&player, _)| Output {
-                player,
-                message: message.clone(),
-            });
-        self.outbox.extend(outputs);
+        for player in self.players_of(key) {
+            let message = message.clone();
+            self.outbox.push(Output { player, message });
+        }
     }
 
     fn audit(&mut self, player: PlayerId, action: &str) {
@@ -296,6 +322,28 @@ mod tests {
             .find(|(path, _)| path == "audit.log")
             .and_then(|(_, text)| text.lines().nth(2));
         assert_eq!(audit, Some("1970-01-01 00:00 nyx mutes zer0 for 1 minute."));
+    }
+
+    #[test]
+    fn a_moderator_kicks_a_handle_off_the_server() {
+        let (mut world, nyx, zer0) = moderated();
+        assert_eq!(
+            plain(&world.command(zer0, "kick nyx")),
+            ["Only moderators can use kick."]
+        );
+        assert_eq!(plain(&world.command(nyx, "kick zer0")), ["You kick zer0."]);
+        let reason = "A moderator kicked you from the server.".to_owned();
+        assert_eq!(world.drops(), [(zer0, reason)]);
+        assert_eq!(world.drops(), []);
+        world.leave(zer0);
+        let mut said = |line: &str| plain(&world.command(nyx, line));
+        assert_eq!(said("kick zer0"), ["zer0 is not online."]);
+        assert_eq!(said("kick nyx"), ["You cannot kick a moderator."]);
+        assert_eq!(said("kick"), ["Usage: kick <handle>."]);
+        let saves = world.saves();
+        let audit = saves.iter().find(|(path, _)| path == "audit.log");
+        let last = audit.and_then(|(_, text)| text.lines().last());
+        assert_eq!(last, Some("1970-01-01 00:01 nyx kicks zer0."));
     }
 
     #[test]

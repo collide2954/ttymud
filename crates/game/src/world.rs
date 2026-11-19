@@ -505,6 +505,7 @@ impl World {
             Verb::Unblock => self.unblock(player, args),
             Verb::Mute => self.mute(player, args),
             Verb::Unmute => self.unmute(player, args),
+            Verb::Kick => self.kick(player, args),
             Verb::Help => help::help(args, self.is_moderator(player)),
             Verb::Available => Ok(self.available(player)),
         }
