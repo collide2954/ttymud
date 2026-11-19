@@ -1,6 +1,7 @@
 mod checks;
 mod reader;
 mod shops;
+mod targets;
 #[cfg(test)]
 mod tests;
 
@@ -12,6 +13,7 @@ use crate::commands::Verb;
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::ice::IceKind;
+use crate::target::Layer;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContentError {
@@ -41,6 +43,25 @@ pub struct Content {
     pub(crate) hosts: Vec<HostDef>,
     pub(crate) contracts: Vec<ContractDef>,
     pub(crate) shops: Vec<ShopDef>,
+    pub(crate) corps: Vec<CorpDef>,
+    pub(crate) templates: Vec<TemplateDef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CorpDef {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) budget: Security,
+    pub(crate) data: Vec<File>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TemplateDef {
+    pub(crate) id: String,
+    pub(crate) layer: Layer,
+    pub(crate) name: String,
+    pub(crate) description: String,
+    pub(crate) files: Vec<File>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

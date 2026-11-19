@@ -9,6 +9,7 @@ mod kits;
 mod matching;
 mod parse;
 mod random;
+mod target;
 #[cfg(test)]
 mod testing;
 mod world;

@@ -9,6 +9,7 @@ impl Reader {
         self.check_routes();
         self.check_city();
         self.check_contracts();
+        self.check_templates();
         self.errors.sort_by_key(|error| error.line);
         if !self.errors.is_empty() {
             return Err(self.errors);
@@ -28,6 +29,12 @@ impl Reader {
             hosts: self.hosts.into_iter().map(|(host, _)| host).collect(),
             contracts: self.contracts.into_iter().map(|(def, ..)| def).collect(),
             shops: self.shops.into_iter().map(|(shop, _)| shop).collect(),
+            corps: self.corps.into_iter().map(|(corp, _)| corp).collect(),
+            templates: self
+                .templates
+                .into_iter()
+                .map(|(template, _)| template)
+                .collect(),
         })
     }
 
@@ -75,11 +82,15 @@ impl Reader {
     fn place_files(&mut self) {
         for (host, file, line) in std::mem::take(&mut self.files) {
             let name = &file.name;
-            let Some(index) = self.position(&host) else {
-                self.error(line, format!("file is on an unknown host: {host}"));
-                continue;
+            let template = self.templates.iter().position(|(def, _)| def.id == host);
+            let files = match (self.position(&host), template) {
+                (Some(index), _) => &mut self.hosts[index].0.files,
+                (None, Some(index)) => &mut self.templates[index].0.files,
+                (None, None) => {
+                    self.error(line, format!("file is on an unknown host: {host}"));
+                    continue;
+                }
             };
-            let files = &mut self.hosts[index].0.files;
             if files.iter().any(|known| known.name == file.name) {
                 self.error(
                     line,

@@ -1,4 +1,6 @@
-use super::{ContentError, ContractDef, File, HostDef, IceDef, NetworkDef, ShopDef};
+use super::{
+    ContentError, ContractDef, CorpDef, File, HostDef, IceDef, NetworkDef, ShopDef, TemplateDef,
+};
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::ice::IceKind;
@@ -28,6 +30,8 @@ pub(super) struct Reader {
     pub(super) files: Vec<(String, File, usize)>,
     pub(super) ice: Vec<(String, IceDef, usize)>,
     pub(super) shops: Vec<(ShopDef, usize)>,
+    pub(super) corps: Vec<(CorpDef, usize)>,
+    pub(super) templates: Vec<(TemplateDef, usize)>,
 }
 
 impl Reader {
@@ -59,6 +63,8 @@ impl Reader {
             "ice" => self.ice(section),
             "contract" => self.contract(section),
             "shop" => self.shop(section),
+            "corp" => self.corp(section),
+            "template" => self.template(section),
             other => self.error(section.line, format!("unknown section type: {other}")),
         }
     }
@@ -303,7 +309,7 @@ impl Reader {
         }
     }
 
-    fn single(&mut self, section: &Section<'_>, key: &str) -> Option<(String, usize)> {
+    pub(super) fn single(&mut self, section: &Section<'_>, key: &str) -> Option<(String, usize)> {
         let found = self.optional(section, key);
         if found.is_none() {
             let (kind, id) = (section.kind, section.id);

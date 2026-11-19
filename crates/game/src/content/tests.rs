@@ -1,8 +1,9 @@
-use super::{Content, ContractDef, File, IceDef, NetworkDef, ShopDef};
+use super::{Content, ContractDef, CorpDef, File, IceDef, NetworkDef, ShopDef, TemplateDef};
 use crate::commands::Verb;
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::ice::IceKind;
+use crate::target::Layer;
 
 const NET: &str = "\
 [city t]
@@ -100,6 +101,67 @@ fn bad_shops_fail() {
             "line 24: each ram step must be more than 8 GB: 6",
             "line 25: bad price: lots (use a number of credits)",
             "line 26: shop a is defined more than once",
+        ]
+    );
+}
+
+const TEMPLATES: &str = "\
+[template vpn]\nlayer = edge\nname = V\ndesc = V.\n\
+[template ws]\nlayer = lan\nname = W\ndesc = W.\n\
+[template db]\nlayer = core\nname = D\ndesc = D.\n";
+
+#[test]
+fn a_corp_has_a_budget_and_data() {
+    let text = format!(
+        "{NET}{TEMPLATES}[corp kh]\nname = Kestrel Health\nbudget = medium\n\
+         data = claims.db: Ten years of claims.\ndata = patients.db: Patient files.\n"
+    );
+    let corp = CorpDef {
+        id: "kh".to_owned(),
+        name: "Kestrel Health".to_owned(),
+        budget: Security::Medium,
+        data: vec![
+            File::new("claims.db", vec!["Ten years of claims.".to_owned()]),
+            File::new("patients.db", vec!["Patient files.".to_owned()]),
+        ],
+    };
+    assert_eq!(Content::parse(&text).unwrap().corps, [corp]);
+}
+
+#[test]
+fn a_template_makes_hosts_for_one_layer() {
+    let text = format!(
+        "{NET}[template vpn]\nlayer = edge\nname = VPN Gateway\ndesc = An old box.\n\
+         [file vpn/motd.txt]\nline = Hi.\n"
+    );
+    let template = TemplateDef {
+        id: "vpn".to_owned(),
+        layer: Layer::Edge,
+        name: "VPN Gateway".to_owned(),
+        description: "An old box.".to_owned(),
+        files: vec![File::new("motd.txt", vec!["Hi.".to_owned()])],
+    };
+    assert_eq!(Content::parse(&text).unwrap().templates, [template]);
+}
+
+#[test]
+fn bad_corps_and_templates_fail() {
+    let text = format!(
+        "{NET}[corp kh]\nbudget = huge\ndata = claims.db\n[corp empty]\nname = E\nbudget = low\n\
+         [template a]\nlayer = edge\nname = A\ndesc = A.\n\
+         [template ws]\nlayer = attic\nname = WS\ndesc = WS.\n"
+    );
+    assert_eq!(
+        errors(&text),
+        [
+            "the corps need a template for the lan layer",
+            "the corps need a template for the core layer",
+            "line 19: corp kh has no name",
+            "line 20: unknown budget: huge (use low, medium, high, or top)",
+            "line 21: data needs a file name and a line, for example data = claims.db: Ten years of claims.",
+            "line 22: corp empty has no data",
+            "line 25: template a has the same name as a host",
+            "line 30: unknown layer: attic (use edge, lan, or core)",
         ]
     );
 }
