@@ -1,5 +1,3 @@
-mod play;
-
 use std::ffi::OsString;
 use std::io;
 use std::process::ExitCode;
@@ -50,13 +48,15 @@ fn main() -> ExitCode {
             println!("ttymud-server {}", env!("CARGO_PKG_VERSION"));
             ExitCode::SUCCESS
         }
-        Ok(Cli::Play(name)) => match play::run(&name, io::stdin().lock(), io::stdout().lock()) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(error) => {
-                eprintln!("ttymud-server: {error}");
-                ExitCode::FAILURE
+        Ok(Cli::Play(name)) => {
+            match ttymud_server::play(&name, io::stdin().lock(), io::stdout().lock()) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("ttymud-server: {error}");
+                    ExitCode::FAILURE
+                }
             }
-        },
+        }
         Err(message) => {
             eprintln!("ttymud-server: {message}\nTry 'ttymud-server --help'.");
             ExitCode::from(2)

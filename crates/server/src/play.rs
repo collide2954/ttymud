@@ -1,15 +1,11 @@
 use std::io::{self, BufRead, Write};
 
-use ttymud_game::{Content, Output, PlayerId, World};
+use ttymud_game::{Output, PlayerId, World};
 
-const PORT_OSTRA: &str = include_str!("../content/port-ostra.ini");
+use crate::port_ostra;
 
-pub(crate) fn run(name: &str, input: impl BufRead, mut output: impl Write) -> io::Result<()> {
-    let content = Content::parse(PORT_OSTRA).map_err(|errors| {
-        let lines: Vec<String> = errors.iter().map(ToString::to_string).collect();
-        io::Error::other(lines.join("\n"))
-    })?;
-    let mut world = World::new(content);
+pub fn play(name: &str, input: impl BufRead, mut output: impl Write) -> io::Result<()> {
+    let mut world = port_ostra()?;
     let (player, joined) = world.join(name);
     let city = world.city();
     writeln!(
@@ -43,7 +39,7 @@ fn prompt(output: &mut impl Write, world: &World, player: PlayerId) -> io::Resul
 
 #[cfg(test)]
 mod tests {
-    use super::run;
+    use super::play as run;
 
     fn play(input: &str) -> String {
         let mut output = Vec::new();
