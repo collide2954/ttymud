@@ -11,6 +11,7 @@ repository = "https://github.com/collide2954/ttymud"
 
 [workspace.dependencies]
 ttymud-game = { path = "crates/game" }
+ttymud-net = { path = "crates/net" }
 ttymud-text = { path = "crates/text" }
 
 [workspace.lints.rust]

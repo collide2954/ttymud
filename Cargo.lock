@@ -283,6 +283,7 @@ name = "ttymud-server"
 version = "0.1.0"
 dependencies = [
  "ttymud-game",
+ "ttymud-net",
 ]
 
 [[package]]
