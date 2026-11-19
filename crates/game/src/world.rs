@@ -1,6 +1,7 @@
 mod access;
 mod account;
 mod burns;
+mod channels;
 mod chat;
 mod complete;
 mod contract;
@@ -38,6 +39,7 @@ use crate::target::Level;
 
 use account::{Account, Phase};
 use burns::Burn;
+use channels::Channel;
 pub use chat::is_chat;
 pub use complete::Completion;
 use contract::{Contract, Job};
@@ -98,6 +100,7 @@ struct Player {
     sold: Vec<String>,
     rep: BTreeMap<String, u32>,
     done: Vec<(u64, String, u64)>,
+    channels: Vec<String>,
     stash: Vec<File>,
 }
 
@@ -112,6 +115,7 @@ impl Player {
             sold: Vec::new(),
             rep: BTreeMap::new(),
             done: Vec::new(),
+            channels: Vec::new(),
             stash: Vec::new(),
             rig: Rig::new(),
             know: commands::programs()
@@ -148,6 +152,7 @@ pub struct World {
     corps: Vec<CorpDef>,
     templates: Vec<TemplateDef>,
     fixers: Vec<Fixer>,
+    channels: Vec<Channel>,
     postings: BTreeMap<(u64, usize, u64), usize>,
     players: BTreeMap<PlayerId, Player>,
     accounts: BTreeMap<String, Account>,
@@ -261,6 +266,7 @@ impl World {
             corps: content.corps,
             templates: content.templates,
             fixers,
+            channels: content.channels.into_iter().map(Channel::from).collect(),
             postings: BTreeMap::new(),
             networks,
             hosts,
@@ -281,6 +287,7 @@ impl World {
     pub fn join(&mut self, name: &str) -> (PlayerId, Vec<Output>) {
         let mut state = Player::new(name, self.start);
         state.contract = self.offer.map(Job::new);
+        state.channels = self.auto_channels();
         let player = self.add(state);
         self.notify(self.start, player, &presence::named(name, " connects."));
         let mut shown = self.scene(self.start, player);
@@ -305,8 +312,8 @@ impl World {
             let shown = self.create(player, line.trim());
             return self.deliver(player, shown);
         }
-        if let Some(text) = chat::chat_text(&line) {
-            return self.say(player, text);
+        if let Some(chat) = chat::parse(&line) {
+            return self.chat(player, chat);
         }
         let messages = match parse::pipeline(&line) {
             Ok(stages) => self.run(player, &stages),
@@ -447,6 +454,9 @@ impl World {
             Verb::Jackout => self.jackout(player),
             Verb::Repair => self.repair(player),
             Verb::Contract => self.contract(player, args),
+            Verb::Channels => Ok(self.list_channels(player)),
+            Verb::Join => self.join_channel(player, args),
+            Verb::Leave => self.leave_channel(player, args),
             Verb::Jobs => self.jobs(player),
             Verb::Accept => self.accept(player, args),
             Verb::Shop => self.shop(player),
@@ -609,6 +619,7 @@ enum Thing {
     Ice,
     Program,
     Ware,
+    Channel,
 }
 
 impl Thing {
@@ -617,7 +628,7 @@ impl Thing {
             Self::Route => Style::Host,
             Self::File => Style::File,
             Self::Ice => Style::Ice,
-            Self::Program | Self::Ware => Style::Command,
+            Self::Program | Self::Ware | Self::Channel => Style::Command,
         }
     }
 
@@ -628,6 +639,7 @@ impl Thing {
             Self::Ice => format!("No ICE named {word}"),
             Self::Program => format!("No program named {word}"),
             Self::Ware => format!("The shop does not sell {word}"),
+            Self::Channel => format!("No channel named {word}"),
         }
     }
 
@@ -638,6 +650,7 @@ impl Thing {
             Self::Ice => "ICE",
             Self::Program => "Programs",
             Self::Ware => "For sale",
+            Self::Channel => "Channels",
         }
     }
 }

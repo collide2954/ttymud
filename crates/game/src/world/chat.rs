@@ -2,21 +2,39 @@ use ttymud_text::{Kind, Message, Style, sanitize};
 
 use super::{Output, PlayerId, World};
 
-#[must_use]
-pub fn is_chat(line: &str) -> bool {
-    chat_text(&sanitize(line)).is_some()
+#[derive(Debug, Clone, Copy)]
+pub(super) enum Chat<'a> {
+    Say(&'a str),
+    Channel(&'a str, &'a str),
 }
 
-pub(super) fn chat_text(line: &str) -> Option<&str> {
+#[must_use]
+pub fn is_chat(line: &str) -> bool {
+    parse(&sanitize(line)).is_some()
+}
+
+pub(super) fn parse(line: &str) -> Option<Chat<'_>> {
     let line = line.trim_start();
     if let Some(rest) = line.strip_prefix('\'') {
-        return Some(rest.trim());
+        return Some(Chat::Say(rest.trim()));
+    }
+    if let Some(rest) = line.strip_prefix('#') {
+        let (name, text) = rest.split_once(char::is_whitespace).unwrap_or((rest, ""));
+        return Some(Chat::Channel(name, text.trim()));
     }
     let (word, rest) = line.split_once(char::is_whitespace).unwrap_or((line, ""));
-    word.eq_ignore_ascii_case("say").then_some(rest.trim())
+    word.eq_ignore_ascii_case("say")
+        .then_some(Chat::Say(rest.trim()))
 }
 
 impl World {
+    pub(super) fn chat(&mut self, player: PlayerId, chat: Chat<'_>) -> Vec<Output> {
+        match chat {
+            Chat::Say(text) => self.say(player, text),
+            Chat::Channel(name, text) => self.channel_say(player, name, text),
+        }
+    }
+
     pub(super) fn say(&mut self, player: PlayerId, text: &str) -> Vec<Output> {
         if text.is_empty() {
             return self.deliver(player, vec![Message::error("Usage: say <text>.")]);
@@ -110,6 +128,7 @@ mod tests {
         use crate::is_chat;
         assert!(is_chat("say hi"));
         assert!(is_chat("'hi"));
+        assert!(is_chat("#city hi"));
         assert!(is_chat("s\u{200b}ay hi"));
         assert!(!is_chat("look"));
         assert!(!is_chat("sayx"));

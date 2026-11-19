@@ -34,6 +34,9 @@ pub(crate) enum Verb {
     Exploit,
     Grep,
     Say,
+    Channels,
+    Join,
+    Leave,
     Help,
     Available,
 }
@@ -74,6 +77,7 @@ impl Verb {
                 | Self::Mask
                 | Self::Proxy
                 | Self::Exploit
+                | Self::Channels
                 | Self::Available
         )
     }
@@ -480,6 +484,33 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "say <text>",
         summary: "Talk to everyone on this host.",
         example: "say hello",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Channels,
+        names: &["channels"],
+        usage: "channels",
+        summary: "Show the chat channels. To talk in one, type #<channel> <text>.",
+        example: "#ostra hello",
+        takes: Takes::Nothing,
+        gives: Gives::Items(Kinds::LINES),
+    },
+    Command {
+        verb: Verb::Join,
+        names: &["join"],
+        usage: "join <channel>",
+        summary: "Join a chat channel.",
+        example: "join market",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Leave,
+        names: &["leave"],
+        usage: "leave <channel>",
+        summary: "Leave a chat channel.",
+        example: "leave market",
         takes: Takes::Nothing,
         gives: Gives::Nothing,
     },

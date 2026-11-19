@@ -165,13 +165,14 @@ impl World {
     }
 
     fn finish(&mut self, player: PlayerId, name: &str, kit: &'static Kit) -> Vec<Message> {
-        let (start, offer) = (self.start, self.offer);
+        let (start, offer, channels) = (self.start, self.offer, self.auto_channels());
         let Some(state) = self.players.get_mut(&player) else {
             return Vec::new();
         };
         name.clone_into(&mut state.name);
         state.kit = Some(kit);
         state.phase = Phase::Playing;
+        state.channels = channels;
         state.rig.loads = kit.loads.to_vec();
         for verb in kit.loads {
             if !state.know.contains(&verb) {
