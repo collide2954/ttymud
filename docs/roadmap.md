@@ -39,11 +39,15 @@ TTYmud grows in small milestones. At the end of each milestone, the game works a
 - The four ends of a run: clean exit, jack out, traced, and crash.
 - `status`, `jackout`, `repair`, and `contract`.
 
-### M4: Handles and heat
+### M4: Handles and heat (done)
 
-- Handles under accounts, and the four starter kits, with `load` and `unload`.
-- Heat, burns, the burn list, know-how, and the offshore stash.
-- Storage in plain text files.
+- Accounts with one handle each. The player selects the handle name and a starter kit in the game.
+- The four starter kits, with the programs `firewall`, `mask`, `proxy`, and `pretext`.
+- `load` and `unload` at the home host, which is private.
+- Heat from the security level of the target, and heat that cools in real time.
+- Burns, the burn list, know-how, and the offshore stash.
+- A disconnect during a run counts as a jack out.
+- Storage in plain text files, with a storage thread.
 
 ### M5: Contracts
 

@@ -51,7 +51,7 @@ To use a different directory, set the `TTYMUD_CONFIG` environment variable, or u
 - `identity.key`: your identity key. On Unix, the file has the permissions 0600.
 - `known_servers`: the keys of the servers that you trust.
 
-> CAUTION: Keep the file `identity.key` secret. A person with this file can use your account.
+> CAUTION: Keep the file `identity.key` secret. Keep a copy of it in a safe place. A person with this file can use your account. If you lose the file, you lose your account and your handle.
 
 ## Edit mode
 
@@ -86,11 +86,26 @@ Type `help` to see the commands. Type `?` to see the commands that you can use o
 
 Type `quit` to leave the game. The client waits for the answers to your last commands. Then it closes the connection.
 
-Your name is `anon-` and the first eight characters of your key in hexadecimal. Handles with names that you select come in M4. If you connect again with the same identity, the new connection replaces the old connection.
+If you connect again with the same identity, the new connection replaces the old connection.
+
+## Your handle
+
+At your first connection, the game asks for a handle. The handle is the name that other players see. A handle has 3 to 16 letters, digits, hyphens, or underscores. The game compares names without case, so `Nyx` and `nyx` are the same name.
+
+Then the game asks for a starter kit. Each kit fills the RAM of your rig with five programs.
+
+| Kit | Strength | Programs |
+| --- | --- | --- |
+| `breaker` | Breaks ICE and takes the hits. | `scan`, `probe`, `crack`, `patch`, `firewall` |
+| `ghost` | Stays hidden from Sentries. | `scan`, `probe`, `crack`, `scrub`, `mask` |
+| `phreak` | Slows the trace. | `scan`, `probe`, `crack`, `scrub`, `proxy` |
+| `face` | Talks past Wardens. | `scan`, `probe`, `crack`, `patch`, `pretext` |
+
+The server keeps your handle, your rig, and your contract. When you connect again, you start at your safehouse. Until you have a handle, the client shows the name `anon-` and the first eight characters of your key.
 
 ## Your first run
 
-When you connect, the fixer Pell offers you a job. A dentist keeps patient files on an old box, and a client wants them. Type `contract` to see the job and the next step. If you make no progress for 30 seconds, the game gives you a hint.
+When you have a handle, the fixer Pell offers you a job. A dentist keeps patient files on an old box, and a client wants them. Type `contract` to see the job and the next step. If you make no progress for 30 seconds, the game gives you a hint.
 
 Do these steps:
 
@@ -99,7 +114,7 @@ Do these steps:
 3. Find the ICE on this host: `scan`.
 4. Find the weak point of the Sentry, and crack it in the same pipeline: `probe sentry | crack`.
 5. Find the host with the file `patients.db`. Then download the file: `download patients.db`.
-6. Lower your trace: `scrub`.
+6. If your kit has `scrub`, lower your trace: `scrub`.
 7. Go back the way that you came in: `back`. Then the contract is complete.
 
 ## Cycles and noise
@@ -107,6 +122,12 @@ Do these steps:
 Programs cost cycles. Your rig has a maximum of 4 cycles, and it gets 1 cycle on each tick of two seconds. If a command needs more cycles than you have, it does not run. Type `status` to see your cycles.
 
 Programs also make noise, and noise raises your trace. A Sentry on the host doubles the trace from noise. A pipeline makes less noise than the same commands on different lines.
+
+## Programs and RAM
+
+Your rig has 8 GB of RAM. A program must be in RAM before you can run it. Type `status` to see the programs in RAM. At your safehouse, use `unload <program>` and `load <program>` to change them.
+
+You can load only the programs that your account knows. A new account knows the programs of its starter kit. After a burn, your account also knows the programs of the next kit.
 
 ## Telegraphs
 
@@ -121,10 +142,29 @@ In this example, you have two ticks to answer. You can crack the ICE, leave the 
 A run ends in one of four ways:
 
 - **Clean exit.** You leave through the host where you came in. You keep the loot.
-- **Jack out.** You type `jackout`. You keep the loot, but the shock costs your rig 20 integrity.
-- **Traced.** The trace gets to 100%. You lose the loot of the run.
+- **Jack out.** You type `jackout`. You keep the loot, but the shock costs your rig 20 integrity. If the trace is 75% or more, you also get 1 heat.
+- **Traced.** The trace gets to 100%. You lose the loot of the run, and you get heat.
 - **Crash.** The integrity of your rig gets to 0. You lose the loot of the run.
 
-After a crash, your rig cannot connect to a target. Go to your safehouse and type `repair`.
+If you disconnect from the server during a run, the game jacks you out. After a crash, your rig cannot connect to a target. Go to your safehouse and type `repair`.
 
-> CAUTION: Do not disconnect if you want to keep your files. In version 0.1, the server does not save your rig.
+## Heat
+
+Each time a target traces you, your heat increases. The security level of the target sets the quantity: 1, 2, 3, or 5 heat. Type `status` to see your heat.
+
+At heat 3 or more, Sentries alert faster. Your heat decreases by 1 for each 24 hours of real time without new heat. It also decreases while you are offline. At heat 5, your handle burns.
+
+## A burn
+
+When your handle burns, the police seize your rig and its files. The handle goes on the burn list, the file `burn-list.txt` on the Newsstand. Nobody can use the name again.
+
+Your account keeps its know-how and its stash. The know-how is the programs that your handles knew. After the burn, select a new handle and a starter kit.
+
+## The stash
+
+The stash keeps files safe from a burn. It holds 3 files. Use these commands at your safehouse:
+
+- `stash <file>` moves a file from your rig into the stash.
+- `unstash <file>` moves a file from the stash back to your rig.
+
+The `stash` command without a file shows the files in the stash. It works on all hosts.

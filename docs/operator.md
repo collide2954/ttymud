@@ -32,7 +32,7 @@ By default, the server accepts connections on all IPv4 interfaces, on port 7331.
 
     ttymud-server run ostra-data --listen 127.0.0.1:7400
 
-When the server starts, it shows the name of the city, its address, and the fingerprint of its key. To stop the server, push Ctrl+C.
+When the server starts, it shows the name of the city, its address, the fingerprint of its key, and the number of accounts. To stop the server, push Ctrl+C.
 
 ## Publish the fingerprint
 
@@ -59,9 +59,18 @@ The connections are encrypted, but the server can read all text that players sen
 
 ## Game data
 
-In version 0.1, the server does not save the game state. When a player disconnects, the player loses the rig and the contract. When the server stops, all players lose them.
+The server keeps the game data in plain text files in the data directory:
 
-To make a backup, copy the data directory. At this time, the data directory contains only the server key.
+- `accounts/`: one file for each account. The file has the handle, the rig, the contract, the know-how, and the stash of the account. The name of the file is the public key of the account in hexadecimal.
+- `burns.ini`: the burn list.
+
+The server writes a file each time its data changes. A storage thread writes the files, so a slow disk does not stop the game. The server writes each file to a temporary file first, and then it renames the file. As a result, a crash cannot leave a damaged file.
+
+When the server starts, it reads all the files. If a file has an error, the server shows the file, the line, and the error. Then it stops.
+
+> CAUTION: Stop the server before you change a file in the data directory. If the server runs, it can write over your change.
+
+To make a backup, stop the server and copy the data directory. To delete an account, stop the server and delete the file of the account.
 
 The ICE selects its actions with random numbers. The server takes the seed from the clock when it starts. As a result, the ICE acts in a different order after each start. A seed in the data directory comes in M5.
 
@@ -71,4 +80,6 @@ Use this command to walk Port Ostra alone, without a network:
 
     ttymud-server play
 
-To use a different name, give the name after `play`. Type `quit` to stop. The offline mode uses real time, as the server does. As a result, the ICE acts on each tick of two seconds.
+The game asks for a handle and a starter kit, as on a server. To give the handle on the command line, put it after `play`, for example `ttymud-server play nyx`. The offline mode does not save anything.
+
+Type `quit` to stop. The offline mode uses real time, as the server does. As a result, the ICE acts on each tick of two seconds.

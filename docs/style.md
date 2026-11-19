@@ -101,21 +101,24 @@ The check cannot find all STE problems. A person must also read each document.
 | heat | How much the police know about a handle, from 0 to 5. |
 | heist | A large contract for a crew, with more than one stage. |
 | hint | A help text for the next step of a contract. |
-| home host | The hub host where a handle repairs the rig. |
+| home host | The private hub host where a handle repairs the rig, changes the RAM, and uses the stash. |
 | host | A computer in the game world. It is the TTYmud equivalent of a room. |
 | hub | A safe zone that an author makes by hand. |
 | ICE | Hostile security software in a target. |
 | integrity | The health of a rig, from 100 to 0. |
+| know-how | The programs and blueprints that an account keeps after a burn. |
 | loot | Data and items that a handle takes from a target. |
 | noise | The evidence that an action leaves in a target. Noise increases the trace. |
 | NPC | A character that the server controls. |
-| offshore stash | A store of credits and items that stays after a burn. |
+| offshore stash, stash | A store of credits and items that stays after a burn. |
 | pipeline | Two or more commands that the pipe character (`\|`) joins. |
 | program | Software that a handle runs to do an action. |
 | rig | The computer of a handle. |
 | route | A network path from one host to a different host. |
 | run | One visit of a handle to a target, from entry to exit. |
+| security level | The strength of the security of a target: low, medium, high, or top. |
 | SOC | The security operations center of a corporation. |
+| starter kit, kit | The first programs of a new handle. A kit sets the first role of the handle. |
 | step | One part of a contract. A step teaches one command. |
 | target | A network that a handle attacks. |
 | telegraph | A message that shows the next action of an ICE before it acts. |
@@ -135,8 +138,10 @@ The check cannot find all STE problems. A person must also read each document.
 | encrypt | To make data unreadable without a key. |
 | hack | To get access to a computer without permission. |
 | jack out | To drop the link to a target at once. |
+| load | To put a program into the RAM of a rig. |
 | patch | To repair a weakness or damage in software. |
 | probe | To find the weaknesses of a host or of ICE. |
 | sanitize | To remove unsafe characters from text. |
 | scan | To find hosts and services. |
 | scrub | To delete log lines. |
+| unload | To remove a program from the RAM of a rig. |
