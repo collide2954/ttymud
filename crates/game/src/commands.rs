@@ -44,6 +44,8 @@ pub(crate) enum Verb {
     Unignore,
     Block,
     Unblock,
+    Mute,
+    Unmute,
     Help,
     Available,
 }
@@ -88,6 +90,10 @@ impl Verb {
                 | Self::Who
                 | Self::Available
         )
+    }
+
+    pub(crate) fn moderation(self) -> bool {
+        matches!(self, Self::Mute | Self::Unmute)
     }
 
     pub(crate) fn program(self) -> Option<Program> {
@@ -582,6 +588,24 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "unblock <handle>",
         summary: "Take private messages from a handle again.",
         example: "unblock zer0",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Mute,
+        names: &["mute"],
+        usage: "mute <handle> <minutes>",
+        summary: "Moderators: stop the chat messages of a handle for some minutes.",
+        example: "mute zer0 30",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Unmute,
+        names: &["unmute"],
+        usage: "unmute <handle>",
+        summary: "Moderators: let a muted handle send chat messages again.",
+        example: "unmute zer0",
         takes: Takes::Nothing,
         gives: Gives::Nothing,
     },

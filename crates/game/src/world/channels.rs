@@ -130,7 +130,8 @@ impl World {
                 .text(" first.");
             return self.deliver(player, vec![refusal]);
         }
-        if let Some(refusal) = self.repeated(player, text) {
+        let refusal = self.muted(player).or_else(|| self.repeated(player, text));
+        if let Some(refusal) = refusal {
             return self.deliver(player, vec![refusal]);
         }
         let Some(name) = self.players.get(&player).map(|state| state.name.clone()) else {

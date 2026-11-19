@@ -1,7 +1,7 @@
 use ttymud_text::sanitize;
 
-use super::{PlayerId, World, topics};
-use crate::commands::{self, COMMANDS, Command, Verb};
+use super::{PlayerId, World, help, topics};
+use crate::commands::{self, Command, Verb};
 use crate::parse::{self, Tail};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -30,8 +30,9 @@ impl World {
     }
 
     fn choices(&self, player: PlayerId, words: &[String], every: bool) -> Vec<&str> {
+        let moderator = self.is_moderator(player);
         let Some(first) = words.first() else {
-            return command_names(every);
+            return command_names(every, moderator);
         };
         let Some(command) = commands::find(first) else {
             return Vec::new();
@@ -40,7 +41,7 @@ impl World {
         match (command.verb, words.len()) {
             (Verb::Go, 1) => self.route_names(here, player),
             (Verb::Help, 1) => {
-                let mut names = command_names(every);
+                let mut names = command_names(every, moderator);
                 names.extend(topics::TOPICS);
                 names
             }
@@ -127,19 +128,22 @@ impl World {
     }
 }
 
-fn command_names(every: bool) -> Vec<&'static str> {
+fn command_names(every: bool, moderator: bool) -> Vec<&'static str> {
+    let shown = help::shown_to(moderator);
     if every {
-        commands::names().collect()
+        shown
+            .flat_map(|command| command.names.iter().copied())
+            .collect()
     } else {
-        COMMANDS.iter().map(Command::name).collect()
+        shown.map(Command::name).collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::Completion;
-    use crate::commands::COMMANDS;
     use crate::testing::joined;
+    use crate::world::help::shown_to;
 
     fn complete(lines: &[&str], text: &str) -> Completion {
         let (mut world, player) = joined();
@@ -154,8 +158,7 @@ mod tests {
     }
 
     fn main_names() -> Vec<String> {
-        COMMANDS
-            .iter()
+        shown_to(false)
             .map(|command| command.name().to_owned())
             .collect()
     }

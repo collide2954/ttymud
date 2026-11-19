@@ -1,6 +1,6 @@
 use ttymud_text::{Message, Style};
 
-use super::{PlayerId, Step, World, lines, listed};
+use super::{Player, PlayerId, Step, World, lines, listed};
 use crate::matching::{self, Found};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -11,13 +11,7 @@ enum List {
 
 impl World {
     pub(super) fn person(&self, player: PlayerId) -> Option<String> {
-        let state = self.players.get(&player)?;
-        Some(
-            state
-                .account
-                .clone()
-                .unwrap_or_else(|| format!("@{}", state.name)),
-        )
+        self.players.get(&player).map(Player::key)
     }
 
     pub(super) fn hears(&self, listener: PlayerId, speaker: PlayerId) -> bool {
@@ -34,23 +28,21 @@ impl World {
         state.social.blocks.contains(&key)
     }
 
-    fn find_person(&self, word: &str) -> Option<(String, String)> {
+    pub(super) fn find_person(&self, word: &str) -> Result<(String, String), Message> {
         let online = self.online_names();
-        if let Found::One(name) = matching::resolve(word, &online) {
-            let id = self
-                .players
-                .iter()
-                .find(|(_, state)| state.name == name)
-                .map(|(&id, _)| id)?;
-            return Some((self.person(id)?, name.to_owned()));
+        if let Found::One(name) = matching::resolve(word, &online)
+            && let Some(state) = self.players.values().find(|state| state.name == name)
+        {
+            return Ok((state.key(), name.to_owned()));
         }
-        self.accounts.iter().find_map(|(id, account)| {
+        let saved = self.accounts.iter().find_map(|(id, account)| {
             let handle = account.handle.as_ref()?;
             handle
                 .name
                 .eq_ignore_ascii_case(word)
                 .then(|| (id.clone(), handle.name.clone()))
-        })
+        });
+        saved.ok_or_else(|| Message::error(format!("No handle named {word}.")))
     }
 
     pub(super) fn person_label<'a>(&'a self, key: &'a str) -> Option<&'a str> {
@@ -127,9 +119,7 @@ impl World {
         let [word] = args else {
             return Err(Message::error(format!("Usage: {verb} <handle>.")));
         };
-        let Some((key, name)) = self.find_person(word) else {
-            return Err(Message::error(format!("No handle named {word}.")));
-        };
+        let (key, name) = self.find_person(word)?;
         if self.person(player).as_ref() == Some(&key) {
             return Err(Message::error("You cannot ignore yourself."));
         }

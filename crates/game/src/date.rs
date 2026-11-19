@@ -15,9 +15,20 @@ pub(crate) fn date(seconds: u64) -> String {
     format!("{year:04}-{month:02}-{day:02}")
 }
 
+pub(crate) fn stamp(seconds: u64) -> String {
+    let (hour, minute) = (seconds / 3_600 % 24, seconds / 60 % 60);
+    format!("{} {hour:02}:{minute:02}", date(seconds))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::date;
+    use super::{date, stamp};
+
+    #[test]
+    fn stamps_add_the_hour_and_the_minute() {
+        assert_eq!(stamp(60), "1970-01-01 00:01");
+        assert_eq!(stamp(1_700_000_000), "2023-11-14 22:13");
+    }
 
     #[test]
     fn dates_count_from_the_start_of_1970() {

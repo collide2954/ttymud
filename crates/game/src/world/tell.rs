@@ -1,7 +1,7 @@
 use ttymud_text::{Kind, Message, Style};
 
 use super::account::Phase;
-use super::{Output, PlayerId, Step, Thing, World, choose, lines};
+use super::{Output, PlayerId, Step, Thing, World, choose, lines, minute_word};
 
 const NEW_ACCOUNT: u64 = 600;
 const NOTE: &str = "Note: the operator of this server can read private messages.";
@@ -39,7 +39,7 @@ impl World {
         let age = self.now.saturating_sub(state.social.created);
         (age < NEW_ACCOUNT).then(|| {
             let left = (NEW_ACCOUNT - age).div_ceil(60);
-            let unit = if left == 1 { "minute" } else { "minutes" };
+            let unit = minute_word(left);
             Message::error(format!(
                 "New accounts can send private messages after 10 minutes. Wait {left} more {unit}."
             ))
@@ -66,7 +66,8 @@ impl World {
             return self.deliver(player, vec![Message::error("You cannot tell yourself.")]);
         }
         let refusal = self
-            .new_account_wait(player)
+            .muted(player)
+            .or_else(|| self.new_account_wait(player))
             .or_else(|| self.repeated(player, text));
         if let Some(refusal) = refusal {
             return self.deliver(player, vec![refusal]);

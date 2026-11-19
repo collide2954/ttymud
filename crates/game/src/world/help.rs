@@ -6,9 +6,9 @@ use crate::commands::{self, COMMANDS, Command, Verb};
 
 const COLUMN: usize = 18;
 
-pub(super) fn help(args: &[String]) -> Result<Step, Message> {
+pub(super) fn help(args: &[String], moderator: bool) -> Result<Step, Message> {
     let shown = match args {
-        [] => overview(),
+        [] => overview(moderator),
         [name] => match (topics::topic(&name.to_lowercase()), commands::find(name)) {
             (Some(topic), _) => topic,
             (None, Some(command)) => details(command),
@@ -32,8 +32,7 @@ impl World {
         let running = state.is_some_and(|state| state.run.is_some());
         let hired = state.is_some_and(|state| state.contract.is_some());
         let readable = !self.readable(player).is_empty();
-        let names = COMMANDS
-            .iter()
+        let names = shown_to(self.is_moderator(player))
             .filter(|command| match command.verb {
                 Verb::Go => !self.routes(here, player).is_empty(),
                 Verb::Back => hops > 1,
@@ -59,9 +58,15 @@ impl World {
     }
 }
 
-fn overview() -> Vec<Message> {
+pub(super) fn shown_to(moderator: bool) -> impl Iterator<Item = &'static Command> {
+    COMMANDS
+        .iter()
+        .filter(move |command| moderator || !command.verb.moderation())
+}
+
+fn overview(moderator: bool) -> Vec<Message> {
     let mut shown = vec![Message::new(Kind::Game).span(Style::Title, "Commands")];
-    shown.extend(COMMANDS.iter().map(|command| {
+    shown.extend(shown_to(moderator).map(|command| {
         let gap = COLUMN.saturating_sub(command.usage.len()).max(1);
         Message::new(Kind::Game)
             .span(Style::Command, command.usage)
@@ -99,10 +104,11 @@ mod tests {
     use crate::testing::{run, walk};
 
     #[test]
-    fn help_lists_every_command() {
+    fn help_lists_every_command_but_the_moderator_commands() {
         let shown = run("help");
         assert_eq!(shown[0], "Commands");
-        assert_eq!(shown.len(), COMMANDS.len() + 3);
+        assert_eq!(shown.len(), super::shown_to(false).count() + 3);
+        assert!(super::shown_to(false).count() < COMMANDS.len());
         assert!(shown[1].starts_with("look "));
         assert!(shown.iter().any(|line| line.starts_with("go <place> ")
             && line.ends_with("Move to a host through a route.")));

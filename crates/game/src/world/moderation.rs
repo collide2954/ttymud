@@ -1,16 +1,34 @@
-use super::{PlayerId, World};
+use std::collections::BTreeSet;
+
+use ttymud_text::Message;
+
+use super::{Output, PlayerId, Step, World, minute_word};
 use crate::content::ContentError;
+use crate::date::stamp;
 use crate::ini;
 
 pub(super) const MODERATORS: &str = "moderators.ini";
+pub(super) const AUDIT: &str = "audit.log";
 
-impl World {
-    pub(super) fn is_moderator(&self, player: PlayerId) -> bool {
-        let account = self
-            .players
-            .get(&player)
-            .and_then(|state| state.account.as_ref());
-        account.is_some_and(|account| self.moderators.contains(account))
+#[derive(Debug, Default)]
+pub(super) struct Moderation {
+    moderators: BTreeSet<String>,
+    audit: Vec<String>,
+    audit_dirty: bool,
+}
+
+impl Moderation {
+    pub(super) fn save_audit(&mut self) -> Option<(String, String)> {
+        std::mem::take(&mut self.audit_dirty).then(|| {
+            let lines = self.audit.iter().flat_map(|line| [line.as_str(), "\n"]);
+            let text = lines.collect();
+            (AUDIT.to_owned(), text)
+        })
+    }
+
+    pub(super) fn read_audit(&mut self, text: &str) {
+        let lines = text.lines().filter(|line| !line.trim().is_empty());
+        self.audit = lines.map(str::to_owned).collect();
     }
 
     pub(super) fn read_moderators(&mut self, text: &str) -> Result<(), Vec<ContentError>> {
@@ -42,9 +60,116 @@ impl World {
     }
 }
 
+impl World {
+    pub(super) fn is_moderator(&self, player: PlayerId) -> bool {
+        let account = self
+            .players
+            .get(&player)
+            .and_then(|state| state.account.as_ref());
+        account.is_some_and(|account| self.moderation.moderators.contains(account))
+    }
+
+    fn moderator_only(&self, player: PlayerId, verb: &str) -> Result<(), Message> {
+        if self.is_moderator(player) {
+            Ok(())
+        } else {
+            Err(Message::error(format!("Only moderators can use {verb}.")))
+        }
+    }
+
+    pub(super) fn mute(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
+        self.moderator_only(player, "mute")?;
+        let usage = || Message::error("Usage: mute <handle> <minutes>.");
+        let [word, count] = args else {
+            return Err(usage());
+        };
+        let count = count.parse::<u32>().ok().filter(|&count| count > 0);
+        let count = u64::from(count.ok_or_else(usage)?);
+        let (key, name) = self.find_person(word)?;
+        if self.moderation.moderators.contains(&key) {
+            return Err(Message::error("You cannot mute a moderator."));
+        }
+        self.set_muted(&key, self.now + count * 60);
+        let span = format!("{count} {}", minute_word(count));
+        self.alert(&key, &format!("A moderator muted you for {span}."));
+        self.audit(player, &format!("mutes {name} for {span}."));
+        Ok(Step::show(vec![Message::game(format!(
+            "You mute {name} for {span}."
+        ))]))
+    }
+
+    pub(super) fn unmute(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
+        self.moderator_only(player, "unmute")?;
+        let [word] = args else {
+            return Err(Message::error("Usage: unmute <handle>."));
+        };
+        let (key, name) = self.find_person(word)?;
+        if self.muted_until(&key) <= self.now {
+            return Err(Message::error(format!("{name} is not muted.")));
+        }
+        self.set_muted(&key, 0);
+        self.alert(&key, "A moderator unmuted you.");
+        self.audit(player, &format!("unmutes {name}."));
+        Ok(Step::show(vec![Message::game(format!(
+            "You unmute {name}."
+        ))]))
+    }
+
+    pub(super) fn muted(&self, player: PlayerId) -> Option<Message> {
+        let until = self.players.get(&player)?.social.muted;
+        let left = until.checked_sub(self.now).filter(|&left| left > 0)?;
+        let left = left.div_ceil(60);
+        Some(Message::error(format!(
+            "You are muted for {left} more {}.",
+            minute_word(left)
+        )))
+    }
+
+    fn muted_until(&self, key: &str) -> u64 {
+        match self.players.values().find(|state| state.key() == key) {
+            Some(state) => state.social.muted,
+            None => self
+                .accounts
+                .get(key)
+                .map_or(0, |account| account.social.muted),
+        }
+    }
+
+    fn set_muted(&mut self, key: &str, until: u64) {
+        let online = self.players.values_mut().filter(|state| state.key() == key);
+        for state in online {
+            state.social.muted = until;
+        }
+        if let Some(account) = self.accounts.get_mut(key) {
+            account.social.muted = until;
+            self.dirty.insert(key.to_owned());
+        }
+    }
+
+    fn alert(&mut self, key: &str, text: &str) {
+        let message = Message::game(text);
+        let outputs = self
+            .players
+            .iter()
+            .filter(|(_, state)| state.key() == key)
+            .map(|(&player, _)| Output {
+                player,
+                message: message.clone(),
+            });
+        self.outbox.extend(outputs);
+    }
+
+    fn audit(&mut self, player: PlayerId, action: &str) {
+        let name = self.players.get(&player).map_or("", |state| &state.name);
+        let line = format!("{} {name} {action}", stamp(self.now));
+        self.moderation.audit.push(line);
+        self.moderation.audit_dirty = true;
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::testing::{plain, world};
+    use crate::testing::{heard, plain, world};
     use crate::{PlayerId, World};
 
     const MODERATORS: &str = "[moderator a]\nhandle = nyx\n";
@@ -67,6 +192,122 @@ mod tests {
             plain(&world.command(nyx, "who")),
             ["Online: nyx (moderator), zer0"]
         );
+    }
+
+    fn moderated() -> (World, PlayerId, PlayerId) {
+        let mut world = world();
+        world.restore("moderators.ini", MODERATORS).unwrap();
+        world.set_time(60);
+        let nyx = hacker(&mut world, "a", "nyx");
+        let zer0 = hacker(&mut world, "b", "zer0");
+        (world, nyx, zer0)
+    }
+
+    #[test]
+    fn a_moderator_mutes_and_unmutes() {
+        let (mut world, nyx, zer0) = moderated();
+        let outputs = world.command(nyx, "mute zer0 10");
+        assert_eq!(heard(&outputs, nyx), ["You mute zer0 for 10 minutes."]);
+        assert_eq!(
+            heard(&outputs, zer0),
+            ["A moderator muted you for 10 minutes."]
+        );
+        world.set_time(120);
+        for line in ["say hi", "#city hi", "tell nyx hi"] {
+            assert_eq!(
+                plain(&world.command(zer0, line)),
+                ["You are muted for 9 more minutes."],
+                "{line}"
+            );
+        }
+        let outputs = world.command(nyx, "unmute zer0");
+        assert_eq!(heard(&outputs, zer0), ["A moderator unmuted you."]);
+        assert_eq!(heard(&world.command(zer0, "say hi"), zer0), ["<zer0> hi"]);
+    }
+
+    #[test]
+    fn a_mute_ends_by_itself_and_lasts_through_a_save() {
+        let (mut world, nyx, zer0) = moderated();
+        world.command(nyx, "mute zer0 10");
+        world.leave(zer0);
+        let saves = world.saves();
+        let mut fresh = crate::testing::world();
+        for (path, text) in &saves {
+            fresh.restore(path, text).unwrap();
+        }
+        fresh.set_time(600);
+        let (zer0, _) = fresh.connect("b");
+        assert_eq!(
+            plain(&fresh.command(zer0, "say hi")),
+            ["You are muted for 1 more minute."]
+        );
+        fresh.set_time(660);
+        assert_eq!(plain(&fresh.command(zer0, "say hi")), ["<zer0> hi"]);
+    }
+
+    #[test]
+    fn only_moderators_can_mute_and_not_a_moderator() {
+        let (mut world, nyx, zer0) = moderated();
+        assert_eq!(
+            plain(&world.command(zer0, "mute nyx 10")),
+            ["Only moderators can use mute."]
+        );
+        assert_eq!(
+            plain(&world.command(nyx, "mute nyx 10")),
+            ["You cannot mute a moderator."]
+        );
+        assert_eq!(
+            plain(&world.command(nyx, "mute zer0")),
+            ["Usage: mute <handle> <minutes>."]
+        );
+        assert_eq!(
+            plain(&world.command(nyx, "unmute zer0")),
+            ["zer0 is not muted."]
+        );
+    }
+
+    #[test]
+    fn moderator_actions_go_to_the_audit_log() {
+        let (mut world, nyx, _) = moderated();
+        world.command(nyx, "mute zer0 10");
+        world.command(nyx, "unmute zer0");
+        let saves = world.saves();
+        let audit = saves
+            .iter()
+            .find(|(path, _)| path == "audit.log")
+            .map(|(_, text)| text.as_str());
+        assert_eq!(
+            audit,
+            Some(
+                "1970-01-01 00:01 nyx mutes zer0 for 10 minutes.\n1970-01-01 00:01 nyx unmutes zer0.\n"
+            )
+        );
+        let mut fresh = crate::testing::world();
+        fresh
+            .restore("audit.log", audit.unwrap_or_default())
+            .unwrap();
+        fresh.restore("moderators.ini", MODERATORS).unwrap();
+        let nyx = hacker(&mut fresh, "a", "nyx");
+        hacker(&mut fresh, "b", "zer0");
+        fresh.command(nyx, "mute zer0 1");
+        let saves = fresh.saves();
+        let audit = saves
+            .iter()
+            .find(|(path, _)| path == "audit.log")
+            .and_then(|(_, text)| text.lines().nth(2));
+        assert_eq!(audit, Some("1970-01-01 00:00 nyx mutes zer0 for 1 minute."));
+    }
+
+    #[test]
+    fn only_moderators_see_the_moderator_commands() {
+        let (mut world, nyx, zer0) = moderated();
+        for (player, moderator) in [(nyx, true), (zer0, false)] {
+            let available = plain(&world.command(player, "?"))[0].contains("mute");
+            let help = plain(&world.command(player, "help"));
+            let helped = help.iter().any(|line| line.starts_with("mute "));
+            let completed = world.complete(player, "mu").names == ["mute"];
+            assert_eq!([available, helped, completed], [moderator; 3]);
+        }
     }
 
     #[test]

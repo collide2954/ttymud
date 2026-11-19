@@ -47,6 +47,7 @@ pub use chat::is_chat;
 pub use complete::Completion;
 use contract::{Contract, Job};
 use jobs::Fixer;
+use moderation::Moderation;
 use rig::Rig;
 use run::Run;
 use shop::Shop;
@@ -142,6 +143,12 @@ impl Player {
         self.contract = None;
         self.sold.clear();
     }
+
+    fn key(&self) -> String {
+        self.account
+            .clone()
+            .unwrap_or_else(|| format!("@{}", self.name))
+    }
 }
 
 #[derive(Debug)]
@@ -165,7 +172,7 @@ pub struct World {
     postings: BTreeMap<(u64, usize, u64), usize>,
     players: BTreeMap<PlayerId, Player>,
     accounts: BTreeMap<String, Account>,
-    moderators: BTreeSet<String>,
+    moderation: Moderation,
     dirty: BTreeSet<String>,
     burns: Vec<Burn>,
     burns_dirty: bool,
@@ -282,7 +289,7 @@ impl World {
             hosts,
             players: BTreeMap::new(),
             accounts: BTreeMap::new(),
-            moderators: BTreeSet::new(),
+            moderation: Moderation::default(),
             dirty: BTreeSet::new(),
             burns: Vec::new(),
             burns_dirty: false,
@@ -496,7 +503,9 @@ impl World {
             Verb::Unignore => self.unignore(player, args),
             Verb::Block => self.block(player, args),
             Verb::Unblock => self.unblock(player, args),
-            Verb::Help => help::help(args),
+            Verb::Mute => self.mute(player, args),
+            Verb::Unmute => self.unmute(player, args),
+            Verb::Help => help::help(args, self.is_moderator(player)),
             Verb::Available => Ok(self.available(player)),
         }
     }
@@ -592,6 +601,10 @@ fn no_args(command: &Command, args: &[String]) -> Result<(), Message> {
         let name = command.name();
         Err(Message::error(format!("{name} takes no arguments.")))
     }
+}
+
+fn minute_word(count: u64) -> &'static str {
+    if count == 1 { "minute" } else { "minutes" }
 }
 
 fn lines(shown: Vec<Message>) -> Step {

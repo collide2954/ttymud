@@ -68,7 +68,8 @@ impl World {
         if text.is_empty() {
             return self.deliver(player, vec![Message::error("Usage: say <text>.")]);
         }
-        if let Some(refusal) = self.repeated(player, text) {
+        let refusal = self.muted(player).or_else(|| self.repeated(player, text));
+        if let Some(refusal) = refusal {
             return self.deliver(player, vec![refusal]);
         }
         let Some(name) = self.players.get(&player).map(|state| state.name.clone()) else {

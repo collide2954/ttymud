@@ -4,6 +4,7 @@ use std::str::FromStr;
 use super::account::{Account, Saved};
 use super::burns::Burn;
 use super::contract::Job;
+use super::moderation::{AUDIT, MODERATORS};
 use super::rig::MAX_INTEGRITY;
 use super::{PlayerId, World};
 use crate::commands::{self, Verb};
@@ -49,12 +50,17 @@ impl World {
         if std::mem::take(&mut self.seed_dirty) {
             saves.push((WORLD.to_owned(), self.world_text()));
         }
+        saves.extend(self.moderation.save_audit());
         saves
     }
 
     pub fn restore(&mut self, path: &str, text: &str) -> Result<(), Vec<ContentError>> {
-        if path == super::moderation::MODERATORS {
-            return self.read_moderators(text);
+        if path == MODERATORS {
+            return self.moderation.read_moderators(text);
+        }
+        if path == AUDIT {
+            self.moderation.read_audit(text);
+            return Ok(());
         }
         if path == WORLD {
             self.seed = self.parse_world(text)?;
@@ -94,6 +100,9 @@ impl World {
         text.pair("created", &social.created.to_string());
         if social.warned {
             text.pair("warned", "yes");
+        }
+        if social.muted > self.now {
+            text.pair("muted", &social.muted.to_string());
         }
         for key in &social.ignores {
             text.pair("ignore", key);
@@ -430,18 +439,20 @@ fn program(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<Verb> {
 fn read_account(section: &Section<'_>, account: &mut Account, errors: &mut Vec<ContentError>) {
     allow(
         section,
-        &["know", "created", "warned", "ignore", "block"],
+        &["know", "created", "warned", "muted", "ignore", "block"],
         errors,
     );
     let values = |key: &'static str| section.pairs.iter().filter(move |pair| pair.key == key);
     account.know = values("know")
         .filter_map(|pair| program(pair, errors))
         .collect();
+    let mut time = |key| -> u64 {
+        let pair = values(key).next();
+        pair.and_then(|pair| number(pair, errors)).unwrap_or(0)
+    };
     let social = &mut account.social;
-    social.created = values("created")
-        .next()
-        .and_then(|pair| number(pair, errors))
-        .unwrap_or(0);
+    social.created = time("created");
+    social.muted = time("muted");
     social.warned = values("warned").any(|pair| pair.value == "yes");
     social.ignores = values("ignore").map(|pair| pair.value.to_owned()).collect();
     social.blocks = values("block").map(|pair| pair.value.to_owned()).collect();

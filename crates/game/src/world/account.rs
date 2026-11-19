@@ -29,6 +29,7 @@ pub(super) struct Account {
 pub(super) struct Social {
     pub(super) created: u64,
     pub(super) warned: bool,
+    pub(super) muted: u64,
     pub(super) ignores: Vec<String>,
     pub(super) blocks: Vec<String>,
 }
