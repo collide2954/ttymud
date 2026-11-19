@@ -49,7 +49,7 @@ impl World {
                 Verb::Jobs | Verb::Accept => self.has_fixer(here),
                 Verb::Read => readable,
                 Verb::Download => !host.files.is_empty(),
-                Verb::Available => false,
+                Verb::Recovery | Verb::Link | Verb::Keys | Verb::Revoke | Verb::Available => false,
                 _ => true,
             })
             .map(Command::name);
@@ -276,6 +276,24 @@ mod tests {
             .map(str::to_owned)
             .collect();
         check(&names, &["unignore", "unblock", "reply"], &[]);
+    }
+
+    #[test]
+    fn the_account_commands_work_only_on_a_server() {
+        let server = ["This command works only on a server."];
+        for line in ["recovery", "link", "keys", "revoke 2"] {
+            assert_eq!(run(line), server, "{line}");
+        }
+        assert_eq!(run("link now"), ["link takes no arguments."]);
+        assert_eq!(
+            run("help link")[1],
+            "Make a code that adds a new device to your account. On the new device, type link <code> at the handle prompt."
+        );
+        check(
+            &available(&[]),
+            &[],
+            &["recovery", "link", "keys", "revoke"],
+        );
     }
 
     #[test]

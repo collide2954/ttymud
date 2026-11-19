@@ -510,6 +510,9 @@ impl World {
             Verb::Block => self.block(player, args),
             Verb::Unblock => self.unblock(player, args),
             Verb::Report => self.report(player, args),
+            Verb::Recovery | Verb::Link | Verb::Keys | Verb::Revoke => {
+                Err(Message::error("This command works only on a server."))
+            }
             Verb::Mute => self.mute(player, args),
             Verb::Unmute => self.unmute(player, args),
             Verb::Kick => self.kick(player, args),

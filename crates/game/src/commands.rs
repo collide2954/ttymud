@@ -45,6 +45,10 @@ pub(crate) enum Verb {
     Block,
     Unblock,
     Report,
+    Recovery,
+    Link,
+    Keys,
+    Revoke,
     Mute,
     Unmute,
     Kick,
@@ -95,6 +99,9 @@ impl Verb {
                 | Self::Exploit
                 | Self::Channels
                 | Self::Who
+                | Self::Recovery
+                | Self::Link
+                | Self::Keys
                 | Self::Bans
                 | Self::Available
         )
@@ -615,6 +622,42 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "report <handle> [reason]",
         summary: "Send a handle and its chat from the last 15 minutes to the moderators.",
         example: "report zer0 spam",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Recovery,
+        names: &["recovery"],
+        usage: "recovery",
+        summary: "Make a new recovery code. On a new device, type recover <code> at the handle prompt.",
+        example: "recovery",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Link,
+        names: &["link"],
+        usage: "link",
+        summary: "Make a code that adds a new device to your account. On the new device, type link <code> at the handle prompt.",
+        example: "link",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Keys,
+        names: &["keys"],
+        usage: "keys",
+        summary: "Show the keys of the devices of your account.",
+        example: "keys",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Revoke,
+        names: &["revoke"],
+        usage: "revoke <number>",
+        summary: "Remove a key from your account. Its device cannot connect again.",
+        example: "revoke 2",
         takes: Takes::Nothing,
         gives: Gives::Nothing,
     },
