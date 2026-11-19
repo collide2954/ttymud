@@ -64,6 +64,19 @@ impl World {
                 .map(|ice| ice.name.as_str())
                 .collect(),
             (Verb::Contract, 1) => vec!["drop"],
+            (Verb::Tell, 1) => self.online_names(),
+            (Verb::Join | Verb::Leave, 1) => {
+                let joined = self
+                    .players
+                    .get(&player)
+                    .map_or(&[][..], |state| state.channels.as_slice());
+                let leaving = command.verb == Verb::Leave;
+                self.channels
+                    .iter()
+                    .filter(|channel| joined.contains(&channel.id) == leaving)
+                    .map(|channel| channel.id.as_str())
+                    .collect()
+            }
             (Verb::Buy, 1) => self.ware_names(player),
             (Verb::Sell, _) => self
                 .players
@@ -214,6 +227,20 @@ mod tests {
         assert_eq!(world.complete(player, "buy ").names, ["ram", "cpu"]);
         assert_eq!(world.complete(player, "sell ").names, ["payroll.db"]);
         assert_eq!(complete(&[], "buy ").names, Vec::<String>::new());
+    }
+
+    #[test]
+    fn tell_completes_the_handles_online_and_join_the_channels() {
+        let (mut world, player) = joined();
+        world.join("nyx");
+        world.join("nora");
+        assert_eq!(world.complete(player, "tell n").names, ["nyx", "nora"]);
+        assert_eq!(
+            world.complete(player, "tell nyx h").names,
+            Vec::<String>::new()
+        );
+        assert_eq!(world.complete(player, "join t").names, ["trade"]);
+        assert_eq!(world.complete(player, "leave ").names, ["city"]);
     }
 
     #[test]

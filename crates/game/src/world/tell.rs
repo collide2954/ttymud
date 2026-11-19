@@ -15,6 +15,10 @@ impl World {
             .collect()
     }
 
+    pub(super) fn online_names(&self) -> Vec<&str> {
+        self.online().into_iter().map(|(_, name)| name).collect()
+    }
+
     pub(super) fn who(&self) -> Step {
         let names = self.online().into_iter().map(|(_, name)| name);
         lines(vec![listed(
