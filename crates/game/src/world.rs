@@ -42,6 +42,7 @@ struct Player {
 
 #[derive(Debug)]
 pub struct World {
+    city: String,
     hosts: Vec<Host>,
     start: HostId,
     players: BTreeMap<PlayerId, Player>,
@@ -79,6 +80,7 @@ impl World {
             link(&mut hosts, to, from);
         }
         Self {
+            city: content.city,
             start: find(&content.start),
             hosts,
             players: BTreeMap::new(),
@@ -109,6 +111,11 @@ impl World {
             Err(error) => vec![parse_error(error)],
         };
         address(player, messages)
+    }
+
+    #[must_use]
+    pub fn city(&self) -> &str {
+        &self.city
     }
 
     #[must_use]
@@ -407,6 +414,11 @@ mod tests {
         assert_eq!((route.style, route.text.as_str()), (Style::Host, "market"));
         let file = &outputs[3].message.spans[1];
         assert_eq!((file.style, file.text.as_str()), (Style::File, "motd.txt"));
+    }
+
+    #[test]
+    fn the_world_knows_its_city() {
+        assert_eq!(world().city(), "Test City");
     }
 
     #[test]
