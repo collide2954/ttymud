@@ -17,6 +17,7 @@ mod movement;
 mod presence;
 mod programs;
 mod ram;
+mod reports;
 mod rig;
 mod roles;
 mod run;
@@ -503,9 +504,12 @@ impl World {
             Verb::Unignore => self.unignore(player, args),
             Verb::Block => self.block(player, args),
             Verb::Unblock => self.unblock(player, args),
+            Verb::Report => self.report(player, args),
             Verb::Mute => self.mute(player, args),
             Verb::Unmute => self.unmute(player, args),
             Verb::Kick => self.kick(player, args),
+            Verb::Reports => self.reports(player, args),
+            Verb::Resolve => self.resolve(player, args),
             Verb::Help => help::help(args, self.is_moderator(player)),
             Verb::Available => Ok(self.available(player)),
         }

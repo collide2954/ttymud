@@ -82,6 +82,7 @@ impl World {
                 .text(" does not take private messages from you.");
             return self.deliver(player, vec![refusal]);
         }
+        self.remember(player, Some(target), "tell", text);
         if self.hears(target, player) {
             let told = Message::new(Kind::Chat)
                 .span(Style::Player, &from)

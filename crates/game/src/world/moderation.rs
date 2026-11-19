@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use ttymud_text::Message;
 
+use super::reports::Reports;
 use super::save::Text;
 use super::{Output, PlayerId, Step, World, minute_word};
 use crate::content::ContentError;
@@ -17,6 +18,7 @@ pub(super) struct Moderation {
     audit: Vec<String>,
     audit_dirty: bool,
     drops: Vec<(PlayerId, String)>,
+    pub(super) reports: Reports,
 }
 
 impl Moderation {
@@ -114,7 +116,7 @@ impl World {
         account.is_some_and(|account| self.moderation.moderators.contains(account))
     }
 
-    fn moderator_only(&self, player: PlayerId, verb: &str) -> Result<(), Message> {
+    pub(super) fn moderator_only(&self, player: PlayerId, verb: &str) -> Result<(), Message> {
         if self.is_moderator(player) {
             Ok(())
         } else {
@@ -229,7 +231,7 @@ impl World {
         }
     }
 
-    fn audit(&mut self, player: PlayerId, action: &str) {
+    pub(super) fn audit(&mut self, player: PlayerId, action: &str) {
         let name = self.players.get(&player).map_or("", |state| &state.name);
         let line = format!("{} {name} {action}", stamp(self.now));
         self.moderation.audit.push(line);
@@ -239,18 +241,10 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::{heard, plain, world};
+    use crate::testing::{hacker, heard, plain, world};
     use crate::{PlayerId, World};
 
     const MODERATORS: &str = "[moderator a]\nhandle = nyx\n";
-
-    fn hacker(world: &mut World, account: &str, name: &str) -> PlayerId {
-        let (player, _) = world.connect(account);
-        for line in [name, "ghost"] {
-            world.command(player, line);
-        }
-        player
-    }
 
     #[test]
     fn moderators_come_from_their_file() {

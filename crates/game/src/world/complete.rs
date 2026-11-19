@@ -65,7 +65,7 @@ impl World {
                 .map(|ice| ice.name.as_str())
                 .collect(),
             (Verb::Contract, 1) => vec!["drop"],
-            (Verb::Tell | Verb::Ignore | Verb::Block, 1) => self.online_names(),
+            (Verb::Tell | Verb::Ignore | Verb::Block | Verb::Report, 1) => self.online_names(),
             (Verb::Unignore | Verb::Unblock, 1) => {
                 let Some(state) = self.players.get(&player) else {
                     return Vec::new();

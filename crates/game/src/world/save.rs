@@ -5,6 +5,7 @@ use super::account::{Account, Saved};
 use super::burns::Burn;
 use super::contract::Job;
 use super::moderation::{AUDIT, MODERATORS};
+use super::reports::REPORTS;
 use super::rig::MAX_INTEGRITY;
 use super::{PlayerId, World};
 use crate::commands::{self, Verb};
@@ -51,12 +52,16 @@ impl World {
             saves.push((WORLD.to_owned(), self.world_text()));
         }
         saves.extend(self.moderation.save_audit());
+        saves.extend(self.moderation.reports.save());
         saves
     }
 
     pub fn restore(&mut self, path: &str, text: &str) -> Result<(), Vec<ContentError>> {
         if path == MODERATORS {
             return self.moderation.read_moderators(text);
+        }
+        if path == REPORTS {
+            return self.moderation.reports.read(text);
         }
         if path == AUDIT {
             self.moderation.read_audit(text);
@@ -409,7 +414,7 @@ fn parse_file(section: &Section<'_>, errors: &mut Vec<ContentError>) -> File {
     file
 }
 
-fn allow(section: &Section<'_>, keys: &[&str], errors: &mut Vec<ContentError>) {
+pub(super) fn allow(section: &Section<'_>, keys: &[&str], errors: &mut Vec<ContentError>) {
     for pair in section
         .pairs
         .iter()
@@ -492,7 +497,7 @@ fn reputation(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<(String
     parsed
 }
 
-fn number<T: FromStr>(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<T> {
+pub(super) fn number<T: FromStr>(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<T> {
     let value = pair.value.parse().ok();
     if value.is_none() {
         errors.push(problem(pair.line, format!("bad number: {}", pair.value)));
@@ -500,11 +505,11 @@ fn number<T: FromStr>(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option
     value
 }
 
-fn problem(line: usize, message: String) -> ContentError {
+pub(super) fn problem(line: usize, message: String) -> ContentError {
     ContentError { line, message }
 }
 
-fn checked<T>(mut errors: Vec<ContentError>, value: T) -> Result<T, Vec<ContentError>> {
+pub(super) fn checked<T>(mut errors: Vec<ContentError>, value: T) -> Result<T, Vec<ContentError>> {
     errors.sort_by_key(|error| error.line);
     if errors.is_empty() {
         Ok(value)

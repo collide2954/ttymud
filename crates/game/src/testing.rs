@@ -47,6 +47,14 @@ pub(crate) fn heard(outputs: &[Output], player: PlayerId) -> Vec<String> {
         .collect()
 }
 
+pub(crate) fn hacker(world: &mut World, account: &str, name: &str) -> PlayerId {
+    let (player, _) = world.connect(account);
+    for line in [name, "ghost"] {
+        world.command(player, line);
+    }
+    player
+}
+
 pub(crate) fn joined() -> (World, PlayerId) {
     let mut world = world();
     let (player, _) = world.join("ghost");

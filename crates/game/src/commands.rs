@@ -44,9 +44,12 @@ pub(crate) enum Verb {
     Unignore,
     Block,
     Unblock,
+    Report,
     Mute,
     Unmute,
     Kick,
+    Reports,
+    Resolve,
     Help,
     Available,
 }
@@ -94,7 +97,10 @@ impl Verb {
     }
 
     pub(crate) fn moderation(self) -> bool {
-        matches!(self, Self::Mute | Self::Unmute | Self::Kick)
+        matches!(
+            self,
+            Self::Mute | Self::Unmute | Self::Kick | Self::Reports | Self::Resolve
+        )
     }
 
     pub(crate) fn program(self) -> Option<Program> {
@@ -593,6 +599,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         gives: Gives::Nothing,
     },
     Command {
+        verb: Verb::Report,
+        names: &["report"],
+        usage: "report <handle> [reason]",
+        summary: "Send a handle and its chat from the last 15 minutes to the moderators.",
+        example: "report zer0 spam",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
         verb: Verb::Mute,
         names: &["mute"],
         usage: "mute <handle> <minutes>",
@@ -616,6 +631,24 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "kick <handle>",
         summary: "Moderators: disconnect a handle from the server.",
         example: "kick zer0",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Reports,
+        names: &["reports"],
+        usage: "reports [number]",
+        summary: "Moderators: show the open reports, or one report with its chat.",
+        example: "reports 3",
+        takes: Takes::Nothing,
+        gives: Gives::Items(Kinds::LINES),
+    },
+    Command {
+        verb: Verb::Resolve,
+        names: &["resolve"],
+        usage: "resolve <number>",
+        summary: "Moderators: close a report.",
+        example: "resolve 3",
         takes: Takes::Nothing,
         gives: Gives::Nothing,
     },

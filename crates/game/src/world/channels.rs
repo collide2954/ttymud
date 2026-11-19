@@ -160,6 +160,7 @@ impl World {
             player: other,
             message: message.clone(),
         }));
+        self.remember(player, None, &format!("#{id}"), text);
         self.deliver(player, vec![message])
     }
 }

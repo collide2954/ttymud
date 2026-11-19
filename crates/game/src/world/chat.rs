@@ -91,6 +91,8 @@ impl World {
                 player: other,
                 message: message.clone(),
             }));
+        let place = self.hosts[here.0].id.clone();
+        self.remember(player, None, &place, text);
         self.deliver(player, vec![message])
     }
 }
