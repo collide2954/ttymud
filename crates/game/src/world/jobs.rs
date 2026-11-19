@@ -1,5 +1,6 @@
 use ttymud_text::{Kind, Message, Style};
 
+use super::alert::Alert;
 use super::contract::{Contract, Job};
 use super::{Host, HostId, Network, NetworkId, PlayerId, Step, World, lines, listed};
 use crate::content::{CorpDef, FixerDef};
@@ -289,7 +290,7 @@ impl World {
         if let Some(&index) = self.postings.get(&key) {
             return index;
         }
-        let network = self.add_target(&offer.target);
+        let network = self.add_target(&offer.target, offer.corp);
         let corp = &self.corps[offer.corp].name;
         let goal = offer.target.goal;
         self.contracts.push(Contract {
@@ -310,7 +311,7 @@ impl World {
         index
     }
 
-    fn add_target(&mut self, target: &Target) -> NetworkId {
+    fn add_target(&mut self, target: &Target, corp: usize) -> NetworkId {
         let network = NetworkId(self.networks.len());
         let base = self.hosts.len();
         let mut entries = Vec::new();
@@ -338,6 +339,7 @@ impl World {
             security: security.unwrap_or(Security::Low),
             entries,
             keys: target.keys.clone(),
+            corp: Some(corp),
         });
         network
     }
@@ -365,7 +367,11 @@ impl World {
             for offer in offers {
                 number += 1;
                 let corp = &self.corps[offer.corp];
-                let mut line = Message::game(format!("{number}. {}: get ", corp.name))
+                let alert = match self.alert(offer.corp) {
+                    Alert::Green => String::new(),
+                    hot => format!(" ({} alert)", hot.word()),
+                };
+                let mut line = Message::game(format!("{number}. {}{alert}: get ", corp.name))
                     .span(Style::File, &offer.target.goal)
                     .text(format!(". Pay: {} cr.", offer.pay));
                 let need = needed(corp.budget);

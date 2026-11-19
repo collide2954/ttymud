@@ -1,5 +1,6 @@
 use ttymud_text::{Message, Style};
 
+use super::alert::BREACH_ALERT;
 use super::jobs::{DAY, Fixer};
 use super::{NetworkId, PlayerId, Step, World, lines};
 use crate::content::ContractDef;
@@ -185,6 +186,9 @@ impl World {
             )));
         }
         shown.extend(self.gain_rep(player, fixer));
+        if let Some(corp) = self.networks[network.0].corp {
+            self.raise_alert(corp, BREACH_ALERT);
+        }
         shown
     }
 

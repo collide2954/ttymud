@@ -1,5 +1,6 @@
 use ttymud_text::{Kind, Message, Style};
 
+use super::alert::MAX_VERSION;
 use super::run::MAX_TRACE;
 use super::{Host, HostId, NetworkId, PlayerId, World};
 use crate::ice::{Action, Effect, IceKind};
@@ -72,7 +73,7 @@ impl Ice {
     }
 }
 
-pub(super) fn deploy(hosts: &[Host], network: NetworkId) -> Vec<Ice> {
+pub(super) fn deploy(hosts: &[Host], network: NetworkId, bonus: u32) -> Vec<Ice> {
     let find = |id: &str| {
         let position = |inside: bool| {
             hosts
@@ -86,17 +87,20 @@ pub(super) fn deploy(hosts: &[Host], network: NetworkId) -> Vec<Ice> {
         .enumerate()
         .filter(|(_, host)| host.network == Some(network))
         .flat_map(|(index, host)| {
-            host.ice.iter().map(move |def| Ice {
-                host: HostId(index),
-                name: def.name.clone(),
-                kind: def.kind,
-                version: def.version,
-                integrity: def.kind.integrity(def.version),
-                guards: def.guards.as_deref().and_then(find),
-                known: false,
-                awake: false,
-                fooled: false,
-                intent: None,
+            host.ice.iter().map(move |def| {
+                let version = (def.version + bonus).min(MAX_VERSION);
+                Ice {
+                    host: HostId(index),
+                    name: def.name.clone(),
+                    kind: def.kind,
+                    version,
+                    integrity: def.kind.integrity(version),
+                    guards: def.guards.as_deref().and_then(find),
+                    known: false,
+                    awake: false,
+                    fooled: false,
+                    intent: None,
+                }
             })
         })
         .collect()
@@ -394,7 +398,7 @@ mod tests {
             host("lan", 1, vec![warden]),
             host("db", 1, vec![]),
         ];
-        assert_eq!(deploy(&hosts, NetworkId(1))[0].guards, Some(HostId(2)));
+        assert_eq!(deploy(&hosts, NetworkId(1), 0)[0].guards, Some(HostId(2)));
     }
 
     #[test]

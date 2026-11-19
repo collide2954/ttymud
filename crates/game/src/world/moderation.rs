@@ -153,7 +153,7 @@ impl World {
         let (key, name) = self.subject(word, "mute")?;
         self.set_muted(&key, self.now + count * 60);
         let span = format!("{count} {}", minute_word(count));
-        self.alert(&key, &format!("A moderator muted you for {span}."));
+        self.notice(&key, &format!("A moderator muted you for {span}."));
         self.audit(player, &format!("mutes {name} for {span}."));
         Ok(Step::show(vec![Message::game(format!(
             "You mute {name} for {span}."
@@ -170,7 +170,7 @@ impl World {
             return Err(Message::error(format!("{name} is not muted.")));
         }
         self.set_muted(&key, 0);
-        self.alert(&key, "A moderator unmuted you.");
+        self.notice(&key, "A moderator unmuted you.");
         self.audit(player, &format!("unmutes {name}."));
         Ok(Step::show(vec![Message::game(format!(
             "You unmute {name}."
@@ -231,7 +231,7 @@ impl World {
         online.map(|(&player, _)| player).collect()
     }
 
-    fn alert(&mut self, key: &str, text: &str) {
+    fn notice(&mut self, key: &str, text: &str) {
         let message = Message::game(text);
         for player in self.players_of(key) {
             let message = message.clone();

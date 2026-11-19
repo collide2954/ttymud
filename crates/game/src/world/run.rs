@@ -1,5 +1,6 @@
 use ttymud_text::{Message, Style};
 
+use super::alert::{Alert, TRACE_ALERT};
 use super::heat::FAST_HEAT;
 use super::ice::{Ice, deploy};
 use super::{HostId, NetworkId, PlayerId, Step, World};
@@ -103,6 +104,11 @@ impl World {
         if noise == 0 {
             return Vec::new();
         }
+        let corp = self.run_corp(player);
+        let steps = corp.map_or(0, |corp| self.alert(corp).steps());
+        if let Some(corp) = corp {
+            self.raise_alert(corp, noise);
+        }
         let here = self.here(player);
         let alert = if self.heat_of(player) >= FAST_HEAT {
             Action::Alert.ticks() - 1
@@ -140,7 +146,7 @@ impl World {
             (false, true) => noise * 2,
             (false, false) => noise,
         };
-        shown.extend(self.raise_trace(player, gain));
+        shown.extend(self.raise_trace(player, gain * (4 + steps) / 4));
         shown
     }
 
@@ -159,11 +165,14 @@ impl World {
         }
         let network = &self.networks[run.network.0];
         let security = self.hosts[here.0].security.unwrap_or(network.security);
-        let heat = security.heat();
+        let (heat, corp) = (security.heat(), network.corp);
         let name = &network.name;
         let mut shown = vec![Message::game(format!(
             "{name} traces you. The link drops, and you lose the loot of this run."
         ))];
+        if let Some(corp) = corp {
+            self.raise_alert(corp, TRACE_ALERT);
+        }
         shown.push(self.add_heat(player, heat));
         let scene = self.drop_link(player, true);
         shown.extend(self.burn_if_hot(player, scene));
@@ -189,6 +198,9 @@ impl World {
     }
 
     pub(super) fn cross(&mut self, player: PlayerId, from: HostId, to: HostId) -> Vec<Message> {
+        let entering = self.hosts[to.0].network;
+        let bonus = entering.map_or(0, |network| self.ice_bonus(network));
+        let alert = entering.and_then(|network| self.network_alert(network));
         let Some(state) = self.players.get_mut(&player) else {
             return Vec::new();
         };
@@ -199,7 +211,7 @@ impl World {
                     start: state.chain.len() - 1,
                     trace: 0,
                     loot: Vec::new(),
-                    ice: deploy(&self.hosts, network),
+                    ice: deploy(&self.hosts, network, bonus),
                     firewall: false,
                     mask: 0,
                     proxy: false,
@@ -207,9 +219,14 @@ impl World {
                     shells: Vec::new(),
                 });
                 let name = &self.networks[network.0].name;
-                let shown = vec![Message::game(format!(
-                    "You connect to the network of {name}."
-                ))];
+                let connect = match alert.filter(|&alert| alert > Alert::Green) {
+                    Some(alert) => format!(
+                        "You connect to the network of {name}. It is on {} alert.",
+                        alert.word()
+                    ),
+                    None => format!("You connect to the network of {name}."),
+                };
+                let shown = vec![Message::game(connect)];
                 if self.is_job(player, network) {
                     self.advance(player, Event::Enter);
                 }

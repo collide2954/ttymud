@@ -126,6 +126,9 @@ impl World {
         if let Some(run) = &state.run {
             let network = &self.networks[run.network.0].name;
             shown.push(Message::game(format!("Trace: {}% in {network}", run.trace)));
+            if let Some(alert) = self.network_alert(run.network) {
+                shown.push(Message::game(format!("Alert: {}", alert.word())));
+            }
             let access = self.access(player).word();
             shown.push(Message::game(format!("Access here: {access}")));
         }

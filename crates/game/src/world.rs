@@ -1,5 +1,6 @@
 mod access;
 mod account;
+mod alert;
 mod bans;
 mod burns;
 mod channels;
@@ -44,6 +45,7 @@ use crate::random::Random;
 use crate::target::Level;
 
 use account::{Account, Phase, Social};
+use alert::CorpState;
 pub use bans::BANNED;
 use burns::Burn;
 use channels::Channel;
@@ -77,6 +79,7 @@ struct Network {
     security: Security,
     entries: Vec<HostId>,
     keys: Vec<(String, Level)>,
+    corp: Option<usize>,
 }
 
 impl From<NetworkDef> for Network {
@@ -86,6 +89,7 @@ impl From<NetworkDef> for Network {
             security: def.security,
             entries: Vec::new(),
             keys: Vec::new(),
+            corp: None,
         }
     }
 }
@@ -173,7 +177,7 @@ pub struct World {
     city: String,
     city_id: String,
     seed: u64,
-    seed_dirty: bool,
+    state_dirty: bool,
     networks: Vec<Network>,
     hosts: Vec<Host>,
     start: HostId,
@@ -183,6 +187,7 @@ pub struct World {
     offer: Option<usize>,
     shops: Vec<Shop>,
     corps: Vec<CorpDef>,
+    corp_states: Vec<CorpState>,
     templates: Vec<TemplateDef>,
     fixers: Vec<Fixer>,
     channels: Vec<Channel>,
@@ -265,11 +270,12 @@ impl World {
             .collect();
         let networks = content.networks.into_iter().map(Network::from).collect();
         let shops = shop::shops(content.shops, find);
+        let corp_states = vec![CorpState::default(); content.corps.len()];
         let mut world = Self {
             city: content.city,
             city_id: content.id,
             seed,
-            seed_dirty: true,
+            state_dirty: true,
             start: find(&content.start),
             home: content.home.as_deref().map(find),
             burns_host: content.burns.as_deref().map(find),
@@ -277,6 +283,7 @@ impl World {
             offer,
             shops,
             corps: content.corps,
+            corp_states,
             templates: content.templates,
             fixers,
             channels: content.channels.into_iter().map(Channel::from).collect(),

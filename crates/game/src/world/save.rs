@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use super::account::{Account, Saved};
+use super::alert::CorpState;
 use super::bans::BANS;
 use super::burns::Burn;
 use super::contract::Job;
@@ -16,6 +17,8 @@ use crate::ini::{self, Pair, Section};
 use crate::kits::{CYCLES, KITS, RAM};
 
 const ACCOUNTS: &str = "accounts/";
+
+type Alerts = Vec<(usize, CorpState)>;
 const BURNS: &str = "burns.ini";
 const WORLD: &str = "world.ini";
 
@@ -49,7 +52,7 @@ impl World {
         if std::mem::take(&mut self.burns_dirty) {
             saves.push((BURNS.to_owned(), self.burns_text()));
         }
-        if std::mem::take(&mut self.seed_dirty) {
+        if std::mem::take(&mut self.state_dirty) {
             saves.push((WORLD.to_owned(), self.world_text()));
         }
         saves.extend(self.moderation.save_audit());
@@ -73,8 +76,12 @@ impl World {
             return Ok(());
         }
         if path == WORLD {
-            self.seed = self.parse_world(text)?;
-            self.seed_dirty = false;
+            let (seed, alerts) = self.parse_world(text)?;
+            self.seed = seed;
+            for (corp, state) in alerts {
+                self.corp_states[corp] = state;
+            }
+            self.state_dirty = false;
             return Ok(());
         }
         if path == BURNS {
@@ -181,35 +188,53 @@ impl World {
         let mut text = Text::new("# The TTYmud world. The server writes this file.");
         text.section("world", &self.city_id);
         text.pair("seed", &self.seed.to_string());
+        for (corp, state) in self.corp_states.iter().enumerate() {
+            if self.alert_points(corp) > 0 {
+                text.section("alert", &self.corps[corp].id);
+                text.pair("points", &state.alert.to_string());
+                text.pair("since", &state.since.to_string());
+            }
+        }
         text.finish()
     }
 
-    fn parse_world(&self, text: &str) -> Result<u64, Vec<ContentError>> {
+    fn parse_world(&self, text: &str) -> Result<(u64, Alerts), Vec<ContentError>> {
         let (sections, mut errors) = ini::read(text);
-        let mut seed = None;
+        let (mut seed, mut alerts) = (None, Vec::new());
         for section in &sections {
-            if section.kind != "world" {
-                let kind = section.kind;
-                errors.push(problem(
+            match section.kind {
+                "world" if section.id == self.city_id => {
+                    allow(section, &["seed"], &mut errors);
+                    let pair = section.pairs.iter().find(|pair| pair.key == "seed");
+                    seed = pair.and_then(|pair| number(pair, &mut errors));
+                }
+                "world" => {
+                    let (id, city) = (section.id, &self.city_id);
+                    errors.push(problem(
+                        section.line,
+                        format!("world {id} is not this city: {city}"),
+                    ));
+                }
+                "alert" => {
+                    allow(section, &["points", "since"], &mut errors);
+                    let find = |key: &str| section.pairs.iter().find(|pair| pair.key == key);
+                    let alert = find("points").and_then(|pair| number(pair, &mut errors));
+                    let since = find("since").and_then(|pair| number(pair, &mut errors));
+                    let corp = self.corps.iter().position(|corp| corp.id == section.id);
+                    if let (Some(corp), Some(alert), Some(since)) = (corp, alert, since) {
+                        alerts.push((corp, CorpState { alert, since }));
+                    }
+                }
+                kind => errors.push(problem(
                     section.line,
                     format!("unknown section type: {kind}"),
-                ));
-            } else if section.id != self.city_id {
-                let (id, city) = (section.id, &self.city_id);
-                errors.push(problem(
-                    section.line,
-                    format!("world {id} is not this city: {city}"),
-                ));
-            } else {
-                allow(section, &["seed"], &mut errors);
-                let pair = section.pairs.iter().find(|pair| pair.key == "seed");
-                seed = pair.and_then(|pair| number(pair, &mut errors));
+                )),
             }
         }
-        if sections.is_empty() {
+        if !sections.iter().any(|section| section.kind == "world") {
             errors.push(problem(0, format!("{WORLD} has no world section")));
         }
-        checked(errors, seed.unwrap_or_default())
+        checked(errors, (seed.unwrap_or_default(), alerts))
     }
 
     fn burns_text(&self) -> String {
