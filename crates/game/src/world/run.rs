@@ -4,6 +4,7 @@ use super::heat::FAST_HEAT;
 use super::ice::{Ice, deploy};
 use super::{HostId, NetworkId, PlayerId, Step, World};
 use crate::contract::Event;
+use crate::heat::MAX_HEAT;
 use crate::ice::{Action, IceKind};
 
 const SHOCK: u32 = 20;
@@ -60,11 +61,20 @@ impl World {
             let heat = self.add_heat(player, 1);
             shown.push(Message::game("The trace was 75% or more. ").text(heat.plain()));
         }
-        shown.extend(self.damage(player, SHOCK));
+        let mut after = self.damage(player, SHOCK);
         if self.running(player) {
-            shown.extend(self.drop_link(player, false));
+            after.extend(self.drop_link(player, false));
         }
+        shown.extend(self.burn_if_hot(player, after));
         Ok(Step::show(shown))
+    }
+
+    fn burn_if_hot(&mut self, player: PlayerId, otherwise: Vec<Message>) -> Vec<Message> {
+        if self.heat_of(player) >= MAX_HEAT {
+            self.burn(player)
+        } else {
+            otherwise
+        }
     }
 
     pub(super) fn damage(&mut self, player: PlayerId, amount: u32) -> Vec<Message> {
@@ -150,7 +160,8 @@ impl World {
             "{name} traces you. The link drops, and you lose the loot of this run."
         ))];
         shown.push(self.add_heat(player, heat));
-        shown.extend(self.drop_link(player, true));
+        let scene = self.drop_link(player, true);
+        shown.extend(self.burn_if_hot(player, scene));
         shown
     }
 

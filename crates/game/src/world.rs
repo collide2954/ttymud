@@ -31,6 +31,7 @@ use crate::parse::{self, ParseError, Stage};
 use crate::random::Random;
 
 use account::{Account, Phase};
+use burns::Burn;
 pub use chat::is_chat;
 pub use complete::Completion;
 use contract::{Contract, Job};
@@ -114,6 +115,8 @@ pub struct World {
     offer: Option<usize>,
     players: BTreeMap<PlayerId, Player>,
     accounts: BTreeMap<String, Account>,
+    burns: Vec<Burn>,
+    now: u64,
     next_player: u64,
     outbox: Vec<Output>,
     random: Random,
@@ -206,6 +209,8 @@ impl World {
             hosts,
             players: BTreeMap::new(),
             accounts: BTreeMap::new(),
+            burns: Vec::new(),
+            now: 0,
             next_player: 0,
             outbox: Vec::new(),
             random: Random::new(seed),

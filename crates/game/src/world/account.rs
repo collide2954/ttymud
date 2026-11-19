@@ -6,7 +6,7 @@ use crate::commands::{self, Verb};
 use crate::content::File;
 use crate::kits::{self, KITS, Kit};
 
-const RULE: &str = "A handle has 3 to 16 letters, digits, hyphens, or underscores.";
+pub(super) const RULE: &str = "A handle has 3 to 16 letters, digits, hyphens, or underscores.";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Phase {
@@ -15,7 +15,7 @@ pub(super) enum Phase {
     Playing,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(super) struct Account {
     pub(super) handle: Option<Saved>,
     pub(super) know: Vec<Verb>,
@@ -64,6 +64,10 @@ impl World {
         let mut state = Player::new("", self.start);
         state.account = Some(account.to_owned());
         state.phase = Phase::Naming;
+        state.know = self
+            .accounts
+            .get(account)
+            .map_or_default(|known| known.know.clone());
         let player = self.add(state);
         let city = &self.city;
         let shown = vec![
@@ -108,6 +112,11 @@ impl World {
                 "Names that start with anon- are for players without a handle.",
             ));
         }
+        if self.is_burned(name) {
+            return Err(Message::error(format!(
+                "The handle {name} burned. Nobody can use it again."
+            )));
+        }
         let saved = self
             .accounts
             .values()
@@ -132,10 +141,6 @@ impl World {
         state.kit = Some(kit);
         state.phase = Phase::Playing;
         state.rig.loads = kit.loads.to_vec();
-        state.know = self
-            .accounts
-            .get(state.account.as_deref().unwrap_or_default())
-            .map_or_default(|account| account.know.clone());
         for verb in kit.loads {
             if !state.know.contains(&verb) {
                 state.know.push(verb);
@@ -173,13 +178,7 @@ impl World {
             contract: state.contract,
         };
         let know = state.know.clone();
-        let entry = self
-            .accounts
-            .entry(account.clone())
-            .or_insert_with(|| Account {
-                handle: None,
-                know: Vec::new(),
-            });
+        let entry = self.accounts.entry(account.clone()).or_default();
         entry.handle = Some(saved);
         entry.know = know;
     }
