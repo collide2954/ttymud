@@ -5,7 +5,7 @@ use crate::commands::{self, Verb};
 use crate::content::File;
 use crate::heat::MAX_HEAT;
 
-const MAX_INTEGRITY: u32 = 100;
+pub(super) const MAX_INTEGRITY: u32 = 100;
 const MAX_CYCLES: u32 = 4;
 pub(super) const RAM: u32 = 8;
 const PATCH: u32 = 20;

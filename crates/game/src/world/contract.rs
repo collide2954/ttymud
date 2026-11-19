@@ -7,6 +7,7 @@ const HINT_TICKS: u32 = 15;
 
 #[derive(Debug)]
 pub(super) struct Contract {
+    pub(super) id: String,
     pub(super) fixer: String,
     pub(super) network: NetworkId,
     pub(super) goal: String,
@@ -24,12 +25,24 @@ pub(super) struct Job {
 
 impl Job {
     pub(super) fn new(contract: usize) -> Self {
+        Self::resume(contract, 0)
+    }
+
+    pub(super) fn resume(contract: usize, progress: usize) -> Self {
         Self {
             contract,
-            progress: 0,
+            progress,
             idle: 0,
             hinted: false,
         }
+    }
+
+    pub(super) fn contract(self) -> usize {
+        self.contract
+    }
+
+    pub(super) fn progress(self) -> usize {
+        self.progress
     }
 }
 

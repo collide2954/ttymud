@@ -1,0 +1,505 @@
+use std::str::FromStr;
+
+use super::account::{Account, Saved};
+use super::burns::Burn;
+use super::contract::Job;
+use super::rig::MAX_INTEGRITY;
+use super::{PlayerId, World};
+use crate::commands::{self, Verb};
+use crate::content::{ContentError, File};
+use crate::heat::MAX_HEAT;
+use crate::ini::{self, Pair, Section};
+use crate::kits::KITS;
+
+const ACCOUNTS: &str = "accounts/";
+const BURNS: &str = "burns.ini";
+
+impl World {
+    pub fn saves(&mut self) -> Vec<(String, String)> {
+        let dirty = std::mem::take(&mut self.dirty);
+        let online: Vec<PlayerId> = self
+            .players
+            .iter()
+            .filter(|(_, state)| {
+                state
+                    .account
+                    .as_ref()
+                    .is_some_and(|account| dirty.contains(account))
+            })
+            .map(|(&player, _)| player)
+            .collect();
+        for player in online {
+            self.keep(player);
+        }
+        let mut saves: Vec<(String, String)> = dirty
+            .iter()
+            .filter_map(|id| {
+                let account = self.accounts.get(id)?;
+                Some((
+                    format!("{ACCOUNTS}{id}.ini"),
+                    self.account_text(id, account),
+                ))
+            })
+            .collect();
+        if std::mem::take(&mut self.burns_dirty) {
+            saves.push((BURNS.to_owned(), self.burns_text()));
+        }
+        saves
+    }
+
+    pub fn restore(&mut self, path: &str, text: &str) -> Result<(), Vec<ContentError>> {
+        if path == BURNS {
+            self.burns = parse_burns(text)?;
+            self.post_burns();
+            return Ok(());
+        }
+        let Some(id) = path
+            .strip_prefix(ACCOUNTS)
+            .and_then(|rest| rest.strip_suffix(".ini"))
+        else {
+            return Err(vec![problem(0, format!("unknown save file: {path}"))]);
+        };
+        let account = self.parse_account(id, text)?;
+        self.accounts.insert(id.to_owned(), account);
+        Ok(())
+    }
+
+    pub(super) fn touch(&mut self, player: PlayerId) {
+        if let Some(account) = self
+            .players
+            .get(&player)
+            .and_then(|state| state.account.clone())
+        {
+            self.dirty.insert(account);
+        }
+    }
+
+    fn account_text(&self, id: &str, account: &Account) -> String {
+        let mut text = Text::new("# A TTYmud account. The server writes this file.");
+        text.section("account", id);
+        for &verb in &account.know {
+            text.pair("know", commands::name_of(verb));
+        }
+        if let Some(handle) = &account.handle {
+            text.section("handle", &handle.name);
+            text.pair("kit", handle.kit.id);
+            text.pair("heat", &handle.heat.to_string());
+            text.pair("cooled", &handle.cooled.to_string());
+            text.pair("integrity", &handle.integrity.to_string());
+            for &verb in &handle.loads {
+                text.pair("load", commands::name_of(verb));
+            }
+            if let Some(job) = handle.contract
+                && let Some(contract) = self.contracts.get(job.contract())
+            {
+                text.pair("contract", &contract.id);
+                text.pair("step", &job.progress().to_string());
+            }
+            for file in &handle.files {
+                text.file("file", file);
+            }
+        }
+        for file in &account.stash {
+            text.file("stash", file);
+        }
+        text.finish()
+    }
+
+    fn burns_text(&self) -> String {
+        let mut text = Text::new("# The burn list. The server writes this file.");
+        for burn in &self.burns {
+            text.section("burn", &burn.name);
+            text.pair("when", &burn.when.to_string());
+        }
+        text.finish()
+    }
+
+    fn parse_account(&self, id: &str, text: &str) -> Result<Account, Vec<ContentError>> {
+        let (sections, mut errors) = ini::read(text);
+        let mut account = Account::default();
+        let mut found = false;
+        let mut files = Vec::new();
+        for section in &sections {
+            match section.kind {
+                "account" if section.id == id => {
+                    found = true;
+                    allow(section, &["know"], &mut errors);
+                    let known = section.pairs.iter().filter(|pair| pair.key == "know");
+                    account.know = known
+                        .filter_map(|pair| program(pair, &mut errors))
+                        .collect();
+                }
+                "account" => {
+                    let other = section.id;
+                    errors.push(problem(
+                        section.line,
+                        format!("account {other} is not the account of this file"),
+                    ));
+                }
+                "handle" => account.handle = self.parse_handle(section, &mut errors),
+                "file" => files.push(parse_file(section, &mut errors)),
+                "stash" => account.stash.push(parse_file(section, &mut errors)),
+                other => errors.push(problem(
+                    section.line,
+                    format!("unknown section type: {other}"),
+                )),
+            }
+        }
+        if !found {
+            errors.push(problem(0, format!("no account section for {id}")));
+        }
+        if let Some(handle) = &mut account.handle {
+            handle.files = files;
+        }
+        checked(errors, account)
+    }
+
+    fn parse_handle(&self, section: &Section<'_>, errors: &mut Vec<ContentError>) -> Option<Saved> {
+        let name = section.id;
+        let mut kit = None;
+        let (mut heat, mut cooled, mut integrity): (Option<u32>, Option<u64>, Option<u32>) =
+            (None, None, None);
+        let (mut contract, mut step, mut loads) = (None, 0, Vec::new());
+        for pair in &section.pairs {
+            match pair.key {
+                "kit" => {
+                    kit = KITS.iter().find(|kit| kit.id == pair.value);
+                    if kit.is_none() {
+                        errors.push(problem(pair.line, format!("unknown kit: {}", pair.value)));
+                    }
+                }
+                "heat" => heat = number(pair, errors),
+                "cooled" => cooled = number(pair, errors),
+                "integrity" => integrity = number(pair, errors),
+                "load" => loads.extend(program(pair, errors)),
+                "contract" => {
+                    contract = self
+                        .contracts
+                        .iter()
+                        .position(|known| known.id == pair.value);
+                }
+                "step" => step = number(pair, errors).unwrap_or(0),
+                other => errors.push(problem(
+                    pair.line,
+                    format!("unknown key in handle {name}: {other}"),
+                )),
+            }
+        }
+        for key in ["kit", "heat", "cooled", "integrity"] {
+            if !section.pairs.iter().any(|pair| pair.key == key) {
+                errors.push(problem(section.line, format!("handle {name} has no {key}")));
+            }
+        }
+        Some(Saved {
+            name: name.to_owned(),
+            kit: kit?,
+            heat: heat?.min(MAX_HEAT),
+            cooled: cooled?,
+            integrity: integrity?.min(MAX_INTEGRITY),
+            files: Vec::new(),
+            loads,
+            contract: contract.map(|index| Job::resume(index, step)),
+        })
+    }
+}
+
+struct Text(Vec<String>);
+
+impl Text {
+    fn new(comment: &str) -> Self {
+        Self(vec![comment.to_owned()])
+    }
+
+    fn section(&mut self, kind: &str, id: &str) {
+        self.0.push(String::new());
+        self.0.push(format!("[{kind} {id}]"));
+    }
+
+    fn pair(&mut self, key: &str, value: &str) {
+        self.0.push(format!("{key} = {value}"));
+    }
+
+    fn file(&mut self, kind: &str, file: &File) {
+        self.section(kind, &file.name);
+        for line in &file.lines {
+            self.pair("line", line);
+        }
+    }
+
+    fn finish(self) -> String {
+        let mut text = self.0.join("\n");
+        text.push('\n');
+        text
+    }
+}
+
+fn parse_burns(text: &str) -> Result<Vec<Burn>, Vec<ContentError>> {
+    let (sections, mut errors) = ini::read(text);
+    let mut burns = Vec::new();
+    for section in &sections {
+        if section.kind != "burn" {
+            let kind = section.kind;
+            errors.push(problem(
+                section.line,
+                format!("unknown section type: {kind}"),
+            ));
+            continue;
+        }
+        allow(section, &["when"], &mut errors);
+        let Some(pair) = section.pairs.iter().find(|pair| pair.key == "when") else {
+            let name = section.id;
+            errors.push(problem(section.line, format!("burn {name} has no when")));
+            continue;
+        };
+        if let Some(when) = number(pair, &mut errors) {
+            burns.push(Burn {
+                name: section.id.to_owned(),
+                when,
+            });
+        }
+    }
+    checked(errors, burns)
+}
+
+fn parse_file(section: &Section<'_>, errors: &mut Vec<ContentError>) -> File {
+    allow(section, &["line"], errors);
+    let lines: Vec<String> = section
+        .pairs
+        .iter()
+        .filter(|pair| pair.key == "line")
+        .map(|pair| pair.value.to_owned())
+        .collect();
+    if lines.is_empty() {
+        let (kind, name) = (section.kind, section.id);
+        errors.push(problem(section.line, format!("{kind} {name} has no line")));
+    }
+    File {
+        name: section.id.to_owned(),
+        lines,
+    }
+}
+
+fn allow(section: &Section<'_>, keys: &[&str], errors: &mut Vec<ContentError>) {
+    for pair in section
+        .pairs
+        .iter()
+        .filter(|pair| !keys.contains(&pair.key))
+    {
+        let (kind, id, key) = (section.kind, section.id, pair.key);
+        errors.push(problem(
+            pair.line,
+            format!("unknown key in {kind} {id}: {key}"),
+        ));
+    }
+}
+
+fn program(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<Verb> {
+    let verb = commands::find(pair.value)
+        .map(|command| command.verb)
+        .filter(|verb| verb.program().is_some());
+    if verb.is_none() {
+        errors.push(problem(
+            pair.line,
+            format!("unknown program: {}", pair.value),
+        ));
+    }
+    verb
+}
+
+fn number<T: FromStr>(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<T> {
+    let value = pair.value.parse().ok();
+    if value.is_none() {
+        errors.push(problem(pair.line, format!("bad number: {}", pair.value)));
+    }
+    value
+}
+
+fn problem(line: usize, message: String) -> ContentError {
+    ContentError { line, message }
+}
+
+fn checked<T>(mut errors: Vec<ContentError>, value: T) -> Result<T, Vec<ContentError>> {
+    errors.sort_by_key(|error| error.line);
+    if errors.is_empty() {
+        Ok(value)
+    } else {
+        Err(errors)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::testing::{hired_world, plain, world};
+    use crate::{PlayerId, World};
+
+    fn ready(world: &mut World, lines: &[&str]) -> PlayerId {
+        let (player, _) = world.connect("a");
+        for line in ["nyx", "ghost"].iter().chain(lines) {
+            world.command(player, line);
+        }
+        player
+    }
+
+    fn file<'a>(saves: &'a [(String, String)], path: &str) -> Option<&'a str> {
+        saves
+            .iter()
+            .find(|(name, _)| name == path)
+            .map(|(_, text)| text.as_str())
+    }
+
+    #[test]
+    fn an_account_is_saved_as_plain_text() {
+        let mut world = world();
+        world.set_time(500);
+        let player = ready(
+            &mut world,
+            &["get motd.txt", "go back-room", "get motd.txt"],
+        );
+        world.leave(player);
+        let saves = world.saves();
+        let expected = [
+            "# A TTYmud account. The server writes this file.",
+            "",
+            "[account a]",
+            "know = scan",
+            "know = probe",
+            "know = crack",
+            "know = scrub",
+            "know = mask",
+            "",
+            "[handle nyx]",
+            "kit = ghost",
+            "heat = 0",
+            "cooled = 0",
+            "integrity = 100",
+            "load = scan",
+            "load = probe",
+            "load = crack",
+            "load = scrub",
+            "load = mask",
+            "",
+            "[file motd.txt]",
+            "line = Welcome to the Relay.",
+            "line = Be polite.",
+            "",
+        ]
+        .join("\n");
+        assert_eq!(file(&saves, "accounts/a.ini"), Some(expected.as_str()));
+    }
+
+    #[test]
+    fn an_account_comes_back_from_its_save() {
+        let mut world = hired_world();
+        let player = ready(
+            &mut world,
+            &["get motd.txt", "go back-room", "stash motd.txt"],
+        );
+        if let Some(state) = world.players.get_mut(&player) {
+            state.heat = 2;
+            state.cooled = 7;
+            state.rig.integrity = 61;
+        }
+        world.leave(player);
+        let saves = world.saves();
+        let mut fresh = hired_world();
+        for (path, text) in &saves {
+            fresh.restore(path, text).unwrap();
+        }
+        let (player, outputs) = fresh.connect("a");
+        assert_eq!(plain(&outputs)[0], "Welcome back, nyx.");
+        let status = plain(&fresh.command(player, "status"));
+        assert_eq!(status[..2], ["Heat: 2/5", "Integrity: 61/100"]);
+        assert_eq!(
+            plain(&fresh.command(player, "stash")),
+            ["Your stash: motd.txt"]
+        );
+        assert_eq!(
+            plain(&fresh.command(player, "contract"))
+                .last()
+                .map(String::as_str),
+            Some("Next: Type go gate to connect to the lab.")
+        );
+    }
+
+    #[test]
+    fn the_burn_list_comes_back_from_its_save() {
+        let mut world = world();
+        world.set_time(1_700_000_000);
+        let player = ready(&mut world, &["go back-room", "go gate", "go core"]);
+        if let Some(state) = world.players.get_mut(&player) {
+            state.heat = 4;
+            if let Some(run) = state.run.as_mut() {
+                run.trace = 98;
+            }
+        }
+        world.command(player, "scan");
+        let saves = world.saves();
+        assert_eq!(
+            file(&saves, "burns.ini"),
+            Some(
+                "# The burn list. The server writes this file.\n\n[burn nyx]\nwhen = 1700000000\n"
+            )
+        );
+        let mut fresh = world_from(&saves);
+        let (player, _) = fresh.connect("b");
+        assert_eq!(
+            plain(&fresh.command(player, "nyx")),
+            ["The handle nyx burned. Nobody can use it again."]
+        );
+    }
+
+    fn world_from(saves: &[(String, String)]) -> World {
+        let mut fresh = world();
+        for (path, text) in saves {
+            fresh.restore(path, text).unwrap();
+        }
+        fresh
+    }
+
+    #[test]
+    fn saves_give_only_what_changed() {
+        let mut world = world();
+        let player = ready(&mut world, &[]);
+        assert_eq!(world.saves().len(), 1);
+        assert_eq!(world.saves(), Vec::<(String, String)>::new());
+        world.command(player, "look");
+        assert_eq!(world.saves().len(), 1);
+    }
+
+    #[test]
+    fn a_restored_handle_name_is_taken() {
+        let mut world = world();
+        let player = ready(&mut world, &[]);
+        world.leave(player);
+        let mut fresh = world_from(&world.saves());
+        let (player, _) = fresh.connect("b");
+        assert_eq!(
+            plain(&fresh.command(player, "NYX")),
+            ["The handle NYX is taken."]
+        );
+    }
+
+    #[test]
+    fn bad_save_files_fail_with_line_numbers() {
+        let mut world = world();
+        let text = "[account a]\nknow = nuke\n[handle nyx]\nkit = wizard\nheat = hot\n";
+        let errors: Vec<String> = world
+            .restore("accounts/a.ini", text)
+            .unwrap_err()
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        assert_eq!(
+            errors,
+            [
+                "line 2: unknown program: nuke",
+                "line 3: handle nyx has no cooled",
+                "line 3: handle nyx has no integrity",
+                "line 4: unknown kit: wizard",
+                "line 5: bad number: hot",
+            ]
+        );
+        assert!(world.restore("other.ini", "").is_err());
+        assert!(world.restore("accounts/a.ini", "[account b]\n").is_err());
+    }
+}

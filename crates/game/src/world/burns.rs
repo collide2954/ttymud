@@ -49,6 +49,8 @@ impl World {
             name: name.clone(),
             when: now,
         });
+        self.burns_dirty = true;
+        self.touch(player);
         self.post_burns();
         let taken = presence::named(&name, " burns. The police take the rig away.");
         self.notify(here, player, &taken);

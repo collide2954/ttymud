@@ -15,10 +15,11 @@ mod ram;
 mod rig;
 mod roles;
 mod run;
+mod save;
 mod stash;
 mod topics;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use ttymud_text::{Kind, Message, Style, sanitize};
 
@@ -120,7 +121,9 @@ pub struct World {
     offer: Option<usize>,
     players: BTreeMap<PlayerId, Player>,
     accounts: BTreeMap<String, Account>,
+    dirty: BTreeSet<String>,
     burns: Vec<Burn>,
+    burns_dirty: bool,
     now: u64,
     next_player: u64,
     outbox: Vec<Output>,
@@ -188,6 +191,7 @@ impl World {
             .contracts
             .into_iter()
             .map(|def| Contract {
+                id: def.id,
                 fixer: def.fixer,
                 network: network(&def.network).unwrap_or(NetworkId(0)),
                 goal: def.goal,
@@ -214,7 +218,9 @@ impl World {
             hosts,
             players: BTreeMap::new(),
             accounts: BTreeMap::new(),
+            dirty: BTreeSet::new(),
             burns: Vec::new(),
+            burns_dirty: false,
             now: 0,
             next_player: 0,
             outbox: Vec::new(),
@@ -242,6 +248,7 @@ impl World {
     }
 
     pub fn command(&mut self, player: PlayerId, line: &str) -> Vec<Output> {
+        self.touch(player);
         let Some(state) = self.players.get(&player) else {
             return Vec::new();
         };
@@ -274,6 +281,9 @@ impl World {
                     "Your heat cools down: {before} -> {after}."
                 )));
             }
+            if !shown.is_empty() {
+                self.touch(player);
+            }
             outputs.extend(address(player, shown));
         }
         outputs.append(&mut self.outbox);
@@ -282,6 +292,7 @@ impl World {
 
     pub fn leave(&mut self, player: PlayerId) -> Vec<Output> {
         self.keep(player);
+        self.touch(player);
         let Some(state) = self.players.remove(&player) else {
             return Vec::new();
         };
