@@ -1,3 +1,7 @@
+mod sanitize;
+
+pub use sanitize::{MAX_LENGTH, sanitize};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     Game,
