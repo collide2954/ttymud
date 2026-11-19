@@ -12,6 +12,7 @@ use crate::limits::Limiter;
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
+const LINGER: Duration = Duration::from_secs(5);
 
 pub(crate) fn run(stream: TcpStream, connection: u64, keys: &Keys, events: &mpsc::Sender<Event>) {
     if let Err(error) = serve(stream, connection, keys, events) {
@@ -70,9 +71,26 @@ fn write_loop(
 ) {
     for message in mailbox {
         let close = matches!(message, ServerMessage::Close(_));
-        if sender.send(&message.encode()).is_err() || close {
+        if sender.send(&message.encode()).is_err() {
+            break;
+        }
+        if close {
+            let _ = control.shutdown(Shutdown::Write);
+            linger(mailbox);
             break;
         }
     }
     let _ = control.shutdown(Shutdown::Both);
+}
+
+fn linger(mailbox: &mpsc::Receiver<ServerMessage>) {
+    let deadline = Instant::now() + LINGER;
+    while let Some(left) = deadline.checked_duration_since(Instant::now()) {
+        if matches!(
+            mailbox.recv_timeout(left),
+            Err(mpsc::RecvTimeoutError::Disconnected)
+        ) {
+            return;
+        }
+    }
 }

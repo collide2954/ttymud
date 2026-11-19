@@ -27,11 +27,15 @@ struct Client {
 
 impl Client {
     fn connect(address: SocketAddr) -> Self {
+        Self::connect_as(address, &Keys::generate().unwrap())
+    }
+
+    fn connect_as(address: SocketAddr, keys: &Keys) -> Self {
         let mut stream = TcpStream::connect(address).unwrap();
         stream
             .set_read_timeout(Some(Duration::from_secs(5)))
             .unwrap();
-        let session = ttymud_net::connect(&mut stream, &Keys::generate().unwrap()).unwrap();
+        let session = ttymud_net::connect(&mut stream, keys).unwrap();
         let server = session.peer();
         let (receiver, sender) = session.split(stream.try_clone().unwrap(), stream);
         Self {
@@ -119,6 +123,21 @@ fn others_see_a_disconnect() {
     assert_eq!(ghost.text(), format!("{name} connects."));
     drop(nyx);
     assert_eq!(ghost.text(), format!("{name} disconnects."));
+}
+
+#[test]
+fn a_new_connection_with_the_same_key_takes_over() {
+    let (address, _) = start();
+    let keys = Keys::generate().unwrap();
+    let mut first = Client::connect_as(address, &keys);
+    let name = first.welcome();
+    first.until_prompt();
+    let mut second = Client::connect_as(address, &keys);
+    assert_eq!(second.welcome(), name);
+    first.send("look");
+    let closed = ServerMessage::Close("You connected from another place.".to_owned());
+    assert_eq!(first.next(), closed);
+    assert!(first.receiver.receive().is_err());
 }
 
 fn count(client: &mut Client, sent: usize, slowed: &str) -> (usize, usize) {
