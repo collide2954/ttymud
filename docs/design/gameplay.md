@@ -26,27 +26,29 @@ A handle has a privilege level on each host. A higher privilege level lets the h
 
 To move to a host, connect to one of its services. A service can ask for credentials, and ICE can guard it. To get past ICE, crack it, go around it, or use stolen credentials.
 
-Each connection adds a hop to your connection chain. The `back` command moves you back one hop. A trace must follow your chain back to your rig. A long chain makes a trace slower, but each hop adds latency to your actions.
+Each connection adds a hop to your connection chain. The `back` command moves you back one hop. If you go to a host that is already on your chain, the chain becomes shorter. A trace must follow your chain back to your rig. A long chain makes a trace slower, but each hop adds latency to your actions.
 
-In a hub, movement is free and safe. Use `go <place>`.
+In a hub, movement is free and safe. Use `go <place>` or `cd <place>`. You can type the start of a name if no other route starts the same way. For example, `go night` moves you to `night-market`.
 
 ## Commands
 
-Commands look like shell commands. Many commands have a shell name and a MUD name. Both names always work.
+Commands look like shell commands. Many commands have a shell name and a MUD name. Both names always work. The `look` command describes the host in words for MUD players. The `ls` command gives a short list for shell users.
 
 | Command | Other names | Action |
 | --- | --- | --- |
-| `look` | `ls`, `l` | Show the host, its services, routes, files, and who is here. |
-| `connect <host>` | `ssh`, `go` | Move to a host. |
-| `back` | `exit` | Move back one hop. |
-| `read <file>` | `cat` | Show the contents of a file. |
-| `download <file>` | `get` | Copy a file to your rig. |
-| `status` | `st` | Show trace, integrity, heat, RAM, and cycles. |
-| `inventory` | `inv`, `i` | Show what your rig carries. |
-| `say <text>` | `'` | Talk to all players on the same host. |
-| `help [topic]` | | Show help. |
-| `?` | | Show the commands that you can use on this host. |
-| `jackout` | | Disconnect immediately. |
+| `look` | `l` | Show the name and the description of the host, its routes, and its files. |
+| `ls` | | List the routes and files here. Each route ends in `/`. |
+| `go <place>` | `cd`, `connect`, `ssh` | Move to a host through a route. |
+| `back` | `exit`, `cd ..` | Move back one hop. |
+| `read <file>` | `cat` | Show the text of a file here or on your rig. |
+| `download <file>` | `get` | Copy a file from this host to your rig. |
+| `inventory` | `inv`, `i` | Show the files on your rig. |
+| `grep <pattern>` | | Keep only the items that contain the pattern. |
+| `help [command]` | `man` | Show help for all commands or for one command. |
+| `?` | | Show the commands that you can use here. |
+| `status` | `st` | Show trace, integrity, heat, RAM, and cycles. This command comes in M3. |
+| `say <text>` | `'` | Talk to all players on the same host. This command comes in M2. |
+| `jackout` | | Disconnect immediately. This command comes in M3. |
 
 If a command has an error, the game tells you the cause. It also gives the most likely correct command:
 
@@ -62,6 +64,8 @@ A pipeline joins commands with the pipe character (`|`). The output of each comm
     probe sentry | crack
     scan | probe
     ls | grep .db | download
+
+Only the last command in a pipeline shows its output. Each other command gives its items to the next command.
 
 A single command always works. A pipeline is a combo for skilled players. A pipeline has these advantages:
 
