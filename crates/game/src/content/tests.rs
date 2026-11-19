@@ -31,6 +31,7 @@ fn ice_belongs_to_its_host() {
         name: name.to_owned(),
         kind,
         version,
+        guards: None,
     };
     assert_eq!(
         content.hosts[1].ice,
@@ -40,6 +41,37 @@ fn ice_belongs_to_its_host() {
         ]
     );
     assert_eq!(content.hosts[2].ice, []);
+}
+
+#[test]
+fn a_warden_guards_a_route() {
+    let text = format!("{NET}[ice b/warden]\ntype = warden\nguards = c\n");
+    let content = Content::parse(&text).unwrap();
+    assert_eq!(content.hosts[1].ice[0].guards.as_deref(), Some("c"));
+}
+
+#[test]
+fn bad_guards_fail() {
+    let text = format!(
+        "{NET}\
+[ice b/warden]
+type = warden
+[ice c/gate]
+type = warden
+guards = a
+[ice b/scorch]
+type = scorch
+guards = c
+"
+    );
+    assert_eq!(
+        errors(&text),
+        [
+            "line 19: ice b/warden has no guards",
+            "line 21: c/gate guards no route to a",
+            "line 26: only a warden can guard a route",
+        ]
+    );
 }
 
 #[test]

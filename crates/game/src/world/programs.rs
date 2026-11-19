@@ -20,11 +20,15 @@ impl World {
                 ice.integrity,
                 ice.max()
             );
-            step.shown.push(
-                Message::new(Kind::Game)
-                    .span(Style::Ice, &ice.name)
-                    .text(state),
-            );
+            let mut line = Message::new(Kind::Game)
+                .span(Style::Ice, &ice.name)
+                .text(state);
+            if let Some(target) = ice.guards {
+                line = line
+                    .text(", guards ")
+                    .span(Style::Host, &self.hosts[target.0].id);
+            }
+            step.shown.push(line);
             step.items.push(Item::Ice(ice.name.clone()));
         }
         if step.shown.is_empty() {
@@ -60,7 +64,7 @@ mod tests {
             at_gate(&["scan"]),
             [
                 "sentry: Sentry v1, integrity 20/20",
-                "warden: Warden v1, integrity 40/40",
+                "warden: Warden v1, integrity 40/40, guards vault",
             ]
         );
     }

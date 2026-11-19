@@ -171,7 +171,7 @@ impl Reader {
     }
 
     fn ice(&mut self, section: &Section<'_>) {
-        self.allow(section, &["type", "version"]);
+        self.allow(section, &["type", "version", "guards"]);
         let Some((host, name)) = section.id.split_once('/') else {
             self.error(
                 section.line,
@@ -179,6 +179,7 @@ impl Reader {
             );
             return;
         };
+        let guards = self.optional(section, "guards");
         self.check_name(section.line, host, Name::Plain);
         self.check_name(section.line, name, Name::Plain);
         let kind = self.single(section, "type").and_then(|(word, line)| {
@@ -204,11 +205,22 @@ impl Reader {
                 version
             }
         };
+        match (kind, &guards) {
+            (Some(IceKind::Warden), None) => {
+                let id = section.id;
+                self.error(section.line, format!("ice {id} has no guards"));
+            }
+            (Some(kind), Some((_, line))) if kind != IceKind::Warden => {
+                self.error(*line, "only a warden can guard a route");
+            }
+            _ => {}
+        }
         if let (Some(kind), Some(version)) = (kind, version) {
             let ice = IceDef {
                 name: name.to_owned(),
                 kind,
                 version,
+                guards: guards.map(|(target, _)| target),
             };
             self.ice.push((host.to_owned(), ice, section.line));
         }

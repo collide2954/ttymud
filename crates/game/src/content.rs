@@ -56,6 +56,7 @@ pub(crate) struct IceDef {
     pub(crate) name: String,
     pub(crate) kind: IceKind,
     pub(crate) version: u32,
+    pub(crate) guards: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

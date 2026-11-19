@@ -29,6 +29,15 @@ impl Reader {
         self.hosts.iter().position(|(def, _)| def.id == host)
     }
 
+    fn linked(&self, a: &str, b: &str) -> bool {
+        let routes = |from: &str, to: &str| {
+            self.hosts
+                .iter()
+                .any(|(def, _)| def.id == from && def.routes.iter().any(|route| route == to))
+        };
+        routes(a, b) || routes(b, a)
+    }
+
     fn place_files(&mut self) {
         for (host, file, line) in std::mem::take(&mut self.files) {
             let name = &file.name;
@@ -61,6 +70,10 @@ impl Reader {
                 self.error(line, message);
             } else if def.ice.iter().any(|known| known.name == ice.name) {
                 self.error(line, format!("ice {host}/{name} is defined more than once"));
+            } else if let Some(target) = ice.guards.as_deref()
+                && !self.linked(&host, target)
+            {
+                self.error(line, format!("{host}/{name} guards no route to {target}"));
             } else {
                 self.hosts[index].0.ice.push(ice);
             }
