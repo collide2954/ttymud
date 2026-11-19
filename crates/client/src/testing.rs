@@ -45,6 +45,7 @@ pub(crate) fn echo(mut receiver: Receiver<TcpStream>, mut sender: Sender<TcpStre
         };
         if line == "close" {
             send(&mut sender, &ServerMessage::Close("Bye.".to_owned()));
+            while receiver.receive().is_ok() {}
             return;
         }
         send(
