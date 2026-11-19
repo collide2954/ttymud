@@ -69,7 +69,7 @@ fn needed(budget: Security) -> u32 {
 }
 
 impl World {
-    fn fixers_at(&self, host: HostId) -> Vec<usize> {
+    pub(super) fn fixers_at(&self, host: HostId) -> Vec<usize> {
         (0..self.fixers.len())
             .filter(|&index| self.fixers[index].host == host)
             .collect()
@@ -99,7 +99,7 @@ impl World {
             .map_or("", |fixer| fixer.name.as_str())
     }
 
-    fn rep_of(&self, player: PlayerId, fixer: usize) -> u32 {
+    pub(super) fn rep_of(&self, player: PlayerId, fixer: usize) -> u32 {
         let id = self.fixers.get(fixer).map(|fixer| &fixer.id);
         let state = self.players.get(&player);
         state
@@ -181,7 +181,7 @@ impl World {
             .collect()
     }
 
-    fn no_fixer(&self) -> Message {
+    pub(super) fn no_fixer(&self) -> Message {
         let mut hosts: Vec<&str> = self
             .fixers
             .iter()

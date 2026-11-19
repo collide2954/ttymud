@@ -19,6 +19,7 @@ pub(crate) enum Verb {
     Contract,
     Jobs,
     Accept,
+    Rumors,
     Shop,
     Buy,
     Sell,
@@ -90,6 +91,7 @@ impl Verb {
                 | Self::Jackout
                 | Self::Repair
                 | Self::Jobs
+                | Self::Rumors
                 | Self::Shop
                 | Self::Scan
                 | Self::Scrub
@@ -392,6 +394,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         example: "accept 1",
         takes: Takes::Nothing,
         gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Rumors,
+        names: &["rumors", "rumours"],
+        usage: "rumors",
+        summary: "Hear the rumors of the fixers here. Some are true, some are old, and some are false.",
+        example: "rumors",
+        takes: Takes::Nothing,
+        gives: Gives::Items(Kinds::LINES),
     },
     Command {
         verb: Verb::Shop,

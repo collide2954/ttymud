@@ -23,6 +23,7 @@ mod ram;
 mod reports;
 mod rig;
 mod roles;
+mod rumors;
 mod run;
 mod save;
 mod shop;
@@ -494,6 +495,7 @@ impl World {
             Verb::Leave => self.leave_channel(player, args),
             Verb::Jobs => self.jobs(player),
             Verb::Accept => self.accept(player, args),
+            Verb::Rumors => self.rumors(player),
             Verb::Shop => self.shop(player),
             Verb::Buy => self.buy(player, args),
             Verb::Sell => self.sell(player, args, input),

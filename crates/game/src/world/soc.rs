@@ -34,12 +34,17 @@ impl Habit {
         }
     }
 
-    fn word(self) -> &'static str {
+    pub(super) fn word(self) -> &'static str {
         match self {
             Self::Careful => "careful",
             Self::Strict => "strict",
             Self::Lazy => "lazy",
         }
+    }
+
+    pub(super) fn other(self, lie: usize) -> Self {
+        let index = HABITS.iter().position(|&habit| habit == self);
+        HABITS[(index.unwrap_or(0) + 1 + lie % 2) % 3]
     }
 }
 
@@ -79,14 +84,9 @@ impl World {
             return Vec::new();
         };
         let day = day_shift(self.now);
-        let base = if day { DAY_STAFF } else { NIGHT_STAFF };
         let extra = usize::try_from(self.alert(corp).steps()).unwrap_or(0);
-        let mut people = pool(self.seed, corp);
-        if !day {
-            people.reverse();
-        }
-        let shift = people.into_iter().take(base + extra);
-        shift
+        self.shift(corp, day, extra)
+            .into_iter()
             .zip(0..)
             .map(|((name, habit), index)| Analyst {
                 name,
@@ -96,6 +96,19 @@ impl World {
                 fooled: false,
             })
             .collect()
+    }
+
+    pub(super) fn crew(&self, corp: usize, day: bool) -> Vec<(String, Habit)> {
+        self.shift(corp, day, 0)
+    }
+
+    fn shift(&self, corp: usize, day: bool, extra: usize) -> Vec<(String, Habit)> {
+        let mut people = pool(self.seed, corp);
+        if !day {
+            people.reverse();
+        }
+        people.truncate(extra + if day { DAY_STAFF } else { NIGHT_STAFF });
+        people
     }
 
     pub(super) fn analyst_names(&self, player: PlayerId) -> Vec<&str> {

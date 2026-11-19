@@ -46,7 +46,7 @@ impl World {
                 Verb::Unignore => state.is_some_and(|state| !state.social.ignores.is_empty()),
                 Verb::Unblock => state.is_some_and(|state| !state.social.blocks.is_empty()),
                 Verb::Shop | Verb::Buy | Verb::Sell => self.is_shop(here),
-                Verb::Jobs | Verb::Accept => self.has_fixer(here),
+                Verb::Jobs | Verb::Accept | Verb::Rumors => self.has_fixer(here),
                 Verb::Read => readable,
                 Verb::Download => !host.files.is_empty(),
                 Verb::Recovery | Verb::Link | Verb::Keys | Verb::Revoke | Verb::Available => false,

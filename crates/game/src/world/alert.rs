@@ -19,6 +19,13 @@ pub(super) enum Alert {
 }
 
 impl Alert {
+    const LEVELS: [Self; 4] = [Self::Green, Self::Yellow, Self::Orange, Self::Red];
+
+    pub(super) fn other(self, lie: usize) -> Self {
+        let index = Self::LEVELS.iter().position(|&level| level == self);
+        Self::LEVELS[(index.unwrap_or(0) + 1 + lie % 3) % 4]
+    }
+
     fn of(points: u32) -> Self {
         match points {
             0..25 => Self::Green,
@@ -69,6 +76,10 @@ impl World {
 
     pub(super) fn alert(&self, corp: usize) -> Alert {
         Alert::of(self.alert_points(corp))
+    }
+
+    pub(super) fn last_alert(&self, corp: usize) -> Alert {
+        Alert::of(self.corp_states.get(corp).map_or(0, |state| state.alert))
     }
 
     pub(super) fn raise_alert(&mut self, corp: usize, points: u32) {
