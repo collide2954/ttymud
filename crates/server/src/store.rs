@@ -6,6 +6,7 @@ use std::thread;
 
 const ACCOUNTS: &str = "accounts";
 const BURNS: &str = "burns.ini";
+const WORLD: &str = "world.ini";
 
 pub struct Store(mpsc::Sender<(String, String)>);
 
@@ -32,6 +33,10 @@ impl Store {
 
 pub fn load_saves(dir: &Path) -> io::Result<Vec<(String, String)>> {
     let mut saves = Vec::new();
+    let world = dir.join(WORLD);
+    if world.is_file() {
+        saves.push((WORLD.to_owned(), fs::read_to_string(world)?));
+    }
     let accounts = dir.join(ACCOUNTS);
     if accounts.is_dir() {
         let mut names = Vec::new();
@@ -73,8 +78,8 @@ pub(crate) fn write(dir: &Path, path: &str, text: &str) -> io::Result<()> {
 }
 
 fn target(dir: &Path, path: &str) -> Option<PathBuf> {
-    if path == BURNS {
-        return Some(dir.join(BURNS));
+    if path == BURNS || path == WORLD {
+        return Some(dir.join(path));
     }
     let name = path.strip_prefix("accounts/")?.strip_suffix(".ini")?;
     let safe = !name.is_empty()
@@ -104,9 +109,11 @@ mod tests {
         write(&dir, "accounts/a1.ini", "[account a1]\n").unwrap();
         write(&dir, "burns.ini", "[burn nyx]\nwhen = 1\n").unwrap();
         write(&dir, "accounts/a1.ini", "[account a1]\nknow = scan\n").unwrap();
+        write(&dir, "world.ini", "[world c]\nseed = 7\n").unwrap();
         assert_eq!(
             load_saves(&dir).unwrap(),
             [
+                ("world.ini".to_owned(), "[world c]\nseed = 7\n".to_owned()),
                 (
                     "accounts/a1.ini".to_owned(),
                     "[account a1]\nknow = scan\n".to_owned()

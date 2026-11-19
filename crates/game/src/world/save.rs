@@ -13,6 +13,7 @@ use crate::kits::KITS;
 
 const ACCOUNTS: &str = "accounts/";
 const BURNS: &str = "burns.ini";
+const WORLD: &str = "world.ini";
 
 impl World {
     pub fn saves(&mut self) -> Vec<(String, String)> {
@@ -44,10 +45,18 @@ impl World {
         if std::mem::take(&mut self.burns_dirty) {
             saves.push((BURNS.to_owned(), self.burns_text()));
         }
+        if std::mem::take(&mut self.seed_dirty) {
+            saves.push((WORLD.to_owned(), self.world_text()));
+        }
         saves
     }
 
     pub fn restore(&mut self, path: &str, text: &str) -> Result<(), Vec<ContentError>> {
+        if path == WORLD {
+            self.seed = self.parse_world(text)?;
+            self.seed_dirty = false;
+            return Ok(());
+        }
         if path == BURNS {
             self.burns = parse_burns(text)?;
             self.post_burns();
@@ -103,6 +112,41 @@ impl World {
             text.file("stash", file);
         }
         text.finish()
+    }
+
+    fn world_text(&self) -> String {
+        let mut text = Text::new("# The TTYmud world. The server writes this file.");
+        text.section("world", &self.city_id);
+        text.pair("seed", &self.seed.to_string());
+        text.finish()
+    }
+
+    fn parse_world(&self, text: &str) -> Result<u64, Vec<ContentError>> {
+        let (sections, mut errors) = ini::read(text);
+        let mut seed = None;
+        for section in &sections {
+            if section.kind != "world" {
+                let kind = section.kind;
+                errors.push(problem(
+                    section.line,
+                    format!("unknown section type: {kind}"),
+                ));
+            } else if section.id != self.city_id {
+                let (id, city) = (section.id, &self.city_id);
+                errors.push(problem(
+                    section.line,
+                    format!("world {id} is not this city: {city}"),
+                ));
+            } else {
+                allow(section, &["seed"], &mut errors);
+                let pair = section.pairs.iter().find(|pair| pair.key == "seed");
+                seed = pair.and_then(|pair| number(pair, &mut errors));
+            }
+        }
+        if sections.is_empty() {
+            errors.push(problem(0, format!("{WORLD} has no world section")));
+        }
+        checked(errors, seed.unwrap_or_default())
     }
 
     fn burns_text(&self) -> String {
@@ -457,8 +501,55 @@ mod tests {
     }
 
     #[test]
+    fn a_new_world_saves_its_seed_one_time() {
+        let mut world = World::new(crate::Content::parse(crate::testing::CITY).unwrap(), 42);
+        let saves = world.saves();
+        assert_eq!(
+            file(&saves, "world.ini"),
+            Some("# The TTYmud world. The server writes this file.\n\n[world test]\nseed = 42\n")
+        );
+        assert_eq!(world.saves(), Vec::<(String, String)>::new());
+    }
+
+    #[test]
+    fn the_seed_comes_back_from_its_save() {
+        let mut world = world();
+        world
+            .restore("world.ini", "[world test]\nseed = 7\n")
+            .unwrap();
+        assert_eq!(world.seed, 7);
+        assert_eq!(world.saves(), Vec::<(String, String)>::new());
+    }
+
+    #[test]
+    fn a_world_file_must_be_for_this_city() {
+        let mut world = world();
+        let errors = |world: &mut World, text: &str| -> Vec<String> {
+            let result = world.restore("world.ini", text);
+            result
+                .unwrap_err()
+                .iter()
+                .map(ToString::to_string)
+                .collect()
+        };
+        assert_eq!(
+            errors(&mut world, "[world other]\nseed = 7\n"),
+            ["line 1: world other is not this city: test"]
+        );
+        assert_eq!(
+            errors(&mut world, "[world test]\nseed = x\ncolor = red\n"),
+            [
+                "line 2: bad number: x",
+                "line 3: unknown key in world test: color"
+            ]
+        );
+        assert_eq!(errors(&mut world, ""), ["world.ini has no world section"]);
+    }
+
+    #[test]
     fn saves_give_only_what_changed() {
         let mut world = world();
+        let _ = world.saves();
         let player = ready(&mut world, &[]);
         assert_eq!(world.saves().len(), 1);
         assert_eq!(world.saves(), Vec::<(String, String)>::new());

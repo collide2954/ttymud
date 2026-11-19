@@ -14,6 +14,7 @@ enum Name {
 pub(super) struct Reader {
     pub(super) errors: Vec<ContentError>,
     pub(super) city: Option<usize>,
+    pub(super) city_id: String,
     pub(super) city_name: Option<String>,
     pub(super) start: Option<(String, usize)>,
     pub(super) home: Option<(String, usize)>,
@@ -66,6 +67,7 @@ impl Reader {
             return;
         }
         self.city = Some(section.line);
+        section.id.clone_into(&mut self.city_id);
         self.allow(section, &["name", "start", "home", "burns", "contract"]);
         self.check_name(section.line, section.id, Name::Plain);
         self.city_name = self.single(section, "name").map(|(name, _)| name);

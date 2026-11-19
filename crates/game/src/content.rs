@@ -29,6 +29,7 @@ impl fmt::Display for ContentError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Content {
+    pub(crate) id: String,
     pub(crate) city: String,
     pub(crate) start: String,
     pub(crate) home: Option<String>,

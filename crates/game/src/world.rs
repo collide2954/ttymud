@@ -112,6 +112,9 @@ impl Player {
 #[derive(Debug)]
 pub struct World {
     city: String,
+    city_id: String,
+    seed: u64,
+    seed_dirty: bool,
     networks: Vec<Network>,
     hosts: Vec<Host>,
     start: HostId,
@@ -209,6 +212,9 @@ impl World {
             .collect();
         let mut world = Self {
             city: content.city,
+            city_id: content.id,
+            seed,
+            seed_dirty: true,
             start: find(&content.start),
             home: content.home.as_deref().map(find),
             burns_host: content.burns.as_deref().map(find),

@@ -14,6 +14,7 @@ impl Reader {
             return Err(self.errors);
         }
         Ok(Content {
+            id: self.city_id,
             city: self.city_name.unwrap_or_default(),
             start: self.start.unwrap_or_default().0,
             home: self.home.map(|(home, _)| home),
