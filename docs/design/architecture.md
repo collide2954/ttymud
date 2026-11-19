@@ -44,7 +44,7 @@ These rules control the dependencies between crates:
     ttymud-server run <data-dir> [--listen <address>]
     ttymud-server play [name]
 
-The default port is 7331. The `play` command lets one player walk Port Ostra without a network. It is for tests and for a first look at the game. The [player guide](../player.md) and the [operator guide](../operator.md) tell how to use the commands.
+The default port is 7331. The `play` command lets one player walk Port Ostra without a network. It is for tests and for a first look at the game. It uses real time, as the server does. The [player guide](../player.md) and the [operator guide](../operator.md) tell how to use the commands.
 
 These commands come later: `ttymud identity`, `ttymud recover`, and `ttymud-server check`.
 
@@ -57,7 +57,9 @@ The server uses threads from the Rust standard library. It does not use an async
 - **Writer threads.** Each session has a writer thread. It receives outputs from the game loop through a different channel, and it encrypts and writes them.
 - **Game loop thread.** It owns the world state. No other thread can touch the world, so the world has no locks. The loop applies each input when it arrives.
 
-Game ticks come in M3. A storage thread comes in M4. It will write changes to disk, so that a slow disk does not stop the game loop.
+The game loop also runs a tick every two seconds. If the loop is late, it does not run the ticks that it missed. After the text of a tick, the loop sends a Refresh message with the new prompt. Each player who gets text from a different player also gets a Refresh message.
+
+A storage thread comes in M4. It will write changes to disk, so that a slow disk does not stop the game loop.
 
 If a key connects again, the new connection replaces the old connection. The old connection gets a Close message with the reason. After a Close message, the writer thread stops all writes and waits for the client to close the connection. As a result, the reset of a connection cannot delete the Close message.
 
@@ -71,7 +73,7 @@ The client has three threads:
 - **Network thread.** It receives and decodes the messages from the server.
 - **Main thread.** It receives the events of the two other threads through one channel. It sends the commands to the server, and it writes to the terminal.
 
-The main thread gives each event to a view. The line view writes lines. The screen view has a line editor, and it keeps the input line below the text from the server. The client uses the screen view when the input and the output are terminals.
+The main thread gives each event to a view. The line view writes lines. If text comes after an open prompt, the line view starts the text on a new line. The screen view has a line editor, and it keeps the input line below the text from the server. The client uses the screen view when the input and the output are terminals.
 
 When the player quits, the client waits until each command has its prompt, for a maximum of 5 seconds. As a result, the player sees the answers to the last commands.
 
@@ -79,13 +81,14 @@ When the player quits, the client waits until each command has its prompt, for a
 
 The `game` crate is a pure state machine. It does not read the clock, and it does not get random numbers from the operating system.
 
-    let mut world = World::new(Content::parse(text)?);
+    let mut world = World::new(Content::parse(text)?, seed);
     let (player, outputs) = world.join("ghost");
     let outputs = world.command(player, "ls | grep txt");
+    let outputs = world.tick();
 
 Each output has a player and a styled message. A command checks all stages of a pipeline before it runs the first stage. The `prompt` function gives the prompt of a player.
 
-Game time comes in M3 with `world.tick(now)`. The caller will give the time and the random seed. As a result, a test can give a seed and a time, and the test gets the same result each time.
+The caller calls `tick` every two seconds. On each tick, each rig gets a cycle, the ICE acts, and contracts give hints. The ICE selects its actions with a small random number generator from the seed. As a result, a test with the same seed gets the same result each time. Until M5, the server takes the seed from the clock.
 
 ## Storage
 
@@ -119,6 +122,7 @@ All messages go in Noise transport frames. A message starts with a type byte, an
 | Prompt | The prompt for the next input line |
 | Candidates | The results of a tab completion |
 | Close | The reason for the disconnection |
+| Refresh | A new prompt after text that is not an answer to a command |
 
 The [protocol](../protocol.md) document gives the full details. Two messages come later. Hello will give the protocol version, the client layer, and the terminal size. Status will give trace, integrity, heat, cycles, and RAM.
 
@@ -146,7 +150,7 @@ TTYmud does not use serde, tokio, clap, or a crate for logs. The standard librar
 ## Tests
 
 - **Unit tests** in each crate.
-- **Scenario tests** for the game. Each file in `crates/game/tests/scenarios/` is a transcript of commands and their expected output. The test runs the commands on a test city and compares the outputs with the transcript. A comment line starts with `#`.
+- **Scenario tests** for the game. Each file in `crates/game/tests/scenarios/` is a transcript of commands and their expected output. The test runs the commands on a test city and compares the outputs with the transcript. A comment line starts with `#`. A line such as `~ 3` lets three ticks go by.
 - **Screen tests** for the client. They compare the bytes that the screen view writes with the expected bytes. The color layers will add one test for each color depth.
 - **Round-trip tests** for the wire protocol.
 - **Integration tests** that start a server and a client in one process on a local port. Some tests use a small fake server.

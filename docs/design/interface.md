@@ -21,6 +21,8 @@ The prompt shows the most important state:
 
     [trace 31% integ 82] ghost@arcadia-db $
 
+Outside a target network, the prompt shows only the handle and the host. When a tick changes the state, the server sends a new prompt.
+
 ## Edit mode
 
 When the input and the output are terminals, the client edits the input line locally. As a result, keys show immediately, also on a slow connection. Text from the server shows above the input line. The editor has these keys:
@@ -96,10 +98,12 @@ The first run must teach the game without a long tutorial.
 5. Each step of the tutorial contract teaches one command. The game gives a hint only when the player makes no progress for some time.
 6. The player can stop the tutorial contract at any time.
 
+In version 0.1, handles and starter kits do not exist yet. They come in M4. The fixer Pell offers the tutorial contract when the player connects. The `contract` command shows the next step. After 15 ticks without progress, the game shows the hint one time. The `contract drop` command stops the contract.
+
 ## Help
 
 - `help` shows the most important commands.
-- `help <topic>` shows the help for a command or a topic.
+- `help <topic>` shows the help for a command or a topic. The topics are `ice`, `pipes`, and `runs`.
 - `?` shows the commands that you can use on the current host.
 - An unknown command gives the most likely correct command.
 - Each error message tells what went wrong and what to do.
