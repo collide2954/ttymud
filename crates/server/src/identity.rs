@@ -188,7 +188,9 @@ fn keyring(section: &Section<'_>, errors: &mut Vec<ContentError>) -> Keyring {
 
 #[cfg(test)]
 mod tests {
-    use super::Identity;
+    use super::{Identity, load_identity};
+    use crate::store::write;
+    use crate::testing::scratch;
 
     fn linked(identity: &mut Identity, account: &str, key: &str) {
         identity.offer(account, "code".to_owned(), 0);
@@ -259,9 +261,16 @@ mod tests {
              [account ka]\nrecovery = d1\nkey = ka\nkey = kb\n"
         );
         assert_eq!(identity.save(), None);
-        let read = Identity::read(&text).unwrap();
+        let dir = scratch("identity");
+        assert!(load_identity(&dir).is_ok());
+        write(&dir, &path, &text).unwrap();
+        let read = load_identity(&dir).unwrap();
         assert_eq!(read.account_of("kb"), Some("ka".to_owned()));
         assert!(read.has_recovery("ka"));
+        write(&dir, &path, "[account ka]\ncolor = red\n").unwrap();
+        let error = load_identity(&dir).unwrap_err().to_string();
+        assert_eq!(error, "keys.ini: line 2: unknown key in account ka: color");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
