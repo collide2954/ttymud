@@ -91,9 +91,11 @@ The check cannot find all STE problems. A person must also read each document.
 | account | The identity of a person on a server. A key pair identifies the account. |
 | alert level | The state of alarm of a corporation: green, yellow, orange, or red. |
 | analyst | An NPC who works in a SOC. |
+| audit log | The file where the server writes each action of the moderators. |
 | blueprint | Know-how that lets a handle compile a program. |
 | budget | How much a corporation spends on security: low, medium, high, or top. |
 | burn list | The public list of the handles that burned on a server. |
+| channel | A chat room for the players of a server, on all hosts. |
 | contract | A job from a fixer. |
 | corp | A corporation in a content file. |
 | crate | A Rust package. |
@@ -115,12 +117,16 @@ The check cannot find all STE problems. A person must also read each document.
 | job board, board | The list of the jobs that the fixers post each day. |
 | know-how | The programs and blueprints that an account keeps after a burn. |
 | layer | One level of a target: the edge, the LAN, or the core. Later, also the vault. |
+| link code | A code for one use that adds a new device to an account. |
 | loot | Data and items that a handle takes from a target. |
+| moderator | A player who can mute, kick, and ban other players. The operator selects the moderators. |
 | noise | The evidence that an action leaves in a target. Noise increases the trace. |
 | NPC | A character that the server controls. |
 | offshore stash, stash | A store of credits and items that stays after a burn. |
 | pipeline | Two or more commands that the pipe character (`\|`) joins. |
 | program | Software that a handle runs to do an action. |
+| recovery code | A secret code that gets an account back on a new device. |
+| report | A message to the moderators about a player. It keeps the recent chat of that player. |
 | reputation | The trust of a fixer in a handle. More reputation opens bigger jobs. |
 | rig | The computer of a handle. |
 | route | A network path from one host to a different host. |
@@ -143,6 +149,7 @@ The check cannot find all STE problems. A person must also read each document.
 
 | Verb | Meaning |
 | --- | --- |
+| ban | To refuse an account on a server, and as an option its IP address. |
 | burn | To lose a handle permanently at maximum heat. |
 | compile | To make a program from a blueprint and parts. |
 | crack | To break ICE or encryption. |
@@ -151,9 +158,14 @@ The check cannot find all STE problems. A person must also read each document.
 | exploit | To use a weakness in software to get more access. |
 | hack | To get access to a computer without permission. |
 | jack out | To drop the link to a target at once. |
+| kick | To disconnect a player from a server. |
+| link | To add a device to an account with a link code. |
 | load | To put a program into the RAM of a rig. |
+| mute | To stop the chat messages of a player for some minutes. |
 | patch | To repair a weakness or damage in software. |
 | probe | To find the weaknesses of a host or of ICE. |
+| recover | To get an account back with a recovery code. |
+| revoke | To remove a key from an account. |
 | sanitize | To remove unsafe characters from text. |
 | scan | To find hosts and services. |
 | scrub | To delete log lines. |

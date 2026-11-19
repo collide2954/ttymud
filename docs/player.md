@@ -51,7 +51,7 @@ To use a different directory, set the `TTYMUD_CONFIG` environment variable, or u
 - `identity.key`: your identity key. On Unix, the file has the permissions 0600.
 - `known_servers`: the keys of the servers that you trust.
 
-> CAUTION: Keep the file `identity.key` secret. Keep a copy of it in a safe place. A person with this file can use your account. If you lose the file, you lose your account and your handle.
+> CAUTION: Keep the file `identity.key` secret. Keep a copy of it in a safe place. A person with this file can use your account. If you lose the file, you need your recovery code to get your account back.
 
 ## Edit mode
 
@@ -70,7 +70,7 @@ In a terminal, the client edits your input line itself. Text from the server sho
 | Ctrl+C | Clear the line. On an empty line, quit. |
 | Ctrl+D | Delete the character at the cursor. On an empty line, quit. |
 
-Tab completes the names of commands, routes, files, help topics, and the ICE that you know. If more than one name is possible, Tab adds the part that the names have in common. If there is no part to add, the client shows all the possible names.
+Tab completes the names of commands, routes, files, help topics, channels, the handles that are online, and the ICE that you know. If more than one name is possible, Tab adds the part that the names have in common. If there is no part to add, the client shows all the possible names.
 
 ## Line mode
 
@@ -82,11 +82,67 @@ In line mode, the client reads full lines and writes full lines. Line mode works
 
 ## Play
 
-Type `help` to see the commands. Type `?` to see the commands that you can use on the current host. To talk to the players on the same host, type `say` and your message. A line that starts with `'` is also a message.
+Type `help` to see the commands. Type `?` to see the commands that you can use on the current host.
 
 Type `quit` to leave the game. The client waits for the answers to your last commands. Then it closes the connection.
 
-If you connect again with the same identity, the new connection replaces the old connection.
+If you connect again with the same account, the new connection replaces the old connection.
+
+## Chat
+
+You can talk in three ways:
+
+- `say <text>` talks to the players on the same host. A line that starts with `'` is also a `say` message.
+- A line that starts with `#` and the name of a channel talks in that channel, for example `#ostra hello`. A channel reaches its members on all hosts.
+- `tell <handle> <text>` sends a private message to a handle that is online. `reply <text>` answers the last handle that sent you a private message.
+
+Port Ostra has the channels `#ostra`, `#help`, and `#market`. A new handle starts in `#ostra` and `#help`. Type `channels` to see the channels. Type `join market` or `leave market` to change your channels. The server keeps your channels with your handle.
+
+Type `who` to see the handles that are online. The list marks the moderators.
+
+The server can read all chat, also private messages. Before your first private message, the server tells you this. A new account must wait 10 minutes before it sends private messages. The server also blocks a message that is the same as your last message, for 30 seconds.
+
+## Ignore, block, and report
+
+If a player harasses you, use these commands:
+
+- `ignore <handle>` hides all messages of that handle from you.
+- `block <handle>` also refuses the private messages of that handle.
+- `unignore <handle>` and `unblock <handle>` remove a handle from your lists.
+- `ignore` without a handle shows whom you ignore and block.
+
+The server keeps your lists with your account. You can also ignore or block a handle that is offline.
+
+To tell the moderators about a player, type `report`, the handle, and a reason, for example `report zer0 spam`. The report contains the chat of that handle from the last 15 minutes. It contains the public messages of that handle, and its private messages to you. The reported player does not see the report.
+
+## Moderators
+
+The operator of the server selects the moderators. A moderator can do these actions:
+
+- Mute a handle for some minutes. A muted handle cannot send chat messages.
+- Kick a handle. The server disconnects the handle, but the player can connect again.
+- Ban an account. The server disconnects the account and refuses it after that. A ban can also refuse an IP address.
+
+The moderators also read the reports. The server writes each action of a moderator to an audit log. If you are a moderator, type `help` to see your commands.
+
+## Your account on more devices
+
+Your identity key is your account. When you make your first handle, the server shows a recovery code one time:
+
+    Your recovery code: 3f9a-2c71-0b8e-55d4-91c6-7a2f-e310-4d8b
+
+> CAUTION: Write down your recovery code and keep it in a safe place. A person with the code can use your account.
+
+If you lose the file `identity.key`, the client makes a new key at its next start. Connect to the server with the new key. At the handle prompt, type `recover` and your code. You get your account back, and the server shows a new recovery code. After that, the old code does not work. To make a new code at a different time, type `recovery`.
+
+To use your account on a second device, do these steps:
+
+1. On the device that you use now, type `link`. The server shows a link code.
+2. On the new device, connect to the server. At the handle prompt, type `link` and the code.
+
+A link code works one time, for 10 minutes. Type `keys` to see the keys of your account. To remove a key, for example the key of a lost device, type `revoke` and the number of the key. A revoked key cannot connect.
+
+Your account can be online on one device at a time. When you connect on a second device, the first device disconnects.
 
 ## Your handle
 
