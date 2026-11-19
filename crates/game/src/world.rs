@@ -402,7 +402,7 @@ fn listing(items: &[Item]) -> Vec<Message> {
         .map(|item| match item {
             Item::Route(id) => Message::new(Kind::Game).span(Style::Host, format!("{id}/")),
             Item::File(file) => Message::new(Kind::Game).span(Style::File, &file.name),
-            Item::Ice(name) => Message::new(Kind::Game).span(Style::Ice, name),
+            Item::Ice { name, .. } => Message::new(Kind::Game).span(Style::Ice, name),
             Item::Line(text) => Message::game(text),
         })
         .collect()

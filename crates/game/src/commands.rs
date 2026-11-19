@@ -74,7 +74,7 @@ pub(crate) fn cost(programs: impl IntoIterator<Item = Program>) -> Cost {
 pub(crate) enum Item {
     Route(String),
     File(File),
-    Ice(String),
+    Ice { name: String, weak: bool },
     Line(String),
 }
 
@@ -83,7 +83,7 @@ impl Item {
         match self {
             Self::Route(id) => id,
             Self::File(file) => &file.name,
-            Self::Ice(name) | Self::Line(name) => name,
+            Self::Ice { name, .. } | Self::Line(name) => name,
         }
     }
 }

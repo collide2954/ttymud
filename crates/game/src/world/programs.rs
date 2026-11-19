@@ -64,7 +64,10 @@ impl World {
                     .span(Style::Host, &self.hosts[target.0].id);
             }
             step.shown.push(line);
-            step.items.push(Item::Ice(ice.name.clone()));
+            step.items.push(Item::Ice {
+                name: ice.name.clone(),
+                weak: false,
+            });
         }
         if step.shown.is_empty() {
             step.shown.push(Message::game("scan finds no ICE here."));
@@ -97,9 +100,14 @@ impl World {
         args: &[String],
         input: Option<Vec<Item>>,
     ) -> Result<Step, Message> {
-        let names = self.targets(player, "crack", args, input)?;
-        let [name] = names.as_slice() else {
+        let targets = self.targets(player, "crack", args, input)?;
+        let [(name, weak)] = targets.as_slice() else {
             return Err(Message::error("crack takes one ICE at a time."));
+        };
+        let (strength, point) = if *weak {
+            (CRACK * 2, (" in its weak point", " through its weak point"))
+        } else {
+            (CRACK, ("", ""))
         };
         let here = self.here(player);
         let ice = self
@@ -120,18 +128,20 @@ impl World {
                 .text(" is already broken."));
         }
         let before = ice.integrity;
-        ice.integrity = before.saturating_sub(CRACK);
+        ice.integrity = before.saturating_sub(strength);
         if !ice.broken() {
             let after = ice.integrity;
+            let (hit, _) = point;
             return Ok(Step::show(vec![
                 Message::game("crack hits ")
                     .span(Style::Ice, name)
-                    .text(format!(". Integrity: {before} -> {after}.")),
+                    .text(format!("{hit}. Integrity: {before} -> {after}.")),
             ]));
         }
+        let (_, through) = point;
         let mut message = Message::game("crack breaks ")
             .span(Style::Ice, name)
-            .text(".");
+            .text(format!("{through}."));
         if let Some(target) = ice.guards {
             message = message
                 .text(" The route to ")
@@ -147,7 +157,8 @@ impl World {
         args: &[String],
         input: Option<Vec<Item>>,
     ) -> Result<Step, Message> {
-        let names = self.targets(player, "probe", args, input)?;
+        let targets = self.targets(player, "probe", args, input)?;
+        let names: Vec<String> = targets.into_iter().map(|(name, _)| name).collect();
         let here = self.here(player);
         let mut step = Step::default();
         let Some(run) = self.run_of(player) else {
@@ -164,7 +175,10 @@ impl World {
             }
             let weakness = format!(". Weak point: {}.", ice.kind.weakness());
             step.shown.push(ice.describe().text(weakness));
-            step.items.push(Item::Ice(ice.name.clone()));
+            step.items.push(Item::Ice {
+                name: ice.name.clone(),
+                weak: true,
+            });
         }
         Ok(step)
     }
@@ -179,7 +193,7 @@ impl World {
         command: &str,
         args: &[String],
         input: Option<Vec<Item>>,
-    ) -> Result<Vec<String>, Message> {
+    ) -> Result<Vec<(String, bool)>, Message> {
         let here = self.here(player);
         let known: Vec<&str> = self
             .run_of(player)
@@ -190,19 +204,19 @@ impl World {
             .collect();
         match (args, input) {
             ([], Some(items)) => {
-                let names: Vec<String> = items
+                let targets: Vec<(String, bool)> = items
                     .into_iter()
                     .filter_map(|item| match item {
-                        Item::Ice(name) => Some(name),
+                        Item::Ice { name, weak } => Some((name, weak)),
                         Item::Route(_) | Item::File(_) | Item::Line(_) => None,
                     })
                     .collect();
-                if names.is_empty() {
+                if targets.is_empty() {
                     return Err(Message::error(format!(
                         "{command} needs ICE, but the input has none."
                     )));
                 }
-                Ok(names)
+                Ok(targets)
             }
             (_, Some(_)) => Err(Message::error(format!(
                 "{command} takes an ICE or a pipe, not both."
@@ -215,7 +229,7 @@ impl World {
             }
             (words, None) => words
                 .iter()
-                .map(|word| choose(Thing::Ice, word, &known).map(str::to_owned))
+                .map(|word| choose(Thing::Ice, word, &known).map(|name| (name.to_owned(), false)))
                 .collect(),
         }
     }
@@ -314,6 +328,35 @@ mod tests {
     fn a_program_that_fails_costs_nothing() {
         let shown = at_gate(&["probe sentry", "status | grep cycles"]);
         assert_eq!(shown, ["Cycles: 4/4"]);
+    }
+
+    #[test]
+    fn crack_after_probe_hits_the_weak_point() {
+        assert_eq!(
+            at_gate(&["scan", "~2", "probe warden | crack"])[0],
+            "crack hits warden in its weak point. Integrity: 40 -> 10."
+        );
+        assert_eq!(
+            at_gate(&["scan", "~2", "probe sentry | crack"])[0],
+            "crack breaks sentry through its weak point."
+        );
+    }
+
+    #[test]
+    fn a_fast_combo_stops_an_alert() {
+        let shown = at_gate(&["scan", "~2", "probe sentry | crack", "~5"]);
+        assert!(
+            !shown.iter().any(|line| line.contains("ALERT")),
+            "{shown:?}"
+        );
+    }
+
+    #[test]
+    fn the_weak_point_works_only_in_the_same_pipeline() {
+        assert_eq!(
+            at_gate(&["scan", "~2", "probe warden", "~3", "crack warden"])[0],
+            "crack hits warden. Integrity: 40 -> 25."
+        );
     }
 
     #[test]
