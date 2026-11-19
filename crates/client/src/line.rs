@@ -5,6 +5,7 @@ use std::thread;
 use std::time::Duration;
 
 use ttymud_net::Receiver;
+use ttymud_text::clean;
 use ttymud_wire::{ClientMessage, ServerMessage};
 
 use crate::{Link, Shown, render};
@@ -62,7 +63,7 @@ pub fn line_mode(
         };
         match event {
             Event::Line(_) if draining => {}
-            Event::Line(command) if command.trim() == "quit" => draining = true,
+            Event::Line(command) if is_quit(&command) => draining = true,
             Event::Line(command) => {
                 if sender
                     .send(&ClientMessage::Command(command).encode())
@@ -89,6 +90,10 @@ pub fn line_mode(
         .join()
         .map_err(|_| io::Error::other("the display thread stopped"))??;
     Ok(ending)
+}
+
+pub(crate) fn is_quit(line: &str) -> bool {
+    clean(line).trim().eq_ignore_ascii_case("quit")
 }
 
 fn read(input: impl BufRead, events: &mpsc::Sender<Event>) {
@@ -193,6 +198,13 @@ mod tests {
         assert_eq!(ending, Ending::Closed);
         assert!(text.contains("Bye.\n"), "{text}");
         assert!(!text.contains("echo look"), "{text}");
+    }
+
+    #[test]
+    fn invisible_characters_do_not_hide_quit() {
+        let (ending, text) = session("\u{feff}quit\n");
+        assert_eq!(ending, Ending::Quit);
+        assert!(!text.contains("echo"), "{text}");
     }
 
     #[test]
