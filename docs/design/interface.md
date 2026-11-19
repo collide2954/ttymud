@@ -23,12 +23,15 @@ The prompt shows the most important state:
 
 ## Edit mode
 
-When the terminal supports raw mode, the client edits the input line locally. As a result, keys show immediately, also on a slow connection. The editor has these keys:
+When the input and the output are terminals, the client edits the input line locally. As a result, keys show immediately, also on a slow connection. Text from the server shows above the input line. The editor has these keys:
 
 - Left, Right, Home, End, Backspace, and Delete.
-- Ctrl+A, Ctrl+E, Ctrl+W, Ctrl+U, and Ctrl+K, as in a shell.
-- Up and Down for the command history.
-- Tab to complete commands, hosts, files, and handles.
+- Ctrl+A, Ctrl+E, Ctrl+B, Ctrl+F, Ctrl+W, Ctrl+U, and Ctrl+K, as in a shell.
+- Up and Down, or Ctrl+P and Ctrl+N, for the command history.
+- Tab to complete commands, routes, files, and help topics. Later, Tab will also complete handles.
+- Ctrl+C to clear the line, and Ctrl+D to delete a character. On an empty line, these keys quit.
+
+A long input line moves to the side, so that the cursor stays on the screen. The `--line` option selects line mode in a terminal. The [player guide](../player.md) gives all the keys.
 
 ## Color mode
 

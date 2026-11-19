@@ -8,7 +8,7 @@ TTYmud is a MUD (multi-user dungeon). The networks are the dungeons. The hostile
 
 ## Status
 
-TTYmud is in early development. Milestones M0 and M1 are complete. You can walk the default city offline, but network play is not ready yet. The [roadmap](docs/roadmap.md) gives the plan.
+TTYmud is in early development. Milestones M0, M1, and M2 are complete. You can run a server and walk the default city with other players over an encrypted connection. The first hacks come in M3. The [roadmap](docs/roadmap.md) gives the plan.
 
 ## Build
 
@@ -25,6 +25,19 @@ Use this command to walk Port Ostra alone, without a network:
 
 Type `help` to see the commands. Type `quit` to leave.
 
+## Play on a network
+
+Use these commands to make a data directory and to start a server on your computer:
+
+    cargo run --release -p ttymud-server -- init ostra-data
+    cargo run --release -p ttymud-server -- run ostra-data
+
+Then use this command in a different terminal to connect:
+
+    cargo run --release -p ttymud -- connect localhost
+
+The [player guide](docs/player.md) tells you how to play. The [operator guide](docs/operator.md) tells you how to run a server for other players.
+
 ## Goals
 
 - **Easy to learn.** If you know a shell, you know how to play. If you do not know a shell, the game teaches you.
@@ -37,8 +50,11 @@ Type `help` to see the commands. Type `quit` to leave.
 
 ## Documents
 
+- [Player guide](docs/player.md)
+- [Operator guide](docs/operator.md)
 - [Design overview](docs/design/overview.md)
 - [Roadmap](docs/roadmap.md)
+- [Protocol](docs/protocol.md)
 - [Content files](docs/content.md)
 - [Style guide](docs/style.md)
 - [How to contribute](CONTRIBUTING.md)

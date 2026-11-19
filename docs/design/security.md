@@ -28,14 +28,16 @@ TTYmud does not protect against these threats:
 The client and the server use the Noise protocol framework with the pattern `Noise_XX_25519_ChaChaPoly_BLAKE2s`. The `snow` crate supplies the protocol. TTYmud does not use its own cryptography.
 
 - The XX pattern authenticates the static keys of both sides.
-- The prologue contains the protocol name and the protocol version. As a result, a downgrade attack fails.
+- The prologue is `ttymud/1`. It contains the protocol name and the protocol version. As a result, a downgrade attack fails.
 - Each frame has a length prefix of two bytes. The maximum frame size is 65535 bytes.
 
 ## Server keys
 
-The server makes its static key at its first start. The client keeps the key of each server that it connects to, as SSH does. If the key of a known server changes, the client stops and shows a warning.
+The `ttymud-server init` command makes the static key of the server. The server keeps the key in the file `server.key` in its data directory.
 
-A server operator can publish the fingerprint of the server key. A server address can contain the fingerprint. Then the client also checks the key at the first connection.
+The client keeps the key of each server that it connects to, as SSH does. Before the client trusts a new server, it shows the fingerprint of the server key and asks the player. If the key of a known server changes, the client stops and shows a warning.
+
+A server operator can publish the fingerprint of the server key. In a later version, a server address will contain the fingerprint. Then the client will also check the key at the first connection.
 
 ## Identity
 
@@ -88,3 +90,17 @@ The client also removes control characters from all text before it shows the tex
 - The server does not start other programs.
 - The server checks all content files and configuration files when it starts. It limits the size of each input.
 - The server limits the number of connections in total and from each IP address. It closes each handshake that takes more than 10 seconds.
+
+## Status
+
+Milestone M2 has these parts of the design:
+
+- The Noise transport, with the prologue `ttymud/1` and frames with a length prefix of two bytes.
+- Server keys, and the list of known servers in the client. The client asks the player before it trusts a new server.
+- Identity keys. On Unix, all key files have the permissions 0600.
+- The text sanitizer on the server. The client also removes unsafe characters from all text from the server, and its line editor never keeps control characters.
+- Rate limits for each connection. The command bucket holds 20 tokens and gets 10 tokens each second. The chat bucket holds 5 tokens and gets 1 token every 2 seconds.
+- Connection limits: 256 in total, and 8 from each IP address. A handshake has a maximum of 10 seconds.
+- One connection for each key. A new connection with the same key replaces the old connection.
+
+In M2, the name of a player is `anon-` and the first eight hexadecimal characters of the public key. These names are temporary. They have only 32 bits, so a person with enough computer time can make a key with the same name. The server always uses the full key to identify a connection. The rules for handle names come in M4. Recovery codes, device links, key revocation, and the chat safety tools come in M6.

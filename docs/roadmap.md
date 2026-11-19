@@ -20,13 +20,13 @@ TTYmud grows in small milestones. At the end of each milestone, the game works a
 - A test harness that runs the world without a network.
 - The offline play mode: `ttymud-server play`.
 
-### M2: Secure connection
+### M2: Secure connection (done)
 
 - The wire protocol and its encoding.
 - The Noise transport with `snow`.
-- Identity keys, accounts, and known server keys.
-- The client in line mode and edit mode.
-- `say`, with the text sanitizer and rate limits.
+- Identity keys and known server keys. The server gives each key a temporary name.
+- The client in line mode and edit mode, with tab completion.
+- `say`, with the text sanitizer, rate limits, and connection limits.
 
 ### M3: First hack
 

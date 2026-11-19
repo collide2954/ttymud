@@ -47,7 +47,7 @@ Commands look like shell commands. Many commands have a shell name and a MUD nam
 | `help [command]` | `man` | Show help for all commands or for one command. |
 | `?` | | Show the commands that you can use here. |
 | `status` | `st` | Show trace, integrity, heat, RAM, and cycles. This command comes in M3. |
-| `say <text>` | `'` | Talk to all players on the same host. This command comes in M2. |
+| `say <text>` | `'` | Talk to all players on the same host. |
 | `jackout` | | Disconnect immediately. This command comes in M3. |
 
 If a command has an error, the game tells you the cause. It also gives the most likely correct command:
@@ -55,7 +55,7 @@ If a command has an error, the game tells you the cause. It also gives the most 
     > crak sentry
     Unknown command: crak. Did you mean crack?
 
-The Tab key completes commands, hosts, files, and handles.
+In edit mode, the Tab key completes commands, routes, files, and help topics. Later, it will also complete handles.
 
 ## Pipelines
 
