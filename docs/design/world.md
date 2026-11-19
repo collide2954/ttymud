@@ -142,7 +142,12 @@ The price of stolen data changes with supply and demand. If many players sell me
 
 A crew is a group of players. A crew has a name, a private channel, and a reputation.
 
-A heist is a large contract for a crew. It has more than one stage, and each stage is for a different role. Example: the Face tricks an employee, the Phreak makes the bridge to the vault, the Breaker holds the ICE, and the Ghost keeps the traces low.
+A heist is a large contract for a crew. It has more than one stage, and each stage is for a different role. In a vault heist, for example, each role has a task:
+
+- The Face tricks an employee.
+- The Phreak makes the bridge to the vault.
+- The Breaker holds the ICE.
+- The Ghost keeps the traces low.
 
 Each player has a separate trace. Noise from one player increases the trace of that player and the alert level of the target. As a result, one player cannot get all of the crew traced. A Ghost can scrub the trace of a different player. A Breaker can pull ICE attacks to the Breaker.
 
