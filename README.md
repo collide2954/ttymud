@@ -8,11 +8,11 @@ TTYmud is a MUD (multi-user dungeon). The networks are the dungeons. The hostile
 
 ## Status
 
-TTYmud is in early development. Milestones M0 to M5 are complete. You can run a server and play the default city with other players over an encrypted connection.
+TTYmud is in early development. Milestones M0 to M6 are complete. You can run a server and play the default city with other players over an encrypted connection.
 
 You select a handle and a starter kit, and the server keeps them. Your first job is a hack into the network of a dental office. After that, fixers post new jobs each day against six corporations. The server makes a new network for each job. You earn credits, buy programs and hardware, and sell stolen data to a fence.
 
-If the targets trace you too often, your handle burns. Chat channels come in M6. The [roadmap](docs/roadmap.md) gives the plan.
+If the targets trace you too often, your handle burns. You can talk in channels and send private messages. Moderators and safety tools keep the chat safe, and a recovery code keeps your account safe. The [roadmap](docs/roadmap.md) gives the plan.
 
 ## Build
 

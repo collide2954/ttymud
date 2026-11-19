@@ -61,11 +61,16 @@ TTYmud grows in small milestones. At the end of each milestone, the game works a
 
 The vault layer comes with bridges in M9.
 
-### M6: Chat relay
+### M6: Chat relay (done)
 
-- Channels, crew channels, and private messages.
-- Ignore, block, report, and moderator tools.
-- Recovery codes, device links, and key revocation.
+- Channels from the content file, with `#<channel> <text>`, `channels`, `join`, and `leave`.
+- `who`, and private messages with `tell` and `reply`.
+- Ignore and block, which the server keeps with the account.
+- Reports with the chat of the last 15 minutes, for the moderators.
+- Moderators that the operator selects, with mute, kick, ban, and an audit log.
+- Recovery codes, link codes for more devices, and key revocation.
+
+Crew channels come with crews in M9.
 
 ## Version 0.2: the city comes alive
 
@@ -82,7 +87,7 @@ The vault layer comes with bridges in M9.
 
 ### M9: Crews and heists
 
-- Crews and crew reputation.
+- Crews, crew channels, and crew reputation.
 - Group runs, and heist contracts with stages.
 - Bridges into vaults.
 
