@@ -1,4 +1,4 @@
-# Writing style
+# Style guide
 
 All TTYmud documents use ASD-STE100 Simplified Technical English (STE), Issue 9. STE makes technical text clear for all readers. This is also true for readers who do not speak English as a first language.
 
