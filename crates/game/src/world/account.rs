@@ -36,6 +36,8 @@ pub(super) struct Saved {
     pub(super) cpu: u32,
     pub(super) sold: Vec<String>,
     pub(super) rep: BTreeMap<String, u32>,
+    pub(super) done: Vec<(u64, String, u64)>,
+    pub(super) posting: Option<(String, u64, u64)>,
     pub(super) files: Vec<File>,
     pub(super) loads: Vec<Verb>,
     pub(super) contract: Option<Job>,
@@ -62,9 +64,13 @@ impl World {
         state.rig.cycles = saved.cpu;
         state.sold = saved.sold;
         state.rep = saved.rep;
+        state.done = saved.done;
         state.rig.files = saved.files;
         state.rig.loads = saved.loads;
-        state.contract = saved.contract;
+        state.contract = saved.contract.or_else(|| {
+            let (fixer, day, slot) = saved.posting.as_ref()?;
+            self.resume_posting(fixer, *day, *slot).map(Job::new)
+        });
         state.know = know;
         state.stash = stash;
         let player = self.add(state);
@@ -205,6 +211,8 @@ impl World {
             cpu: state.rig.cpu,
             sold: state.sold.clone(),
             rep: state.rep.clone(),
+            done: state.done.clone(),
+            posting: None,
             files: state.rig.files.clone(),
             loads: state.rig.loads.clone(),
             contract: state.contract,

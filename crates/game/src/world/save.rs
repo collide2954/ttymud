@@ -91,37 +91,54 @@ impl World {
             text.pair("know", commands::name_of(verb));
         }
         if let Some(handle) = &account.handle {
-            text.section("handle", &handle.name);
-            text.pair("kit", handle.kit.id);
-            text.pair("heat", &handle.heat.to_string());
-            text.pair("cooled", &handle.cooled.to_string());
-            text.pair("integrity", &handle.integrity.to_string());
-            text.pair("credits", &handle.credits.to_string());
-            text.pair("ram", &handle.ram.to_string());
-            text.pair("cpu", &handle.cpu.to_string());
-            for name in &handle.sold {
-                text.pair("sold", name);
-            }
-            for (fixer, rep) in &handle.rep {
-                text.pair("rep", &format!("{fixer} {rep}"));
-            }
-            for &verb in &handle.loads {
-                text.pair("load", commands::name_of(verb));
-            }
-            if let Some(job) = handle.contract
-                && let Some(contract) = self.contracts.get(job.contract())
-            {
-                text.pair("contract", &contract.id);
-                text.pair("step", &job.progress().to_string());
-            }
-            for file in &handle.files {
-                text.file("file", file);
-            }
+            self.handle_text(&mut text, handle);
         }
         for file in &account.stash {
             text.file("stash", file);
         }
         text.finish()
+    }
+
+    fn handle_text(&self, text: &mut Text, handle: &Saved) {
+        text.section("handle", &handle.name);
+        text.pair("kit", handle.kit.id);
+        text.pair("heat", &handle.heat.to_string());
+        text.pair("cooled", &handle.cooled.to_string());
+        text.pair("integrity", &handle.integrity.to_string());
+        text.pair("credits", &handle.credits.to_string());
+        text.pair("ram", &handle.ram.to_string());
+        text.pair("cpu", &handle.cpu.to_string());
+        for name in &handle.sold {
+            text.pair("sold", name);
+        }
+        for (fixer, rep) in &handle.rep {
+            text.pair("rep", &format!("{fixer} {rep}"));
+        }
+        for &verb in &handle.loads {
+            text.pair("load", commands::name_of(verb));
+        }
+        let contract = handle
+            .contract
+            .and_then(|job| Some((job, self.contracts.get(job.contract())?)));
+        match (contract, &handle.posting) {
+            (Some((job, contract)), _) => {
+                if let Some((day, fixer, slot)) = contract.posting {
+                    let id = self.fixers.get(fixer).map_or("", |fixer| fixer.id.as_str());
+                    text.pair("job", &format!("{id} {day} {slot}"));
+                } else {
+                    text.pair("contract", &contract.id);
+                    text.pair("step", &job.progress().to_string());
+                }
+            }
+            (None, Some((fixer, day, slot))) => text.pair("job", &format!("{fixer} {day} {slot}")),
+            (None, None) => {}
+        }
+        for (day, fixer, slot) in &handle.done {
+            text.pair("done", &format!("{fixer} {day} {slot}"));
+        }
+        for file in &handle.files {
+            text.file("file", file);
+        }
     }
 
     fn world_text(&self) -> String {
@@ -215,12 +232,15 @@ impl World {
             (None, None, None);
         let (mut contract, mut step, mut loads) = (None, 0, Vec::new());
         let (mut credits, mut ram, mut cpu) = (0, RAM, CYCLES);
-        let mut sold = Vec::new();
-        let mut rep = BTreeMap::new();
+        let (mut sold, mut rep, mut done, mut posting) =
+            (Vec::new(), BTreeMap::new(), Vec::new(), None);
         for pair in &section.pairs {
             match pair.key {
                 "sold" => sold.push(pair.value.to_owned()),
                 "rep" => rep.extend(reputation(pair, errors)),
+                "job" => posting = posting_of(pair, errors),
+                "done" => done
+                    .extend(posting_of(pair, errors).map(|(fixer, day, slot)| (day, fixer, slot))),
                 "credits" => credits = number(pair, errors).unwrap_or(0),
                 "ram" => ram = number(pair, errors).unwrap_or(RAM),
                 "cpu" => cpu = number(pair, errors).unwrap_or(CYCLES),
@@ -263,6 +283,8 @@ impl World {
             cpu,
             sold,
             rep,
+            done,
+            posting,
             files: Vec::new(),
             loads,
             contract: contract.map(|index| Job::resume(index, step)),
@@ -379,6 +401,24 @@ fn program(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<Verb> {
         ));
     }
     verb
+}
+
+fn posting_of(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<(String, u64, u64)> {
+    let words: Vec<&str> = pair.value.split_whitespace().collect();
+    let parsed = match words.as_slice() {
+        [fixer, day, slot] => day
+            .parse()
+            .ok()
+            .zip(slot.parse().ok())
+            .map(|(day, slot)| ((*fixer).to_owned(), day, slot)),
+        _ => None,
+    };
+    if parsed.is_none() {
+        let (key, value) = (pair.key, pair.value);
+        let usage = "use a fixer, a day, and a slot";
+        errors.push(problem(pair.line, format!("bad {key}: {value} ({usage})")));
+    }
+    parsed
 }
 
 fn reputation(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<(String, u32)> {
@@ -602,6 +642,31 @@ mod tests {
         assert_eq!(
             plain(&fresh.command(player, "sell payroll.db")),
             ["The fence already bought payroll.db from you in this job."]
+        );
+    }
+
+    #[test]
+    fn a_job_from_the_board_comes_back_from_a_save() {
+        let day = 20_000 * 86_400 + 100;
+        let mut world = world();
+        world.set_time(day);
+        let player = ready(&mut world, &["go bazaar", "accept 1"]);
+        if let Some(state) = world.players.get_mut(&player) {
+            state.done.push((20_000, "pell".to_owned(), 2));
+        }
+        let before = plain(&world.command(player, "contract"));
+        world.leave(player);
+        let saves = world.saves();
+        let text = file(&saves, "accounts/a.ini").unwrap_or_default();
+        assert!(text.contains("\njob = pell 20000 0\n"), "{text}");
+        assert!(text.contains("\ndone = pell 20000 2\n"), "{text}");
+        let mut fresh = world_from(&saves);
+        fresh.set_time(day + 86_400);
+        let (player, _) = fresh.connect("a");
+        assert_eq!(plain(&fresh.command(player, "contract")), before);
+        assert_eq!(
+            fresh.players.get(&player).map(|state| state.done.clone()),
+            Some(vec![(20_000, "pell".to_owned(), 2)])
         );
     }
 

@@ -278,6 +278,12 @@ impl World {
         ]))
     }
 
+    pub(super) fn resume_posting(&mut self, fixer: &str, day: u64, slot: u64) -> Option<usize> {
+        let fixer = self.fixers.iter().position(|known| known.id == fixer)?;
+        let offer = self.posted(fixer, day, slot)?;
+        Some(self.post(offer))
+    }
+
     fn post(&mut self, offer: Offer) -> usize {
         let key = (offer.day, offer.fixer, offer.slot);
         if let Some(&index) = self.postings.get(&key) {
