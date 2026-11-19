@@ -1,8 +1,7 @@
-use ttymud_text::{Message, Style};
+use ttymud_text::Message;
 
-use super::{HostId, PlayerId, Step, World, listed};
+use super::{HostId, PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::Item;
-use crate::matching::{self, Found};
 
 impl World {
     pub(super) fn go(
@@ -16,9 +15,8 @@ impl World {
             ([place], None) => place.clone(),
             ([], Some(items)) => piped_route(items)?,
             ([], None) => {
-                let usage = Message::error("Usage: go <place>. Routes: ");
                 let routes = self.route_names(self.here(player));
-                return Err(listed(usage, Style::Host, routes));
+                return Err(usage("go <place>", Thing::Route, &routes));
             }
             (_, Some(_)) => {
                 return Err(Message::error("go takes a place or a pipe, not both."));
@@ -50,27 +48,13 @@ impl World {
     fn route(&self, player: PlayerId, place: &str) -> Result<HostId, Message> {
         let here = self.here(player);
         let names = self.route_names(here);
-        match matching::resolve(place, &names) {
-            Found::One(name) => Ok(self.hosts[here.0]
-                .routes
-                .iter()
-                .copied()
-                .find(|route| self.hosts[route.0].id == name)
-                .unwrap_or(here)),
-            Found::Many(matches) => {
-                let options = either(&matches);
-                Err(Message::error(format!("{place} could mean {options}.")))
-            }
-            Found::Nothing(Some(near)) => Err(Message::error(format!(
-                "No route to {place}. Did you mean "
-            ))
-            .span(Style::Host, near)
-            .text("?")),
-            Found::Nothing(None) => {
-                let message = Message::error(format!("No route to {place}. Routes: "));
-                Err(listed(message, Style::Host, names))
-            }
-        }
+        let name = choose(Thing::Route, place, &names)?;
+        Ok(self.hosts[here.0]
+            .routes
+            .iter()
+            .copied()
+            .find(|route| self.hosts[route.0].id == name)
+            .unwrap_or(here))
     }
 
     fn move_to(&mut self, player: PlayerId, target: HostId) {
@@ -88,7 +72,7 @@ fn piped_route(items: Vec<Item>) -> Result<String, Message> {
         .into_iter()
         .filter_map(|item| match item {
             Item::Route(id) => Some(id),
-            Item::File(_) => None,
+            Item::File(_) | Item::Line(_) => None,
         })
         .collect();
     if routes.len() == 1 {
@@ -98,13 +82,6 @@ fn piped_route(items: Vec<Item>) -> Result<String, Message> {
     Err(Message::error(format!(
         "go needs one route, but the input has {count}."
     )))
-}
-
-fn either(names: &[&str]) -> String {
-    match names {
-        [rest @ .., last] if !rest.is_empty() => format!("{} or {last}", rest.join(", ")),
-        _ => names.join(""),
-    }
 }
 
 #[cfg(test)]

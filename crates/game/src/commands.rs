@@ -6,6 +6,8 @@ pub(crate) enum Verb {
     List,
     Go,
     Back,
+    Read,
+    Download,
     Grep,
 }
 
@@ -13,6 +15,7 @@ pub(crate) enum Verb {
 pub(crate) enum Item {
     Route(String),
     File(File),
+    Line(String),
 }
 
 impl Item {
@@ -20,6 +23,7 @@ impl Item {
         match self {
             Self::Route(id) => id,
             Self::File(file) => &file.name,
+            Self::Line(text) => text,
         }
     }
 }
@@ -73,6 +77,20 @@ pub(crate) const COMMANDS: &[Command] = &[
         names: &["back", "exit"],
         example: "back",
         takes: Takes::Nothing,
+        output: false,
+    },
+    Command {
+        verb: Verb::Read,
+        names: &["read", "cat"],
+        example: "read motd.txt",
+        takes: Takes::Optional,
+        output: true,
+    },
+    Command {
+        verb: Verb::Download,
+        names: &["download", "get"],
+        example: "download motd.txt",
+        takes: Takes::Optional,
         output: false,
     },
     Command {

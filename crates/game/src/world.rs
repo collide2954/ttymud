@@ -1,3 +1,4 @@
+mod files;
 mod grep;
 mod movement;
 
@@ -7,7 +8,7 @@ use ttymud_text::{Kind, Message, Style};
 
 use crate::commands::{self, Command, Item, Verb};
 use crate::content::{Content, File};
-use crate::matching;
+use crate::matching::{self, Found};
 use crate::parse::{self, ParseError, Stage};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -35,6 +36,7 @@ struct Host {
 struct Player {
     name: String,
     chain: Vec<HostId>,
+    rig: Vec<File>,
 }
 
 #[derive(Debug)]
@@ -91,6 +93,7 @@ impl World {
             Player {
                 name: name.to_owned(),
                 chain: vec![self.start],
+                rig: Vec::new(),
             },
         );
         (player, address(player, self.scene(self.start)))
@@ -168,6 +171,8 @@ impl World {
                 no_args(command, args)?;
                 self.back(player)
             }
+            Verb::Read => self.read(player, args, input),
+            Verb::Download => self.download(player, args, input),
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
         }
     }
@@ -227,6 +232,7 @@ fn listing(items: &[Item]) -> Vec<Message> {
         .map(|item| match item {
             Item::Route(id) => Message::new(Kind::Game).span(Style::Host, format!("{id}/")),
             Item::File(file) => Message::new(Kind::Game).span(Style::File, &file.name),
+            Item::Line(text) => Message::game(text),
         })
         .collect()
 }
@@ -245,6 +251,69 @@ fn listed<'a>(
         empty = false;
     }
     if empty { message.text("none") } else { message }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Thing {
+    Route,
+    File,
+}
+
+impl Thing {
+    fn style(self) -> Style {
+        match self {
+            Self::Route => Style::Host,
+            Self::File => Style::File,
+        }
+    }
+
+    fn missing(self, word: &str) -> String {
+        match self {
+            Self::Route => format!("No route to {word}"),
+            Self::File => format!("No file named {word}"),
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Route => "Routes",
+            Self::File => "Files",
+        }
+    }
+}
+
+fn choose<'a>(thing: Thing, word: &str, names: &[&'a str]) -> Result<&'a str, Message> {
+    match matching::resolve(word, names) {
+        Found::One(name) => Ok(name),
+        Found::Many(matches) => {
+            let options = either(&matches);
+            Err(Message::error(format!("{word} could mean {options}.")))
+        }
+        Found::Nothing(Some(near)) => {
+            let missing = thing.missing(word);
+            Err(Message::error(format!("{missing}. Did you mean "))
+                .span(thing.style(), near)
+                .text("?"))
+        }
+        Found::Nothing(None) => {
+            let (missing, label) = (thing.missing(word), thing.label());
+            let message = Message::error(format!("{missing}. {label}: "));
+            Err(listed(message, thing.style(), names.iter().copied()))
+        }
+    }
+}
+
+fn usage(text: &str, thing: Thing, names: &[&str]) -> Message {
+    let label = thing.label();
+    let message = Message::error(format!("Usage: {text}. {label}: "));
+    listed(message, thing.style(), names.iter().copied())
+}
+
+fn either(names: &[&str]) -> String {
+    match names {
+        [rest @ .., last] if !rest.is_empty() => format!("{} or {last}", rest.join(", ")),
+        _ => names.join(""),
+    }
 }
 
 fn unknown(name: &str) -> Message {
