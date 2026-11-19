@@ -1,5 +1,6 @@
 mod files;
 mod grep;
+mod help;
 mod movement;
 
 use std::collections::BTreeMap;
@@ -178,6 +179,11 @@ impl World {
                 Ok(self.inventory(player))
             }
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
+            Verb::Help => help::help(args),
+            Verb::Available => {
+                no_args(command, args)?;
+                Ok(self.available(player))
+            }
         }
     }
 
@@ -322,12 +328,23 @@ fn either(names: &[&str]) -> String {
 
 fn unknown(name: &str) -> Message {
     let message = Message::error(format!("Unknown command: {name}."));
-    match matching::closest(&name.to_lowercase(), commands::names()) {
+    hint(message, name, commands::names())
+}
+
+fn hint<'a>(
+    message: Message,
+    word: &str,
+    candidates: impl IntoIterator<Item = &'a str>,
+) -> Message {
+    match matching::closest(&word.to_lowercase(), candidates) {
         Some(near) => message
             .text(" Did you mean ")
             .span(Style::Command, near)
             .text("?"),
-        None => message,
+        None => message
+            .text(" Type ")
+            .span(Style::Command, "help")
+            .text(" to see the commands."),
     }
 }
 
@@ -434,8 +451,11 @@ mod tests {
     }
 
     #[test]
-    fn unknown_commands_fail() {
-        assert_eq!(run("xyzzy"), ["Unknown command: xyzzy."]);
+    fn unknown_commands_point_to_help() {
+        assert_eq!(
+            run("xyzzy"),
+            ["Unknown command: xyzzy. Type help to see the commands."]
+        );
     }
 
     #[test]
@@ -456,7 +476,7 @@ mod tests {
 
     #[test]
     fn a_bad_stage_stops_the_pipeline_before_it_runs() {
-        assert_eq!(run("look | xyzzy"), ["Unknown command: xyzzy."]);
+        assert_eq!(run("look | xyzzy"), run("xyzzy"));
     }
 
     #[test]

@@ -82,7 +82,7 @@ impl World {
         Step { shown, items }
     }
 
-    fn readable(&self, player: PlayerId) -> Vec<&File> {
+    pub(super) fn readable(&self, player: PlayerId) -> Vec<&File> {
         let host = &self.hosts[self.here(player).0].files;
         let rig: &[File] = match self.players.get(&player) {
             Some(state) => &state.rig,

@@ -10,6 +10,8 @@ pub(crate) enum Verb {
     Download,
     Inventory,
     Grep,
+    Help,
+    Available,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,6 +42,8 @@ pub(crate) enum Takes {
 pub(crate) struct Command {
     pub(crate) verb: Verb,
     pub(crate) names: &'static [&'static str],
+    pub(crate) usage: &'static str,
+    pub(crate) summary: &'static str,
     pub(crate) example: &'static str,
     pub(crate) takes: Takes,
     pub(crate) output: bool,
@@ -55,6 +59,8 @@ pub(crate) const COMMANDS: &[Command] = &[
     Command {
         verb: Verb::Look,
         names: &["look", "l"],
+        usage: "look",
+        summary: "Show the host where you are.",
         example: "look",
         takes: Takes::Nothing,
         output: true,
@@ -62,6 +68,8 @@ pub(crate) const COMMANDS: &[Command] = &[
     Command {
         verb: Verb::List,
         names: &["ls"],
+        usage: "ls",
+        summary: "List the routes and files here.",
         example: "ls",
         takes: Takes::Nothing,
         output: true,
@@ -69,6 +77,8 @@ pub(crate) const COMMANDS: &[Command] = &[
     Command {
         verb: Verb::Go,
         names: &["go", "cd", "connect", "ssh"],
+        usage: "go <place>",
+        summary: "Move to a host through a route.",
         example: "go market",
         takes: Takes::Optional,
         output: false,
@@ -76,6 +86,8 @@ pub(crate) const COMMANDS: &[Command] = &[
     Command {
         verb: Verb::Back,
         names: &["back", "exit"],
+        usage: "back",
+        summary: "Move back one hop. cd .. does the same.",
         example: "back",
         takes: Takes::Nothing,
         output: false,
@@ -83,6 +95,8 @@ pub(crate) const COMMANDS: &[Command] = &[
     Command {
         verb: Verb::Read,
         names: &["read", "cat"],
+        usage: "read <file>",
+        summary: "Show the text of a file here or on your rig.",
         example: "read motd.txt",
         takes: Takes::Optional,
         output: true,
@@ -90,6 +104,8 @@ pub(crate) const COMMANDS: &[Command] = &[
     Command {
         verb: Verb::Download,
         names: &["download", "get"],
+        usage: "download <file>",
+        summary: "Copy a file from this host to your rig.",
         example: "download motd.txt",
         takes: Takes::Optional,
         output: false,
@@ -97,6 +113,8 @@ pub(crate) const COMMANDS: &[Command] = &[
     Command {
         verb: Verb::Inventory,
         names: &["inventory", "inv", "i"],
+        usage: "inventory",
+        summary: "Show the files on your rig.",
         example: "inventory",
         takes: Takes::Nothing,
         output: true,
@@ -104,8 +122,28 @@ pub(crate) const COMMANDS: &[Command] = &[
     Command {
         verb: Verb::Grep,
         names: &["grep"],
+        usage: "grep <pattern>",
+        summary: "Keep only the items that contain the pattern.",
         example: "ls | grep txt",
         takes: Takes::Required,
+        output: true,
+    },
+    Command {
+        verb: Verb::Help,
+        names: &["help", "man"],
+        usage: "help [command]",
+        summary: "Show help for all commands or for one command.",
+        example: "help go",
+        takes: Takes::Nothing,
+        output: true,
+    },
+    Command {
+        verb: Verb::Available,
+        names: &["?"],
+        usage: "?",
+        summary: "Show the commands that you can use here.",
+        example: "?",
+        takes: Takes::Nothing,
         output: true,
     },
 ];
