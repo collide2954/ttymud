@@ -20,6 +20,7 @@ Example: ls | grep txt | read
 read <file>       Show the text of a file here or on your rig.
 download <file>   Copy a file from this host to your rig.
 inventory         Show the files on your rig.
+buy <item>        Buy a program or a rig upgrade at a shop.
 > lok
 Unknown command: lok. Did you mean look?
 > xyzzy

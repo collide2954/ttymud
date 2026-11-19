@@ -448,6 +448,7 @@ impl World {
                 no_args(command, args)?;
                 self.shop(player)
             }
+            Verb::Buy => self.buy(player, args),
             Verb::Load => self.load(player, args),
             Verb::Unload => self.unload(player, args),
             Verb::Stash => self.stash(player, args),
@@ -591,6 +592,7 @@ enum Thing {
     File,
     Ice,
     Program,
+    Ware,
 }
 
 impl Thing {
@@ -599,7 +601,7 @@ impl Thing {
             Self::Route => Style::Host,
             Self::File => Style::File,
             Self::Ice => Style::Ice,
-            Self::Program => Style::Command,
+            Self::Program | Self::Ware => Style::Command,
         }
     }
 
@@ -609,6 +611,7 @@ impl Thing {
             Self::File => format!("No file named {word}"),
             Self::Ice => format!("No ICE named {word}"),
             Self::Program => format!("No program named {word}"),
+            Self::Ware => format!("The shop does not sell {word}"),
         }
     }
 
@@ -618,6 +621,7 @@ impl Thing {
             Self::File => "Files",
             Self::Ice => "ICE",
             Self::Program => "Programs",
+            Self::Ware => "For sale",
         }
     }
 }

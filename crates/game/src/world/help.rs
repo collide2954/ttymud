@@ -43,7 +43,7 @@ impl World {
                 }
                 Verb::Repair | Verb::Load | Verb::Unload | Verb::Unstash => self.home == Some(here),
                 Verb::Contract => hired,
-                Verb::Shop => self.is_shop(here),
+                Verb::Shop | Verb::Buy => self.is_shop(here),
                 Verb::Read => readable,
                 Verb::Download => !host.files.is_empty(),
                 Verb::Available => false,
@@ -193,9 +193,12 @@ mod tests {
 
     #[test]
     fn help_lines_can_be_filtered() {
-        let shown = run("help | grep rig");
-        assert_eq!(shown.len(), 3);
-        assert!(shown.iter().all(|line| line.contains("rig")));
+        let expected: Vec<String> = run("help")
+            .into_iter()
+            .filter(|line| line.to_lowercase().contains("rig"))
+            .collect();
+        assert!(expected.len() > 1);
+        assert_eq!(run("help | grep rig"), expected);
     }
 
     fn available(lines: &[&str]) -> Vec<String> {
@@ -237,8 +240,8 @@ mod tests {
 
     #[test]
     fn question_mark_adds_the_shop_commands_at_a_shop() {
-        check(&available(&[]), &[], &["shop"]);
-        check(&available(&["go market"]), &["shop"], &[]);
+        check(&available(&[]), &[], &["shop", "buy"]);
+        check(&available(&["go market"]), &["shop", "buy"], &[]);
     }
 
     #[test]

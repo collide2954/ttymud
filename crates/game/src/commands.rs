@@ -18,6 +18,7 @@ pub(crate) enum Verb {
     Unstash,
     Contract,
     Shop,
+    Buy,
     Scan,
     Probe,
     Crack,
@@ -309,6 +310,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         example: "shop",
         takes: Takes::Nothing,
         gives: Gives::Items(Kinds::LINES),
+    },
+    Command {
+        verb: Verb::Buy,
+        names: &["buy"],
+        usage: "buy <item>",
+        summary: "Buy a program or a rig upgrade at a shop.",
+        example: "buy ram",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
     },
     Command {
         verb: Verb::Scan,
