@@ -263,6 +263,9 @@ dependencies = [
 [[package]]
 name = "ttymud"
 version = "0.1.0"
+dependencies = [
+ "ttymud-net",
+]
 
 [[package]]
 name = "ttymud-game"
