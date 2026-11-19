@@ -11,13 +11,14 @@ TTYmud grows in small milestones. At the end of each milestone, the game works a
 - The STE check for the documents.
 - Continuous integration on Linux, macOS, and Windows.
 
-### M1: Offline core
+### M1: Offline core (done)
 
 - Hosts, routes, files, and movement.
 - The command parser, with pipelines.
 - Help, `?`, and suggestions for unknown commands.
 - Styled text spans.
 - A test harness that runs the world without a network.
+- The offline play mode: `ttymud-server play`.
 
 ### M2: Secure connection
 

@@ -8,7 +8,7 @@ TTYmud is a MUD (multi-user dungeon). The networks are the dungeons. The hostile
 
 ## Status
 
-TTYmud is in early development. The foundation (milestone M0) is complete. There is no playable version yet. The [roadmap](docs/roadmap.md) gives the plan.
+TTYmud is in early development. Milestones M0 and M1 are complete. You can walk the default city offline, but network play is not ready yet. The [roadmap](docs/roadmap.md) gives the plan.
 
 ## Build
 
@@ -16,6 +16,14 @@ Install Rust with [rustup](https://rustup.rs). Then use these commands to build 
 
     cargo build --workspace
     cargo test --workspace
+
+## Try it
+
+Use this command to walk Port Ostra alone, without a network:
+
+    cargo run -p ttymud-server -- play
+
+Type `help` to see the commands. Type `quit` to leave.
 
 ## Goals
 
@@ -31,6 +39,7 @@ Install Rust with [rustup](https://rustup.rs). Then use these commands to build 
 
 - [Design overview](docs/design/overview.md)
 - [Roadmap](docs/roadmap.md)
+- [Content files](docs/content.md)
 - [Style guide](docs/style.md)
 - [How to contribute](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
