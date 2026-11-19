@@ -5,7 +5,7 @@ mod movement;
 
 use std::collections::BTreeMap;
 
-use ttymud_text::{Kind, Message, Style};
+use ttymud_text::{Kind, Message, Style, sanitize};
 
 use crate::commands::{self, Command, Item, Verb};
 use crate::content::{Content, File};
@@ -106,7 +106,8 @@ impl World {
         if !self.players.contains_key(&player) {
             return Vec::new();
         }
-        let messages = match parse::pipeline(line) {
+        let line = sanitize(line);
+        let messages = match parse::pipeline(&line) {
             Ok(stages) => self.run(player, &stages),
             Err(error) => vec![parse_error(error)],
         };
@@ -495,6 +496,11 @@ mod tests {
     fn parse_errors_explain_the_problem() {
         assert_eq!(run("look \"x"), ["A quote is not closed."]);
         assert_eq!(run("ls |"), ["Each side of | needs a command."]);
+    }
+
+    #[test]
+    fn command_lines_are_sanitized() {
+        assert_eq!(run("\u{feff}l\u{200b}s\u{1b}"), run("ls"));
     }
 
     #[test]

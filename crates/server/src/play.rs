@@ -20,11 +20,10 @@ pub(crate) fn run(name: &str, input: impl BufRead, mut output: impl Write) -> io
     prompt(&mut output, &world, player)?;
     for line in input.lines() {
         let line = line?;
-        let line = line.trim_start_matches('\u{feff}');
         if line.trim() == "quit" {
             return Ok(());
         }
-        show(&mut output, &world.command(player, line))?;
+        show(&mut output, &world.command(player, &line))?;
         prompt(&mut output, &world, player)?;
     }
     writeln!(output)
