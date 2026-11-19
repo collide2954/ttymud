@@ -22,6 +22,8 @@ pub(super) struct Account {
     pub(super) handle: Option<Saved>,
     pub(super) know: Vec<Verb>,
     pub(super) stash: Vec<File>,
+    pub(super) created: u64,
+    pub(super) warned: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -47,14 +49,16 @@ pub(super) struct Saved {
 impl World {
     pub fn connect(&mut self, account: &str) -> (PlayerId, Vec<Output>) {
         let known = self.accounts.get(account).cloned();
-        let Some((saved, know, stash)) =
-            known.and_then(|known| Some((known.handle?, known.know, known.stash)))
+        let Some((saved, known)) = known.and_then(|known| Some((known.handle.clone()?, known)))
         else {
             return self.begin(account);
         };
+        let (know, stash) = (known.know, known.stash);
         let home = self.home.unwrap_or(self.start);
         let mut state = Player::new(&saved.name, home);
         state.account = Some(account.to_owned());
+        state.created = known.created;
+        state.warned = known.warned;
         state.kit = Some(saved.kit);
         state.heat = saved.heat;
         state.cooled = saved.cooled;
@@ -105,8 +109,11 @@ impl World {
         if let Some(known) = self.accounts.get(account) {
             state.know.clone_from(&known.know);
             state.stash.clone_from(&known.stash);
+            state.created = known.created;
+            state.warned = known.warned;
         } else {
             state.know.clear();
+            state.created = self.now;
         }
         let player = self.add(state);
         let city = &self.city;
@@ -228,10 +235,13 @@ impl World {
             contract: state.contract,
         };
         let (know, stash) = (state.know.clone(), state.stash.clone());
+        let (created, warned) = (state.created, state.warned);
         let entry = self.accounts.entry(account.clone()).or_default();
         entry.handle = Some(saved);
         entry.know = know;
         entry.stash = stash;
+        entry.created = created;
+        entry.warned = warned;
     }
 
     #[must_use]

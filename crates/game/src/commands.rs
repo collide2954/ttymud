@@ -37,6 +37,9 @@ pub(crate) enum Verb {
     Channels,
     Join,
     Leave,
+    Who,
+    Tell,
+    Reply,
     Help,
     Available,
 }
@@ -78,6 +81,7 @@ impl Verb {
                 | Self::Proxy
                 | Self::Exploit
                 | Self::Channels
+                | Self::Who
                 | Self::Available
         )
     }
@@ -511,6 +515,33 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "leave <channel>",
         summary: "Leave a chat channel.",
         example: "leave market",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Who,
+        names: &["who"],
+        usage: "who",
+        summary: "Show the handles that are online.",
+        example: "who",
+        takes: Takes::Nothing,
+        gives: Gives::Items(Kinds::LINES),
+    },
+    Command {
+        verb: Verb::Tell,
+        names: &["tell"],
+        usage: "tell <handle> <text>",
+        summary: "Send a private message to a handle that is online.",
+        example: "tell nyx meet me at the relay",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Reply,
+        names: &["reply"],
+        usage: "reply <text>",
+        summary: "Answer the last handle that sent you a private message.",
+        example: "reply on my way",
         takes: Takes::Nothing,
         gives: Gives::Nothing,
     },

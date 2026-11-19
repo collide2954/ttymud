@@ -6,7 +6,11 @@ use super::{Output, PlayerId, World};
 pub(super) enum Chat<'a> {
     Say(&'a str),
     Channel(&'a str, &'a str),
+    Tell(&'a str, &'a str),
+    Reply(&'a str),
 }
+
+const REPEAT: u64 = 30;
 
 #[must_use]
 pub fn is_chat(line: &str) -> bool {
@@ -23,8 +27,16 @@ pub(super) fn parse(line: &str) -> Option<Chat<'_>> {
         return Some(Chat::Channel(name, text.trim()));
     }
     let (word, rest) = line.split_once(char::is_whitespace).unwrap_or((line, ""));
-    word.eq_ignore_ascii_case("say")
-        .then_some(Chat::Say(rest.trim()))
+    let rest = rest.trim();
+    match word.to_ascii_lowercase().as_str() {
+        "say" => Some(Chat::Say(rest)),
+        "reply" => Some(Chat::Reply(rest)),
+        "tell" => {
+            let (name, text) = rest.split_once(char::is_whitespace).unwrap_or((rest, ""));
+            Some(Chat::Tell(name, text.trim()))
+        }
+        _ => None,
+    }
 }
 
 impl World {
@@ -32,12 +44,32 @@ impl World {
         match chat {
             Chat::Say(text) => self.say(player, text),
             Chat::Channel(name, text) => self.channel_say(player, name, text),
+            Chat::Tell(name, text) => self.tell(player, name, text),
+            Chat::Reply(text) => self.reply(player, text),
         }
+    }
+
+    pub(super) fn repeated(&mut self, player: PlayerId, text: &str) -> Option<Message> {
+        let now = self.now;
+        let state = self.players.get_mut(&player)?;
+        if let Some((last, when)) = &state.last_chat
+            && last == text
+            && now.saturating_sub(*when) < REPEAT
+        {
+            return Some(Message::error(format!(
+                "You sent the same message less than {REPEAT} seconds ago."
+            )));
+        }
+        state.last_chat = Some((text.to_owned(), now));
+        None
     }
 
     pub(super) fn say(&mut self, player: PlayerId, text: &str) -> Vec<Output> {
         if text.is_empty() {
             return self.deliver(player, vec![Message::error("Usage: say <text>.")]);
+        }
+        if let Some(refusal) = self.repeated(player, text) {
+            return self.deliver(player, vec![refusal]);
         }
         let Some(name) = self.players.get(&player).map(|state| state.name.clone()) else {
             return Vec::new();

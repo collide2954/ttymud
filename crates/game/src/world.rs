@@ -21,6 +21,7 @@ mod run;
 mod save;
 mod shop;
 mod stash;
+mod tell;
 mod topics;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -101,6 +102,10 @@ struct Player {
     rep: BTreeMap<String, u32>,
     done: Vec<(u64, String, u64)>,
     channels: Vec<String>,
+    reply_to: Option<String>,
+    last_chat: Option<(String, u64)>,
+    warned: bool,
+    created: u64,
     stash: Vec<File>,
 }
 
@@ -116,6 +121,10 @@ impl Player {
             rep: BTreeMap::new(),
             done: Vec::new(),
             channels: Vec::new(),
+            reply_to: None,
+            last_chat: None,
+            warned: false,
+            created: 0,
             stash: Vec::new(),
             rig: Rig::new(),
             know: commands::programs()
@@ -478,6 +487,9 @@ impl World {
             Verb::Exploit => self.exploit(player),
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
+            Verb::Tell => Err(Message::error("Usage: tell <handle> <text>.")),
+            Verb::Reply => Err(Message::error("Usage: reply <text>.")),
+            Verb::Who => Ok(self.who()),
             Verb::Help => help::help(args),
             Verb::Available => Ok(self.available(player)),
         }
@@ -620,6 +632,7 @@ enum Thing {
     Program,
     Ware,
     Channel,
+    Handle,
 }
 
 impl Thing {
@@ -629,6 +642,7 @@ impl Thing {
             Self::File => Style::File,
             Self::Ice => Style::Ice,
             Self::Program | Self::Ware | Self::Channel => Style::Command,
+            Self::Handle => Style::Player,
         }
     }
 
@@ -640,6 +654,7 @@ impl Thing {
             Self::Program => format!("No program named {word}"),
             Self::Ware => format!("The shop does not sell {word}"),
             Self::Channel => format!("No channel named {word}"),
+            Self::Handle => format!("No handle online named {word}"),
         }
     }
 
@@ -651,6 +666,7 @@ impl Thing {
             Self::Program => "Programs",
             Self::Ware => "For sale",
             Self::Channel => "Channels",
+            Self::Handle => "Online",
         }
     }
 }

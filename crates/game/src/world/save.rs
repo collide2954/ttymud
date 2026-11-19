@@ -87,6 +87,10 @@ impl World {
     fn account_text(&self, id: &str, account: &Account) -> String {
         let mut text = Text::new("# A TTYmud account. The server writes this file.");
         text.section("account", id);
+        text.pair("created", &account.created.to_string());
+        if account.warned {
+            text.pair("warned", "yes");
+        }
         for &verb in &account.know {
             text.pair("know", commands::name_of(verb));
         }
@@ -197,11 +201,19 @@ impl World {
             match section.kind {
                 "account" if section.id == id => {
                     found = true;
-                    allow(section, &["know"], &mut errors);
+                    allow(section, &["know", "created", "warned"], &mut errors);
                     let known = section.pairs.iter().filter(|pair| pair.key == "know");
                     account.know = known
                         .filter_map(|pair| program(pair, &mut errors))
                         .collect();
+                    let created = section.pairs.iter().find(|pair| pair.key == "created");
+                    account.created = created
+                        .and_then(|pair| number(pair, &mut errors))
+                        .unwrap_or(0);
+                    account.warned = section
+                        .pairs
+                        .iter()
+                        .any(|pair| pair.key == "warned" && pair.value == "yes");
                 }
                 "account" => {
                     let other = section.id;
@@ -506,6 +518,7 @@ mod tests {
             "# A TTYmud account. The server writes this file.",
             "",
             "[account a]",
+            "created = 500",
             "know = scan",
             "know = probe",
             "know = crack",
