@@ -7,14 +7,13 @@ use crossterm::terminal;
 use crate::editor::Key;
 use crate::screen::Screen;
 use crate::session::{Event, run};
+use crate::settings::{Settings, detect};
 use crate::{Ending, Link};
 
 #[must_use]
-pub fn can_edit() -> bool {
-    io::stdin().is_terminal()
-        && io::stdout().is_terminal()
-        && std::env::var_os("TERM").is_none_or(|term| term != "dumb")
-        && ansi()
+pub fn detect_terminal() -> Settings {
+    let terminal = io::stdin().is_terminal() && io::stdout().is_terminal() && ansi();
+    detect(|name| std::env::var(name).ok(), terminal, cfg!(windows))
 }
 
 pub fn edit_mode(link: Link) -> io::Result<Ending> {

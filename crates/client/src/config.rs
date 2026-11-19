@@ -70,6 +70,7 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use super::{config_dir_from, identity};
+    use crate::testing::scratch;
 
     fn lookup(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> + use<> {
         let pairs: Vec<(String, String)> = pairs
@@ -119,13 +120,6 @@ mod tests {
     #[test]
     fn no_known_place_gives_no_directory() {
         assert_eq!(config_dir_from(lookup(&[]), false), None);
-    }
-
-    fn scratch(name: &str) -> PathBuf {
-        let id = std::process::id();
-        let path = std::env::temp_dir().join(format!("ttymud-client-{id}-{name}"));
-        let _ = fs::remove_dir_all(&path);
-        path
     }
 
     #[test]

@@ -1,4 +1,6 @@
+use std::fs;
 use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::path::PathBuf;
 use std::thread;
 
 use ttymud_net::{Keys, PublicKey, Receiver, Sender};
@@ -8,6 +10,13 @@ use ttymud_wire::{ClientMessage, ServerMessage};
 use crate::Link;
 
 type Handler = fn(Receiver<TcpStream>, Sender<TcpStream>);
+
+pub(crate) fn scratch(name: &str) -> PathBuf {
+    let id = std::process::id();
+    let path = std::env::temp_dir().join(format!("ttymud-client-{id}-{name}"));
+    let _ = fs::remove_dir_all(&path);
+    path
+}
 
 pub(crate) fn server(handle: Handler) -> (SocketAddr, PublicKey) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();

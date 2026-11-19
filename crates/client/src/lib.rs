@@ -6,6 +6,7 @@ mod link;
 mod render;
 mod screen;
 mod session;
+mod settings;
 mod terminal;
 #[cfg(test)]
 mod testing;
@@ -16,4 +17,5 @@ pub use line::line_mode;
 pub use link::{ConnectError, Link, connect};
 pub use render::{Shown, render};
 pub use session::Ending;
-pub use terminal::{can_edit, edit_mode};
+pub use settings::{Choices, Depth, Layer, Settings, read_settings};
+pub use terminal::{detect_terminal, edit_mode};
