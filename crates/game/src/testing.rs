@@ -2,8 +2,28 @@ use crate::{Content, Output, PlayerId, World};
 
 pub(crate) const CITY: &str = include_str!("../tests/scenarios/city.ini");
 
+pub(crate) const JOB: &str = "\
+[contract lab-job]
+fixer = Pell
+network = lab
+goal = data.db
+offer = The lab has data that a client wants.
+offer = Get data.db and leave clean.
+";
+
 pub(crate) fn world() -> World {
     World::new(Content::parse(CITY).unwrap(), 0)
+}
+
+pub(crate) fn hired_world() -> World {
+    let city = CITY.replace("home = back-room", "home = back-room\ncontract = lab-job");
+    World::new(Content::parse(&format!("{city}{JOB}")).unwrap(), 0)
+}
+
+pub(crate) fn hired() -> (World, PlayerId) {
+    let mut world = hired_world();
+    let (player, _) = world.join("ghost");
+    (world, player)
 }
 
 pub(crate) fn plain(outputs: &[Output]) -> Vec<String> {

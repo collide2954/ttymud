@@ -1,4 +1,4 @@
-use super::{Content, File, IceDef, NetworkDef};
+use super::{Content, ContractDef, File, IceDef, NetworkDef};
 use crate::ice::IceKind;
 
 const NET: &str = "\
@@ -21,6 +21,52 @@ name = C
 desc = C.
 network = n
 ";
+
+fn with_contract(contract: &str) -> String {
+    let city = NET.replace("start = a", "start = a\ncontract = job");
+    format!("{city}[file c/x.db]\nline = X.\n{contract}")
+}
+
+#[test]
+fn the_city_offers_a_contract() {
+    let text = with_contract(
+        "[contract job]\nfixer = Pell\nnetwork = n\ngoal = x.db\noffer = Get x.db.\noffer = Go.\n",
+    );
+    let content = Content::parse(&text).unwrap();
+    let job = ContractDef {
+        id: "job".to_owned(),
+        fixer: "Pell".to_owned(),
+        network: "n".to_owned(),
+        goal: "x.db".to_owned(),
+        offer: vec!["Get x.db.".to_owned(), "Go.".to_owned()],
+    };
+    assert_eq!(content.contracts, [job]);
+    assert_eq!(content.contract.as_deref(), Some("job"));
+}
+
+#[test]
+fn bad_contracts_fail() {
+    let text = with_contract(
+        "[contract job]\nfixer = Pell\nnetwork = n\ngoal = y.db\noffer = Get y.db.\n\
+         [contract far]\nfixer = Pell\nnetwork = z\ngoal = x.db\noffer = Go.\n[contract bare]\n",
+    );
+    assert_eq!(
+        errors(&text),
+        [
+            "line 25: goal y.db is not a file in network n",
+            "line 29: contract far is for an unknown network: z",
+            "line 32: contract bare has no fixer",
+            "line 32: contract bare has no network",
+            "line 32: contract bare has no goal",
+            "line 32: contract bare has no offer",
+        ]
+    );
+    let text = with_contract("").replace("contract = job", "contract = nope");
+    assert_eq!(
+        errors(&text),
+        ["line 4: contract is an unknown contract: nope"]
+    );
+}
 
 #[test]
 fn ice_belongs_to_its_host() {

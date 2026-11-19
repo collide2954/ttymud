@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn the_first_word_completes_to_command_names() {
         assert_eq!(names("lo"), ["look"]);
-        assert_eq!(names("c"), ["cd", "connect", "cat", "crack"]);
+        assert_eq!(names("c"), ["cd", "connect", "cat", "contract", "crack"]);
     }
 
     #[test]

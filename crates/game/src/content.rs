@@ -30,8 +30,19 @@ pub struct Content {
     pub(crate) city: String,
     pub(crate) start: String,
     pub(crate) home: Option<String>,
+    pub(crate) contract: Option<String>,
     pub(crate) networks: Vec<NetworkDef>,
     pub(crate) hosts: Vec<HostDef>,
+    pub(crate) contracts: Vec<ContractDef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ContractDef {
+    pub(crate) id: String,
+    pub(crate) fixer: String,
+    pub(crate) network: String,
+    pub(crate) goal: String,
+    pub(crate) offer: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -12,6 +12,7 @@ pub(crate) enum Verb {
     Status,
     Jackout,
     Repair,
+    Contract,
     Scan,
     Probe,
     Crack,
@@ -244,6 +245,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         example: "repair",
         takes: Takes::Nothing,
         gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Contract,
+        names: &["contract", "job"],
+        usage: "contract [drop]",
+        summary: "Show your job, or drop it.",
+        example: "contract",
+        takes: Takes::Nothing,
+        gives: Gives::Items(Kinds::LINES),
     },
     Command {
         verb: Verb::Scan,

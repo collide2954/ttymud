@@ -30,6 +30,7 @@ impl World {
         let state = self.players.get(&player);
         let hops = state.map_or(0, |state| state.chain.len());
         let running = state.is_some_and(|state| state.run.is_some());
+        let hired = state.is_some_and(|state| state.contract.is_some());
         let readable = !self.readable(player).is_empty();
         let names = COMMANDS
             .iter()
@@ -39,6 +40,7 @@ impl World {
                 Verb::Jackout => running,
                 verb if verb.program().is_some() => running,
                 Verb::Repair => self.home == Some(here),
+                Verb::Contract => hired,
                 Verb::Read => readable,
                 Verb::Download => !host.files.is_empty(),
                 Verb::Available => false,

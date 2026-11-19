@@ -8,6 +8,7 @@ impl Reader {
         self.check_networks();
         self.check_routes();
         self.check_city();
+        self.check_contracts();
         self.errors.sort_by_key(|error| error.line);
         if !self.errors.is_empty() {
             return Err(self.errors);
@@ -16,13 +17,43 @@ impl Reader {
             city: self.city_name.unwrap_or_default(),
             start: self.start.unwrap_or_default().0,
             home: self.home.map(|(home, _)| home),
+            contract: self.contract.map(|(id, _)| id),
             networks: self
                 .networks
                 .into_iter()
                 .map(|(network, _)| network)
                 .collect(),
             hosts: self.hosts.into_iter().map(|(host, _)| host).collect(),
+            contracts: self.contracts.into_iter().map(|(def, ..)| def).collect(),
         })
+    }
+
+    fn check_contracts(&mut self) {
+        let mut problems = Vec::new();
+        for (def, network_line, goal_line) in &self.contracts {
+            let (id, network, goal) = (&def.id, &def.network, &def.goal);
+            if !self.networks.iter().any(|(known, _)| &known.id == network) {
+                let message = format!("contract {id} is for an unknown network: {network}");
+                problems.push((*network_line, message));
+                continue;
+            }
+            let found = self.hosts.iter().any(|(host, _)| {
+                host.network.as_ref() == Some(network)
+                    && host.files.iter().any(|file| &file.name == goal)
+            });
+            if !found {
+                let message = format!("goal {goal} is not a file in network {network}");
+                problems.push((*goal_line, message));
+            }
+        }
+        if let Some((id, line)) = &self.contract
+            && !self.contracts.iter().any(|(def, ..)| &def.id == id)
+        {
+            problems.push((*line, format!("contract is an unknown contract: {id}")));
+        }
+        for (line, message) in problems {
+            self.error(line, message);
+        }
     }
 
     fn position(&self, host: &str) -> Option<usize> {

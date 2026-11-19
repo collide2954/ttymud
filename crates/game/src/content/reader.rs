@@ -1,4 +1,4 @@
-use super::{ContentError, File, HostDef, IceDef, NetworkDef};
+use super::{ContentError, ContractDef, File, HostDef, IceDef, NetworkDef};
 use crate::ice::IceKind;
 
 struct Section<'a> {
@@ -27,6 +27,8 @@ pub(super) struct Reader {
     pub(super) city_name: Option<String>,
     pub(super) start: Option<(String, usize)>,
     pub(super) home: Option<(String, usize)>,
+    pub(super) contract: Option<(String, usize)>,
+    pub(super) contracts: Vec<(ContractDef, usize, usize)>,
     pub(super) networks: Vec<(NetworkDef, usize)>,
     pub(super) hosts: Vec<(HostDef, usize)>,
     pub(super) members: Vec<(String, String, usize)>,
@@ -98,6 +100,7 @@ impl Reader {
             "host" => self.host(section),
             "file" => self.file(section),
             "ice" => self.ice(section),
+            "contract" => self.contract(section),
             other => self.error(section.line, format!("unknown section type: {other}")),
         }
     }
@@ -108,11 +111,47 @@ impl Reader {
             return;
         }
         self.city = Some(section.line);
-        self.allow(section, &["name", "start", "home"]);
+        self.allow(section, &["name", "start", "home", "contract"]);
         self.check_name(section.line, section.id, Name::Plain);
         self.city_name = self.single(section, "name").map(|(name, _)| name);
         self.start = self.single(section, "start");
         self.home = self.optional(section, "home");
+        self.contract = self.optional(section, "contract");
+    }
+
+    fn contract(&mut self, section: &Section<'_>) {
+        let id = section.id;
+        if self.contracts.iter().any(|(def, ..)| def.id == id) {
+            self.error(
+                section.line,
+                format!("contract {id} is defined more than once"),
+            );
+            return;
+        }
+        self.allow(section, &["fixer", "network", "goal", "offer"]);
+        self.check_name(section.line, id, Name::Plain);
+        let fixer = self.single(section, "fixer");
+        let network = self.single(section, "network");
+        let goal = self.single(section, "goal");
+        let offer: Vec<String> = values(section, "offer")
+            .into_iter()
+            .map(|(text, _)| text)
+            .collect();
+        if offer.is_empty() {
+            self.error(section.line, format!("contract {id} has no offer"));
+        }
+        if let (Some((fixer, _)), Some((network, at)), Some((goal, goal_at))) =
+            (fixer, network, goal)
+        {
+            let def = ContractDef {
+                id: id.to_owned(),
+                fixer,
+                network,
+                goal,
+                offer,
+            };
+            self.contracts.push((def, at, goal_at));
+        }
     }
 
     fn network(&mut self, section: &Section<'_>) {

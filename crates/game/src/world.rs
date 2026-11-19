@@ -1,5 +1,6 @@
 mod chat;
 mod complete;
+mod contract;
 mod files;
 mod grep;
 mod help;
@@ -22,6 +23,7 @@ use crate::random::Random;
 
 pub use chat::is_chat;
 pub use complete::Completion;
+use contract::Contract;
 use rig::Rig;
 use run::Run;
 
@@ -62,6 +64,7 @@ struct Player {
     chain: Vec<HostId>,
     rig: Rig,
     run: Option<Run>,
+    contract: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -71,6 +74,8 @@ pub struct World {
     hosts: Vec<Host>,
     start: HostId,
     home: Option<HostId>,
+    contracts: Vec<Contract>,
+    offer: Option<usize>,
     players: BTreeMap<PlayerId, Player>,
     next_player: u64,
     outbox: Vec<Output>,
@@ -130,6 +135,20 @@ impl World {
             link(&mut hosts, from, to);
             link(&mut hosts, to, from);
         }
+        let offer = content
+            .contract
+            .as_deref()
+            .and_then(|id| content.contracts.iter().position(|def| def.id == id));
+        let contracts = content
+            .contracts
+            .into_iter()
+            .map(|def| Contract {
+                fixer: def.fixer,
+                network: network(&def.network).unwrap_or(NetworkId(0)),
+                goal: def.goal,
+                offer: def.offer,
+            })
+            .collect();
         let networks = content
             .networks
             .into_iter()
@@ -139,6 +158,8 @@ impl World {
             city: content.city,
             start: find(&content.start),
             home: content.home.as_deref().map(find),
+            contracts,
+            offer,
             networks,
             hosts,
             players: BTreeMap::new(),
@@ -158,11 +179,13 @@ impl World {
                 chain: vec![self.start],
                 rig: Rig::new(),
                 run: None,
+                contract: self.offer,
             },
         );
         self.notify(self.start, player, &presence::named(name, " connects."));
-        let scene = self.scene(self.start, player);
-        (player, self.deliver(player, scene))
+        let mut shown = self.scene(self.start, player);
+        shown.extend(self.offer(player));
+        (player, self.deliver(player, shown))
     }
 
     pub fn command(&mut self, player: PlayerId, line: &str) -> Vec<Output> {
@@ -310,6 +333,7 @@ impl World {
                 no_args(command, args)?;
                 self.repair(player)
             }
+            Verb::Contract => self.contract(player, args),
             Verb::Scan => {
                 no_args(command, args)?;
                 self.scan(player)
