@@ -332,6 +332,26 @@ mod tests {
     }
 
     #[test]
+    fn a_disconnect_during_a_run_counts_as_a_jack_out() {
+        let mut world = world();
+        let player = hacker(&mut world, "a", "nyx", "ghost");
+        for line in ["go back-room", "go gate"] {
+            world.command(player, line);
+        }
+        if let Some(run) = world
+            .players
+            .get_mut(&player)
+            .and_then(|state| state.run.as_mut())
+        {
+            run.trace = 80;
+        }
+        world.leave(player);
+        let (player, _) = world.connect("a");
+        let status = plain(&world.command(player, "status"));
+        assert_eq!(status[..2], ["Heat: 1/5", "Integrity: 80/100"]);
+    }
+
+    #[test]
     fn a_returning_account_starts_at_home_with_its_handle() {
         let mut world = world();
         let player = hacker(&mut world, "a", "nyx", "breaker");

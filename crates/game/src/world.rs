@@ -291,6 +291,10 @@ impl World {
     }
 
     pub fn leave(&mut self, player: PlayerId) -> Vec<Output> {
+        if self.running(player) {
+            let _ = self.jackout(player);
+            self.outbox.clear();
+        }
         self.keep(player);
         self.touch(player);
         let Some(state) = self.players.remove(&player) else {
