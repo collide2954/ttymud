@@ -8,6 +8,8 @@ repository.workspace = true
 
 [dependencies]
 ttymud-net.workspace = true
+ttymud-text.workspace = true
+ttymud-wire.workspace = true
 
 [lints]
 workspace = true

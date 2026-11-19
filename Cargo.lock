@@ -265,6 +265,8 @@ name = "ttymud"
 version = "0.1.0"
 dependencies = [
  "ttymud-net",
+ "ttymud-text",
+ "ttymud-wire",
 ]
 
 [[package]]
