@@ -1,10 +1,18 @@
 use std::io::{self, BufRead, Write};
+use std::sync::mpsc::{self, RecvTimeoutError};
+use std::thread;
+use std::time::Instant;
 
 use ttymud_game::{Output, PlayerId, World};
 
 use crate::port_ostra;
+use crate::ticker::{TICK, Ticker};
 
-pub fn play(name: &str, input: impl BufRead, mut output: impl Write) -> io::Result<()> {
+pub fn play(
+    name: &str,
+    input: impl BufRead + Send + 'static,
+    mut output: impl Write,
+) -> io::Result<()> {
     let mut world = port_ostra()?;
     let (player, joined) = world.join(name);
     let city = world.city();
@@ -14,15 +22,43 @@ pub fn play(name: &str, input: impl BufRead, mut output: impl Write) -> io::Resu
     )?;
     show(&mut output, &joined)?;
     prompt(&mut output, &world, player)?;
-    for line in input.lines() {
-        let line = line?;
-        if line.trim() == "quit" {
-            return Ok(());
+    let lines = read(input)?;
+    let mut ticker = Ticker::new(TICK, Instant::now());
+    loop {
+        match lines.recv_timeout(ticker.left(Instant::now())) {
+            Ok(line) => {
+                let line = line?;
+                if line.trim() == "quit" {
+                    return Ok(());
+                }
+                show(&mut output, &world.command(player, &line))?;
+                prompt(&mut output, &world, player)?;
+            }
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => return writeln!(output),
         }
-        show(&mut output, &world.command(player, &line))?;
-        prompt(&mut output, &world, player)?;
+        if ticker.due(Instant::now()) {
+            let outputs = world.tick();
+            if !outputs.is_empty() {
+                show(&mut output, &outputs)?;
+                prompt(&mut output, &world, player)?;
+            }
+        }
     }
-    writeln!(output)
+}
+
+fn read(input: impl BufRead + Send + 'static) -> io::Result<mpsc::Receiver<io::Result<String>>> {
+    let (sender, receiver) = mpsc::channel();
+    thread::Builder::new()
+        .name("input".to_owned())
+        .spawn(move || {
+            for line in input.lines() {
+                if sender.send(line).is_err() {
+                    return;
+                }
+            }
+        })?;
+    Ok(receiver)
 }
 
 fn show(output: &mut impl Write, outputs: &[Output]) -> io::Result<()> {
@@ -39,11 +75,13 @@ fn prompt(output: &mut impl Write, world: &World, player: PlayerId) -> io::Resul
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
     use super::play as run;
 
     fn play(input: &str) -> String {
         let mut output = Vec::new();
-        run("nyx", input.as_bytes(), &mut output).unwrap();
+        run("nyx", Cursor::new(input.as_bytes().to_vec()), &mut output).unwrap();
         String::from_utf8(output).unwrap()
     }
 

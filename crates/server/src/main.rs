@@ -79,7 +79,9 @@ fn main() -> ExitCode {
         }
         Cli::Init(dir) => init(&dir),
         Cli::Run { dir, listen } => run(&dir, &listen),
-        Cli::Play(name) => ttymud_server::play(&name, io::stdin().lock(), io::stdout().lock()),
+        Cli::Play(name) => {
+            ttymud_server::play(&name, io::BufReader::new(io::stdin()), io::stdout().lock())
+        }
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
