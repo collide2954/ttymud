@@ -1,3 +1,4 @@
+mod channels;
 mod checks;
 mod reader;
 mod shops;
@@ -46,6 +47,14 @@ pub struct Content {
     pub(crate) corps: Vec<CorpDef>,
     pub(crate) templates: Vec<TemplateDef>,
     pub(crate) fixers: Vec<FixerDef>,
+    pub(crate) channels: Vec<ChannelDef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ChannelDef {
+    pub(crate) id: String,
+    pub(crate) desc: String,
+    pub(crate) auto: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

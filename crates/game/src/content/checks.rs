@@ -37,6 +37,7 @@ impl Reader {
                 .map(|(template, _)| template)
                 .collect(),
             fixers: self.fixers.into_iter().map(|(fixer, _)| fixer).collect(),
+            channels: self.channels,
         })
     }
 

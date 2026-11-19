@@ -1,5 +1,6 @@
 use super::{
-    Content, ContractDef, CorpDef, File, FixerDef, IceDef, NetworkDef, ShopDef, TemplateDef,
+    ChannelDef, Content, ContractDef, CorpDef, File, FixerDef, IceDef, NetworkDef, ShopDef,
+    TemplateDef,
 };
 use crate::commands::Verb;
 use crate::contract::Event;
@@ -71,6 +72,33 @@ fn a_network_has_a_security_level() {
     assert_eq!(
         errors(&text),
         ["line 9: unknown security level: extreme (use low, medium, high, or top)"]
+    );
+}
+
+#[test]
+fn a_channel_has_a_description_and_can_be_automatic() {
+    let text = format!(
+        "{NET}[channel city]\ndesc = All of the city.\nauto = yes\n[channel trade]\ndesc = Buy and sell.\n"
+    );
+    let channel = |id: &str, desc: &str, auto| ChannelDef {
+        id: id.to_owned(),
+        desc: desc.to_owned(),
+        auto,
+    };
+    assert_eq!(
+        Content::parse(&text).unwrap().channels,
+        [
+            channel("city", "All of the city.", true),
+            channel("trade", "Buy and sell.", false)
+        ]
+    );
+    assert_eq!(
+        errors(&text.replace("auto = yes", "auto = maybe")),
+        ["line 21: bad auto: maybe (use yes or no)"]
+    );
+    assert_eq!(
+        errors(&format!("{text}[channel city]\ndesc = Again.\n")),
+        ["line 24: channel city is defined more than once"]
     );
 }
 

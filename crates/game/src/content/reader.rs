@@ -1,7 +1,7 @@
 use super::targets::FixerLines;
 use super::{
-    ContentError, ContractDef, CorpDef, File, FixerDef, HostDef, IceDef, NetworkDef, ShopDef,
-    TemplateDef,
+    ChannelDef, ContentError, ContractDef, CorpDef, File, FixerDef, HostDef, IceDef, NetworkDef,
+    ShopDef, TemplateDef,
 };
 use crate::contract::Event;
 use crate::heat::Security;
@@ -35,6 +35,7 @@ pub(super) struct Reader {
     pub(super) corps: Vec<(CorpDef, usize)>,
     pub(super) templates: Vec<(TemplateDef, usize)>,
     pub(super) fixers: Vec<(FixerDef, FixerLines)>,
+    pub(super) channels: Vec<ChannelDef>,
 }
 
 impl Reader {
@@ -69,6 +70,7 @@ impl Reader {
             "corp" => self.corp(section),
             "template" => self.template(section),
             "fixer" => self.fixer(section),
+            "channel" => self.channel(section),
             other => self.error(section.line, format!("unknown section type: {other}")),
         }
     }
