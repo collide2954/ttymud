@@ -56,6 +56,9 @@ A span has two fields: a byte for the style, and a text.
 | Game | 0 |
 | Error | 1 |
 | Chat | 2 |
+| Telegraph | 3 |
+
+The Telegraph kind is for ICE. A telegraph tells the next action of an ICE before the ICE does it. An attack of an ICE also has this kind.
 
 | Style | Byte |
 | --- | --- |
@@ -65,6 +68,8 @@ A span has two fields: a byte for the style, and a text.
 | File | 3 |
 | Command | 4 |
 | Player | 5 |
+| Ice | 6 |
+| Danger | 7 |
 
 A kind byte or a style byte with a different value is not valid.
 

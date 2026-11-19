@@ -139,6 +139,7 @@ fn kind_tag(kind: Kind) -> u8 {
         Kind::Game => 0,
         Kind::Error => 1,
         Kind::Chat => 2,
+        Kind::Telegraph => 3,
     }
 }
 
@@ -147,6 +148,7 @@ fn kind_from(tag: u8) -> Result<Kind, DecodeError> {
         0 => Ok(Kind::Game),
         1 => Ok(Kind::Error),
         2 => Ok(Kind::Chat),
+        3 => Ok(Kind::Telegraph),
         _ => Err(DecodeError::BadValue),
     }
 }
@@ -159,6 +161,8 @@ fn style_tag(style: Style) -> u8 {
         Style::File => 3,
         Style::Command => 4,
         Style::Player => 5,
+        Style::Ice => 6,
+        Style::Danger => 7,
     }
 }
 
@@ -170,6 +174,8 @@ fn style_from(tag: u8) -> Result<Style, DecodeError> {
         3 => Ok(Style::File),
         4 => Ok(Style::Command),
         5 => Ok(Style::Player),
+        6 => Ok(Style::Ice),
+        7 => Ok(Style::Danger),
         _ => Err(DecodeError::BadValue),
     }
 }
@@ -181,14 +187,16 @@ mod tests {
     use super::{ClientMessage, ServerMessage};
     use crate::codec::DecodeError;
 
-    const KINDS: [Kind; 3] = [Kind::Game, Kind::Error, Kind::Chat];
-    const STYLES: [Style; 6] = [
+    const KINDS: [Kind; 4] = [Kind::Game, Kind::Error, Kind::Chat, Kind::Telegraph];
+    const STYLES: [Style; 8] = [
         Style::Plain,
         Style::Title,
         Style::Host,
         Style::File,
         Style::Command,
         Style::Player,
+        Style::Ice,
+        Style::Danger,
     ];
 
     fn server_round_trip(message: &ServerMessage) {

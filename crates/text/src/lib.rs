@@ -7,6 +7,7 @@ pub enum Kind {
     Game,
     Error,
     Chat,
+    Telegraph,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,6 +18,8 @@ pub enum Style {
     File,
     Command,
     Player,
+    Ice,
+    Danger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
