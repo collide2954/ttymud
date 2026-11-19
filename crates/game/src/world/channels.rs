@@ -151,6 +151,10 @@ impl World {
             })
             .map(|(&other, _)| other)
             .collect();
+        let members: Vec<PlayerId> = members
+            .into_iter()
+            .filter(|&other| self.hears(other, player))
+            .collect();
         self.outbox.extend(members.into_iter().map(|other| Output {
             player: other,
             message: message.clone(),

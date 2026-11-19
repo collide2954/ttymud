@@ -70,16 +70,24 @@ impl World {
             return Vec::new();
         };
         let (from, to) = (from.name.clone(), to.name.clone());
-        let told = Message::new(Kind::Chat)
-            .span(Style::Player, &from)
-            .text(format!(" tells you: {text}"));
-        if let Some(state) = self.players.get_mut(&target) {
-            state.reply_to = Some(from);
+        if self.blocks(target, player) {
+            let refusal = Message::error("")
+                .span(Style::Player, &to)
+                .text(" does not take private messages from you.");
+            return self.deliver(player, vec![refusal]);
         }
-        self.outbox.push(Output {
-            player: target,
-            message: told,
-        });
+        if self.hears(target, player) {
+            let told = Message::new(Kind::Chat)
+                .span(Style::Player, &from)
+                .text(format!(" tells you: {text}"));
+            if let Some(state) = self.players.get_mut(&target) {
+                state.reply_to = Some(from);
+            }
+            self.outbox.push(Output {
+                player: target,
+                message: told,
+            });
+        }
         let mut shown = Vec::new();
         if let Some(state) = self.players.get_mut(&player)
             && !std::mem::replace(&mut state.warned, true)

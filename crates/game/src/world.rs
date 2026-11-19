@@ -10,6 +10,7 @@ mod grep;
 mod heat;
 mod help;
 mod ice;
+mod ignore;
 mod jobs;
 mod movement;
 mod presence;
@@ -106,6 +107,8 @@ struct Player {
     last_chat: Option<(String, u64)>,
     warned: bool,
     created: u64,
+    ignores: Vec<String>,
+    blocks: Vec<String>,
     stash: Vec<File>,
 }
 
@@ -125,6 +128,8 @@ impl Player {
             last_chat: None,
             warned: false,
             created: 0,
+            ignores: Vec::new(),
+            blocks: Vec::new(),
             stash: Vec::new(),
             rig: Rig::new(),
             know: commands::programs()
@@ -490,6 +495,10 @@ impl World {
             Verb::Tell => Err(Message::error("Usage: tell <handle> <text>.")),
             Verb::Reply => Err(Message::error("Usage: reply <text>.")),
             Verb::Who => Ok(self.who()),
+            Verb::Ignore => self.ignore(player, args),
+            Verb::Unignore => self.unignore(player, args),
+            Verb::Block => self.block(player, args),
+            Verb::Unblock => self.unblock(player, args),
             Verb::Help => help::help(args),
             Verb::Available => Ok(self.available(player)),
         }

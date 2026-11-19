@@ -91,6 +91,12 @@ impl World {
         if account.warned {
             text.pair("warned", "yes");
         }
+        for key in &account.ignores {
+            text.pair("ignore", key);
+        }
+        for key in &account.blocks {
+            text.pair("block", key);
+        }
         for &verb in &account.know {
             text.pair("know", commands::name_of(verb));
         }
@@ -201,19 +207,7 @@ impl World {
             match section.kind {
                 "account" if section.id == id => {
                     found = true;
-                    allow(section, &["know", "created", "warned"], &mut errors);
-                    let known = section.pairs.iter().filter(|pair| pair.key == "know");
-                    account.know = known
-                        .filter_map(|pair| program(pair, &mut errors))
-                        .collect();
-                    let created = section.pairs.iter().find(|pair| pair.key == "created");
-                    account.created = created
-                        .and_then(|pair| number(pair, &mut errors))
-                        .unwrap_or(0);
-                    account.warned = section
-                        .pairs
-                        .iter()
-                        .any(|pair| pair.key == "warned" && pair.value == "yes");
+                    read_account(section, &mut account, &mut errors);
                 }
                 "account" => {
                     let other = section.id;
@@ -427,6 +421,25 @@ fn program(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<Verb> {
         ));
     }
     verb
+}
+
+fn read_account(section: &Section<'_>, account: &mut Account, errors: &mut Vec<ContentError>) {
+    allow(
+        section,
+        &["know", "created", "warned", "ignore", "block"],
+        errors,
+    );
+    let values = |key: &'static str| section.pairs.iter().filter(move |pair| pair.key == key);
+    account.know = values("know")
+        .filter_map(|pair| program(pair, errors))
+        .collect();
+    account.created = values("created")
+        .next()
+        .and_then(|pair| number(pair, errors))
+        .unwrap_or(0);
+    account.warned = values("warned").any(|pair| pair.value == "yes");
+    account.ignores = values("ignore").map(|pair| pair.value.to_owned()).collect();
+    account.blocks = values("block").map(|pair| pair.value.to_owned()).collect();
 }
 
 fn posting_of(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<(String, u64, u64)> {

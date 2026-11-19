@@ -24,6 +24,8 @@ pub(super) struct Account {
     pub(super) stash: Vec<File>,
     pub(super) created: u64,
     pub(super) warned: bool,
+    pub(super) ignores: Vec<String>,
+    pub(super) blocks: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -59,6 +61,8 @@ impl World {
         state.account = Some(account.to_owned());
         state.created = known.created;
         state.warned = known.warned;
+        state.ignores = known.ignores;
+        state.blocks = known.blocks;
         state.kit = Some(saved.kit);
         state.heat = saved.heat;
         state.cooled = saved.cooled;
@@ -111,6 +115,8 @@ impl World {
             state.stash.clone_from(&known.stash);
             state.created = known.created;
             state.warned = known.warned;
+            state.ignores.clone_from(&known.ignores);
+            state.blocks.clone_from(&known.blocks);
         } else {
             state.know.clear();
             state.created = self.now;
@@ -236,12 +242,15 @@ impl World {
         };
         let (know, stash) = (state.know.clone(), state.stash.clone());
         let (created, warned) = (state.created, state.warned);
+        let (ignores, blocks) = (state.ignores.clone(), state.blocks.clone());
         let entry = self.accounts.entry(account.clone()).or_default();
         entry.handle = Some(saved);
         entry.know = know;
         entry.stash = stash;
         entry.created = created;
         entry.warned = warned;
+        entry.ignores = ignores;
+        entry.blocks = blocks;
     }
 
     #[must_use]

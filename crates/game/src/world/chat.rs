@@ -80,7 +80,16 @@ impl World {
             .text("> ")
             .text(text);
         let here = self.here(player);
-        self.notify(here, player, &message);
+        let listeners: Vec<PlayerId> = self
+            .others(here, player)
+            .map(|(other, _)| other)
+            .filter(|&other| self.hears(other, player))
+            .collect();
+        self.outbox
+            .extend(listeners.into_iter().map(|other| Output {
+                player: other,
+                message: message.clone(),
+            }));
         self.deliver(player, vec![message])
     }
 }

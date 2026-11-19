@@ -43,6 +43,9 @@ impl World {
                 }
                 Verb::Repair | Verb::Load | Verb::Unload | Verb::Unstash => self.home == Some(here),
                 Verb::Contract => hired,
+                Verb::Reply => state.is_some_and(|state| state.reply_to.is_some()),
+                Verb::Unignore => state.is_some_and(|state| !state.ignores.is_empty()),
+                Verb::Unblock => state.is_some_and(|state| !state.blocks.is_empty()),
                 Verb::Shop | Verb::Buy | Verb::Sell => self.is_shop(here),
                 Verb::Jobs | Verb::Accept => self.has_fixer(here),
                 Verb::Read => readable,
@@ -235,7 +238,7 @@ mod tests {
     fn question_mark_lists_what_works_here() {
         assert_eq!(
             run("?")[0],
-            "Here you can use: look, ls, go, read, download, inventory, status, stash, grep, say, channels, join, leave, who, tell, reply, help"
+            "Here you can use: look, ls, go, read, download, inventory, status, stash, grep, say, channels, join, leave, who, tell, ignore, block, help"
         );
     }
 
@@ -245,6 +248,28 @@ mod tests {
         let inside = available(&["go back-room", "go gate"]);
         check(&outside, &[], &["jackout", "scan"]);
         check(&inside, &["jackout", "scan", "crack"], &["firewall"]);
+    }
+
+    #[test]
+    fn question_mark_adds_unignore_unblock_and_reply_when_they_can_act() {
+        check(
+            &available(&[]),
+            &["ignore", "block"],
+            &["unignore", "unblock", "reply"],
+        );
+        let (mut world, ghost) = crate::testing::joined();
+        let (nyx, _) = world.join("nyx");
+        world.command(nyx, "tell ghost hi");
+        for line in ["ignore nyx", "block nyx"] {
+            world.command(ghost, line);
+        }
+        let shown = crate::testing::plain(&world.command(ghost, "?"));
+        let names: Vec<String> = shown[0]
+            .trim_start_matches("Here you can use: ")
+            .split(", ")
+            .map(str::to_owned)
+            .collect();
+        check(&names, &["unignore", "unblock", "reply"], &[]);
     }
 
     #[test]
