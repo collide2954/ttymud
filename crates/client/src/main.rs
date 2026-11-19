@@ -8,7 +8,7 @@ use ttymud_net::PublicKey;
 
 const USAGE: &str = "\
 Usage: ttymud [OPTION]
-       ttymud connect <ADDRESS> [--accept-new] [--config DIR]
+       ttymud connect <ADDRESS> [--accept-new] [--config DIR] [--line]
 
 Commands:
   connect <ADDRESS>  Connect to a server. The default port is 7331.
@@ -16,6 +16,7 @@ Commands:
 Options:
   --accept-new   Trust a new server without a question.
   --config DIR   Keep your identity and known servers in DIR.
+  --line         Use simple line input, also in a terminal.
   -h, --help     Show this help.
   -V, --version  Show the version.
 ";
@@ -32,6 +33,7 @@ struct Options {
     address: String,
     accept_new: bool,
     config: Option<PathBuf>,
+    line: bool,
 }
 
 fn parse(args: &[OsString]) -> Result<Cli, String> {
@@ -53,6 +55,7 @@ fn parse_connect(args: &[OsString]) -> Result<Cli, String> {
     while let Some(arg) = rest.next() {
         match arg.to_str() {
             Some("--accept-new") => options.accept_new = true,
+            Some("--line") => options.line = true,
             Some("--config") => {
                 let dir = rest.next().ok_or("--config needs a directory")?;
                 options.config = Some(PathBuf::from(dir));
@@ -117,8 +120,12 @@ fn connect(options: &Options) -> Result<Ending, String> {
         trust(address, key, options.accept_new)
     })
     .map_err(|error| explain(&error, &known))?;
-    ttymud::line_mode(link, BufReader::new(io::stdin()), io::stdout())
-        .map_err(|error| error.to_string())
+    let ending = if !options.line && ttymud::can_edit() {
+        ttymud::edit_mode(link)
+    } else {
+        ttymud::line_mode(link, BufReader::new(io::stdin()), io::stdout())
+    };
+    ending.map_err(|error| error.to_string())
 }
 
 fn trust(address: &str, key: PublicKey, accept_new: bool) -> io::Result<bool> {
@@ -207,6 +214,19 @@ mod tests {
                 address: "a.example".to_owned(),
                 accept_new: true,
                 config: Some("dir".into()),
+                line: false,
+            }))
+        );
+    }
+
+    #[test]
+    fn connect_can_use_line_mode_in_a_terminal() {
+        assert_eq!(
+            parse(&args(&["connect", "a.example", "--line"])),
+            Ok(Cli::Connect(Options {
+                address: "a.example".to_owned(),
+                line: true,
+                ..Options::default()
             }))
         );
     }
