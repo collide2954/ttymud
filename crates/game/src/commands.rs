@@ -125,7 +125,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         verb: Verb::Status,
         names: &["status", "st"],
         usage: "status",
-        summary: "Show your integrity and cycles.",
+        summary: "Show your trace, integrity, and cycles.",
         example: "status",
         takes: Takes::Nothing,
         output: true,

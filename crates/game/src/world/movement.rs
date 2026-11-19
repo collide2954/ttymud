@@ -26,11 +26,7 @@ impl World {
         let from = self.here(player);
         let target = self.route(player, &place)?;
         self.move_to(player, target);
-        self.relocate(player, from, target);
-        Ok(Step {
-            shown: self.scene(target, player),
-            items: Vec::new(),
-        })
+        Ok(self.arrive(player, from, target))
     }
 
     pub(super) fn back(&mut self, player: PlayerId) -> Result<Step, Message> {
@@ -42,11 +38,17 @@ impl World {
             _ => return Err(Message::error("There is no hop behind you.")),
         }
         let here = self.here(player);
-        self.relocate(player, from, here);
-        Ok(Step {
-            shown: self.scene(here, player),
+        Ok(self.arrive(player, from, here))
+    }
+
+    fn arrive(&mut self, player: PlayerId, from: HostId, to: HostId) -> Step {
+        self.relocate(player, from, to);
+        let mut shown: Vec<Message> = self.cross(player, from, to).into_iter().collect();
+        shown.extend(self.scene(to, player));
+        Step {
+            shown,
             items: Vec::new(),
-        })
+        }
     }
 
     fn route(&self, player: PlayerId, place: &str) -> Result<HostId, Message> {

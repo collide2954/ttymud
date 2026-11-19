@@ -6,6 +6,7 @@ mod help;
 mod movement;
 mod presence;
 mod rig;
+mod run;
 
 use std::collections::BTreeMap;
 
@@ -19,6 +20,7 @@ use crate::parse::{self, ParseError, Stage};
 pub use chat::is_chat;
 pub use complete::Completion;
 use rig::Rig;
+use run::Run;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PlayerId(u64);
@@ -32,11 +34,20 @@ pub struct Output {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct HostId(usize);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct NetworkId(usize);
+
+#[derive(Debug)]
+struct Network {
+    name: String,
+}
+
 #[derive(Debug)]
 struct Host {
     id: String,
     name: String,
     description: String,
+    network: Option<NetworkId>,
     routes: Vec<HostId>,
     files: Vec<File>,
 }
@@ -46,11 +57,13 @@ struct Player {
     name: String,
     chain: Vec<HostId>,
     rig: Rig,
+    run: Option<Run>,
 }
 
 #[derive(Debug)]
 pub struct World {
     city: String,
+    networks: Vec<Network>,
     hosts: Vec<Host>,
     start: HostId,
     players: BTreeMap<PlayerId, Player>,
@@ -69,6 +82,17 @@ impl World {
     pub fn new(content: Content) -> Self {
         let ids: Vec<String> = content.hosts.iter().map(|host| host.id.clone()).collect();
         let find = |id: &str| HostId(ids.iter().position(|known| known == id).unwrap_or(0));
+        let network_ids: Vec<&str> = content
+            .networks
+            .iter()
+            .map(|network| network.id.as_str())
+            .collect();
+        let network = |id: &str| {
+            network_ids
+                .iter()
+                .position(|&known| known == id)
+                .map(NetworkId)
+        };
         let mut hosts = Vec::with_capacity(content.hosts.len());
         let mut links = Vec::new();
         for (index, def) in content.hosts.into_iter().enumerate() {
@@ -81,6 +105,7 @@ impl World {
                 id: def.id,
                 name: def.name,
                 description: def.description,
+                network: def.network.as_deref().and_then(network),
                 routes: Vec::new(),
                 files: def.files,
             });
@@ -89,9 +114,15 @@ impl World {
             link(&mut hosts, from, to);
             link(&mut hosts, to, from);
         }
+        let networks = content
+            .networks
+            .into_iter()
+            .map(|network| Network { name: network.name })
+            .collect();
         Self {
             city: content.city,
             start: find(&content.start),
+            networks,
             hosts,
             players: BTreeMap::new(),
             next_player: 0,
@@ -108,6 +139,7 @@ impl World {
                 name: name.to_owned(),
                 chain: vec![self.start],
                 rig: Rig::new(),
+                run: None,
             },
         );
         self.notify(self.start, player, &presence::named(name, " connects."));
@@ -160,9 +192,16 @@ impl World {
 
     #[must_use]
     pub fn prompt(&self, player: PlayerId) -> Option<String> {
-        let player = self.players.get(&player)?;
-        let here = player.chain.last()?;
-        Some(format!("{}@{} $ ", player.name, self.hosts[here.0].id))
+        let state = self.players.get(&player)?;
+        let here = state.chain.last()?;
+        let place = format!("{}@{} $ ", state.name, self.hosts[here.0].id);
+        Some(match &state.run {
+            Some(run) => {
+                let integrity = state.rig.integrity;
+                format!("[trace {}% integ {integrity}] {place}", run.trace)
+            }
+            None => place,
+        })
     }
 
     fn run(&mut self, player: PlayerId, stages: &[Stage]) -> Vec<Message> {

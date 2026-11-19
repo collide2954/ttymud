@@ -29,13 +29,24 @@ impl Rig {
 
 impl World {
     pub(super) fn status(&self, player: PlayerId) -> Step {
-        let Some(rig) = self.players.get(&player).map(|state| &state.rig) else {
+        let Some(state) = self.players.get(&player) else {
             return Step::default();
         };
-        lines(vec![
-            Message::game(format!("Integrity: {}/{MAX_INTEGRITY}", rig.integrity)),
-            Message::game(format!("Cycles: {}/{MAX_CYCLES}", rig.cycles)),
-        ])
+        let mut shown = Vec::new();
+        if let Some(run) = &state.run {
+            let network = &self.networks[run.network.0].name;
+            shown.push(Message::game(format!("Trace: {}% in {network}", run.trace)));
+        }
+        let rig = &state.rig;
+        shown.push(Message::game(format!(
+            "Integrity: {}/{MAX_INTEGRITY}",
+            rig.integrity
+        )));
+        shown.push(Message::game(format!(
+            "Cycles: {}/{MAX_CYCLES}",
+            rig.cycles
+        )));
+        lines(shown)
     }
 }
 

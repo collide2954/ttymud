@@ -20,7 +20,14 @@ impl fmt::Display for ContentError {
 pub struct Content {
     pub(crate) city: String,
     pub(crate) start: String,
+    pub(crate) networks: Vec<NetworkDef>,
     pub(crate) hosts: Vec<HostDef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct NetworkDef {
+    pub(crate) id: String,
+    pub(crate) name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,6 +35,7 @@ pub(crate) struct HostDef {
     pub(crate) id: String,
     pub(crate) name: String,
     pub(crate) description: String,
+    pub(crate) network: Option<String>,
     pub(crate) routes: Vec<String>,
     pub(crate) files: Vec<File>,
 }
@@ -74,7 +82,9 @@ struct Reader {
     city: Option<usize>,
     city_name: Option<String>,
     start: Option<(String, usize)>,
+    networks: Vec<(NetworkDef, usize)>,
     hosts: Vec<(HostDef, usize)>,
+    members: Vec<(String, String, usize)>,
     routes: Vec<(String, String, usize)>,
     files: Vec<(String, File, usize)>,
 }
@@ -130,6 +140,7 @@ impl Reader {
     fn section(&mut self, section: &Section<'_>) {
         match section.kind {
             "city" => self.city(section),
+            "network" => self.network(section),
             "host" => self.host(section),
             "file" => self.file(section),
             other => self.error(section.line, format!("unknown section type: {other}")),
@@ -148,16 +159,44 @@ impl Reader {
         self.start = self.single(section, "start");
     }
 
+    fn network(&mut self, section: &Section<'_>) {
+        if self
+            .networks
+            .iter()
+            .any(|(network, _)| network.id == section.id)
+        {
+            let id = section.id;
+            self.error(
+                section.line,
+                format!("network {id} is defined more than once"),
+            );
+            return;
+        }
+        self.allow(section, &["name"]);
+        self.check_name(section.line, section.id, Name::Plain);
+        let name = self.single(section, "name").unwrap_or_default().0;
+        let network = NetworkDef {
+            id: section.id.to_owned(),
+            name,
+        };
+        self.networks.push((network, section.line));
+    }
+
     fn host(&mut self, section: &Section<'_>) {
         if self.hosts.iter().any(|(host, _)| host.id == section.id) {
             let id = section.id;
             self.error(section.line, format!("host {id} is defined more than once"));
             return;
         }
-        self.allow(section, &["name", "desc", "route"]);
+        self.allow(section, &["name", "desc", "network", "route"]);
         self.check_name(section.line, section.id, Name::Plain);
         let name = self.single(section, "name");
         let description = self.single(section, "desc");
+        let network = self.optional(section, "network");
+        if let Some((network, line)) = &network {
+            self.members
+                .push((section.id.to_owned(), network.clone(), *line));
+        }
         let routes = values(section, "route");
         for (target, line) in &routes {
             self.routes
@@ -167,6 +206,7 @@ impl Reader {
             id: section.id.to_owned(),
             name: name.unwrap_or_default().0,
             description: description.unwrap_or_default().0,
+            network: network.map(|(network, _)| network),
             routes: routes.into_iter().map(|(target, _)| target).collect(),
             files: Vec::new(),
         };
@@ -209,13 +249,19 @@ impl Reader {
     }
 
     fn single(&mut self, section: &Section<'_>, key: &str) -> Option<(String, usize)> {
-        let (kind, id) = (section.kind, section.id);
-        let mut found = section.pairs.iter().filter(|pair| pair.key == key);
-        let Some(first) = found.next() else {
+        let found = self.optional(section, key);
+        if found.is_none() {
+            let (kind, id) = (section.kind, section.id);
             self.error(section.line, format!("{kind} {id} has no {key}"));
-            return None;
-        };
+        }
+        found
+    }
+
+    fn optional(&mut self, section: &Section<'_>, key: &str) -> Option<(String, usize)> {
+        let mut found = section.pairs.iter().filter(|pair| pair.key == key);
+        let first = found.next()?;
         if let Some(repeat) = found.next() {
+            let (kind, id) = (section.kind, section.id);
             self.error(
                 repeat.line,
                 format!("{key} is set more than once in {kind} {id}"),
@@ -244,6 +290,20 @@ impl Reader {
         self.hosts.iter().any(|(host, _)| host.id == id)
     }
 
+    fn network_of(&self, id: &str) -> Option<&str> {
+        self.hosts
+            .iter()
+            .find(|(host, _)| host.id == id)
+            .and_then(|(host, _)| host.network.as_deref())
+    }
+
+    fn members_of(&self, network: &str) -> usize {
+        self.hosts
+            .iter()
+            .filter(|(host, _)| host.network.as_deref() == Some(network))
+            .count()
+    }
+
     fn finish(mut self) -> Result<Content, Vec<ContentError>> {
         for (host, file, line) in std::mem::take(&mut self.files) {
             let position = self.hosts.iter().position(|(def, _)| def.id == host);
@@ -265,11 +325,34 @@ impl Reader {
                 Some(index) => self.hosts[index].0.files.push(file),
             }
         }
+        for (host, network, line) in std::mem::take(&mut self.members) {
+            if !self.networks.iter().any(|(def, _)| def.id == network) {
+                self.error(
+                    line,
+                    format!("host {host} is in an unknown network: {network}"),
+                );
+            }
+        }
+        let empty: Vec<(String, usize)> = self
+            .networks
+            .iter()
+            .filter(|(def, _)| self.members_of(&def.id) == 0)
+            .map(|(def, line)| (def.id.clone(), *line))
+            .collect();
+        for (id, line) in empty {
+            self.error(line, format!("network {id} has no hosts"));
+        }
         for (from, to, line) in std::mem::take(&mut self.routes) {
+            let crossing = matches!(
+                (self.network_of(&from), self.network_of(&to)),
+                (Some(a), Some(b)) if a != b
+            );
             if from == to {
                 self.error(line, format!("host {from} has a route to itself"));
             } else if !self.has_host(&to) {
                 self.error(line, format!("route to an unknown host: {to}"));
+            } else if crossing {
+                self.error(line, format!("route between two networks: {from} and {to}"));
             }
         }
         if self.city.is_none() {
@@ -294,6 +377,11 @@ impl Reader {
         Ok(Content {
             city: self.city_name.unwrap_or_default(),
             start: self.start.unwrap_or_default().0,
+            networks: self
+                .networks
+                .into_iter()
+                .map(|(network, _)| network)
+                .collect(),
             hosts: self.hosts.into_iter().map(|(host, _)| host).collect(),
         })
     }
@@ -338,7 +426,7 @@ fn unreachable(hosts: &[(HostDef, usize)], start: &str) -> Vec<(String, usize)> 
 
 #[cfg(test)]
 mod tests {
-    use super::{Content, File};
+    use super::{Content, File, NetworkDef};
 
     const CITY: &str = "\
 # A small city.
@@ -503,6 +591,62 @@ line = Two.
         let text = "[city t]\nname = T\nstart = a\n[host a]\nname = A\ndesc = A.\n\
                     [host b]\nname = B\ndesc = B.\nroute = a\n";
         assert_eq!(errors(text), Vec::<String>::new());
+    }
+
+    #[test]
+    fn hosts_can_be_in_a_network() {
+        let text = format!(
+            "{CITY}[network lab]\nname = The Lab\n[host c]\nname = C\ndesc = C.\nnetwork = lab\nroute = b\n"
+        );
+        let content = Content::parse(&text).unwrap();
+        let lab = NetworkDef {
+            id: "lab".to_owned(),
+            name: "The Lab".to_owned(),
+        };
+        assert_eq!(content.networks, [lab]);
+        assert_eq!(content.hosts[2].network.as_deref(), Some("lab"));
+        assert_eq!(content.hosts[0].network, None);
+    }
+
+    #[test]
+    fn bad_networks_fail() {
+        let text = "\
+[city t]
+name = T
+start = a
+[host a]
+name = A
+desc = A.
+[network n]
+name = N
+[network m]
+name = M
+[network e]
+name = E
+[host b]
+name = B
+desc = B.
+network = n
+route = a
+[host c]
+name = C
+desc = C.
+network = m
+route = b
+[host d]
+name = D
+desc = D.
+network = x
+route = a
+";
+        assert_eq!(
+            errors(text),
+            [
+                "line 11: network e has no hosts",
+                "line 22: route between two networks: c and b",
+                "line 26: host d is in an unknown network: x",
+            ]
+        );
     }
 
     #[test]
