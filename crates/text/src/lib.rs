@@ -1,6 +1,6 @@
 mod sanitize;
 
-pub use sanitize::{MAX_LENGTH, sanitize};
+pub use sanitize::{MAX_LENGTH, clean, sanitize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {

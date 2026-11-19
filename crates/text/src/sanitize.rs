@@ -3,8 +3,17 @@ pub const MAX_LENGTH: usize = 400;
 const MAX_MARKS: usize = 2;
 
 #[must_use]
+pub fn clean(text: &str) -> String {
+    filter(text, usize::MAX)
+}
+
+#[must_use]
 pub fn sanitize(text: &str) -> String {
-    let mut clean = String::new();
+    filter(text, MAX_LENGTH)
+}
+
+fn filter(text: &str, limit: usize) -> String {
+    let mut kept = String::new();
     let mut length = 0;
     let mut marks = 0;
     for c in text.chars() {
@@ -20,13 +29,13 @@ pub fn sanitize(text: &str) -> String {
         } else {
             marks = 0;
         }
-        if length == MAX_LENGTH {
+        if length == limit {
             break;
         }
-        clean.push(c);
+        kept.push(c);
         length += 1;
     }
-    clean
+    kept
 }
 
 fn is_removed(c: char) -> bool {
@@ -63,7 +72,7 @@ fn is_mark(c: char) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{MAX_LENGTH, sanitize};
+    use super::{MAX_LENGTH, clean, sanitize};
 
     #[test]
     fn plain_text_stays_the_same() {
@@ -125,6 +134,13 @@ mod tests {
     fn long_text_is_cut_at_the_limit() {
         let long = "x".repeat(MAX_LENGTH + 100);
         assert_eq!(sanitize(&long).chars().count(), MAX_LENGTH);
+    }
+
+    #[test]
+    fn clean_removes_the_same_characters_without_a_length_limit() {
+        let long = "x".repeat(MAX_LENGTH + 100);
+        assert_eq!(clean(&long), long);
+        assert_eq!(clean("a\u{1b}[2Jb\u{202e}c"), "a[2Jbc");
     }
 
     #[test]
