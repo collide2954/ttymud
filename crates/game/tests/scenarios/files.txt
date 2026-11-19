@@ -24,6 +24,7 @@ The Night Market
 Stalls sell cracked firmware.
 Routes: relay, bazaar
 Files: prices.db
+There is a shop here. Type shop to see what it sells.
 > inv
 motd.txt
 rules.txt

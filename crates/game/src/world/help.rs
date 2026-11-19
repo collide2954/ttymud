@@ -43,6 +43,7 @@ impl World {
                 }
                 Verb::Repair | Verb::Load | Verb::Unload | Verb::Unstash => self.home == Some(here),
                 Verb::Contract => hired,
+                Verb::Shop => self.is_shop(here),
                 Verb::Read => readable,
                 Verb::Download => !host.files.is_empty(),
                 Verb::Available => false,
@@ -232,6 +233,12 @@ mod tests {
         let inside = available(&["go back-room", "go gate"]);
         check(&outside, &[], &["jackout", "scan"]);
         check(&inside, &["jackout", "scan", "crack"], &["firewall"]);
+    }
+
+    #[test]
+    fn question_mark_adds_the_shop_commands_at_a_shop() {
+        check(&available(&[]), &[], &["shop"]);
+        check(&available(&["go market"]), &["shop"], &[]);
     }
 
     #[test]

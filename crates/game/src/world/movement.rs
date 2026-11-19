@@ -107,6 +107,7 @@ mod tests {
                 "Stalls sell cracked firmware.",
                 "Routes: relay, bazaar",
                 "Files: prices.db",
+                "There is a shop here. Type shop to see what it sells.",
             ]
         );
         assert_eq!(prompt.as_deref(), Some("ghost@market $ "));

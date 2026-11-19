@@ -16,6 +16,7 @@ mod rig;
 mod roles;
 mod run;
 mod save;
+mod shop;
 mod stash;
 mod topics;
 
@@ -39,6 +40,7 @@ pub use complete::Completion;
 use contract::{Contract, Job};
 use rig::Rig;
 use run::Run;
+use shop::Shop;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PlayerId(u64);
@@ -124,6 +126,7 @@ pub struct World {
     burns_host: Option<HostId>,
     contracts: Vec<Contract>,
     offer: Option<usize>,
+    shops: Vec<Shop>,
     players: BTreeMap<PlayerId, Player>,
     accounts: BTreeMap<String, Account>,
     dirty: BTreeSet<String>,
@@ -213,6 +216,16 @@ impl World {
                 security: network.security,
             })
             .collect();
+        let shops = content
+            .shops
+            .into_iter()
+            .map(|def| Shop {
+                host: find(&def.host),
+                programs: def.programs,
+                ram: def.ram,
+                cpu: def.cpu,
+            })
+            .collect();
         let mut world = Self {
             city: content.city,
             city_id: content.id,
@@ -223,6 +236,7 @@ impl World {
             burns_host: content.burns.as_deref().map(find),
             contracts,
             offer,
+            shops,
             networks,
             hosts,
             players: BTreeMap::new(),
@@ -430,6 +444,10 @@ impl World {
                 self.repair(player)
             }
             Verb::Contract => self.contract(player, args),
+            Verb::Shop => {
+                no_args(command, args)?;
+                self.shop(player)
+            }
             Verb::Load => self.load(player, args),
             Verb::Unload => self.unload(player, args),
             Verb::Stash => self.stash(player, args),
@@ -506,6 +524,12 @@ impl World {
         if !host.files.is_empty() {
             let files = host.files.iter().map(|file| file.name.as_str());
             scene.push(listed(Message::game("Files: "), Style::File, files));
+        }
+        if self.is_shop(id) {
+            let shop = Message::game("There is a shop here. Type ")
+                .span(Style::Command, "shop")
+                .text(" to see what it sells.");
+            scene.push(shop);
         }
         scene.extend(self.ice_line(id, viewer));
         let present: Vec<&str> = self.others(id, viewer).map(|(_, name)| name).collect();

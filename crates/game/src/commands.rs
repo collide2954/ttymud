@@ -17,6 +17,7 @@ pub(crate) enum Verb {
     Stash,
     Unstash,
     Contract,
+    Shop,
     Scan,
     Probe,
     Crack,
@@ -301,6 +302,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         gives: Gives::Items(Kinds::LINES),
     },
     Command {
+        verb: Verb::Shop,
+        names: &["shop"],
+        usage: "shop",
+        summary: "Show what the shop here sells.",
+        example: "shop",
+        takes: Takes::Nothing,
+        gives: Gives::Items(Kinds::LINES),
+    },
+    Command {
         verb: Verb::Scan,
         names: &["scan"],
         usage: "scan",
@@ -435,6 +445,13 @@ pub(crate) fn name_of(verb: Verb) -> &'static str {
         .iter()
         .find(|command| command.verb == verb)
         .map_or("", Command::name)
+}
+
+pub(crate) fn summary_of(verb: Verb) -> &'static str {
+    COMMANDS
+        .iter()
+        .find(|command| command.verb == verb)
+        .map_or("", |command| command.summary)
 }
 
 pub(crate) fn find(name: &str) -> Option<&'static Command> {

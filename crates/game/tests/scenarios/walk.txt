@@ -8,6 +8,7 @@ The Night Market
 Stalls sell cracked firmware.
 Routes: relay, bazaar
 Files: prices.db
+There is a shop here. Type shop to see what it sells.
 > ls
 relay/
 bazaar/
@@ -22,6 +23,7 @@ The Night Market
 Stalls sell cracked firmware.
 Routes: relay, bazaar
 Files: prices.db
+There is a shop here. Type shop to see what it sells.
 > cd ..
 The Relay
 A crowded public node.
