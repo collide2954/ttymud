@@ -38,6 +38,7 @@ pub(super) struct Saved {
     pub(super) rep: BTreeMap<String, u32>,
     pub(super) done: Vec<(u64, String, u64)>,
     pub(super) posting: Option<(String, u64, u64)>,
+    pub(super) channels: Option<Vec<String>>,
     pub(super) files: Vec<File>,
     pub(super) loads: Vec<Verb>,
     pub(super) contract: Option<Job>,
@@ -65,6 +66,13 @@ impl World {
         state.sold = saved.sold;
         state.rep = saved.rep;
         state.done = saved.done;
+        state.channels = match saved.channels {
+            Some(channels) => channels
+                .into_iter()
+                .filter(|id| self.channels.iter().any(|channel| &channel.id == id))
+                .collect(),
+            None => self.auto_channels(),
+        };
         state.rig.files = saved.files;
         state.rig.loads = saved.loads;
         state.contract = saved.contract.or_else(|| {
@@ -214,6 +222,7 @@ impl World {
             rep: state.rep.clone(),
             done: state.done.clone(),
             posting: None,
+            channels: Some(state.channels.clone()),
             files: state.rig.files.clone(),
             loads: state.rig.loads.clone(),
             contract: state.contract,

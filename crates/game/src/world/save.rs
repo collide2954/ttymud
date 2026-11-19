@@ -108,6 +108,9 @@ impl World {
         text.pair("credits", &handle.credits.to_string());
         text.pair("ram", &handle.ram.to_string());
         text.pair("cpu", &handle.cpu.to_string());
+        if let Some(channels) = &handle.channels {
+            text.pair("channels", &channels.join(", "));
+        }
         for name in &handle.sold {
             text.pair("sold", name);
         }
@@ -234,9 +237,19 @@ impl World {
         let (mut credits, mut ram, mut cpu) = (0, RAM, CYCLES);
         let (mut sold, mut rep, mut done, mut posting) =
             (Vec::new(), BTreeMap::new(), Vec::new(), None);
+        let mut channels = None;
         for pair in &section.pairs {
             match pair.key {
                 "sold" => sold.push(pair.value.to_owned()),
+                "channels" => {
+                    let names = pair.value.split(',').map(str::trim);
+                    channels = Some(
+                        names
+                            .filter(|name| !name.is_empty())
+                            .map(str::to_owned)
+                            .collect(),
+                    );
+                }
                 "rep" => rep.extend(reputation(pair, errors)),
                 "job" => posting = posting_of(pair, errors),
                 "done" => done
@@ -285,6 +298,7 @@ impl World {
             rep,
             done,
             posting,
+            channels,
             files: Vec::new(),
             loads,
             contract: contract.map(|index| Job::resume(index, step)),
@@ -506,6 +520,7 @@ mod tests {
             "credits = 0",
             "ram = 8",
             "cpu = 4",
+            "channels = city",
             "load = scan",
             "load = probe",
             "load = crack",
@@ -526,7 +541,13 @@ mod tests {
         let mut world = hired_world();
         let player = ready(
             &mut world,
-            &["get motd.txt", "go back-room", "stash motd.txt"],
+            &[
+                "get motd.txt",
+                "go back-room",
+                "stash motd.txt",
+                "join trade",
+                "leave city",
+            ],
         );
         if let Some(state) = world.players.get_mut(&player) {
             state.heat = 2;
@@ -557,6 +578,10 @@ mod tests {
         assert_eq!(
             plain(&fresh.command(player, "status | grep cycles")),
             ["Cycles: 5/5"]
+        );
+        assert_eq!(
+            plain(&fresh.command(player, "channels | grep \"in this\"")),
+            ["#trade: Buy and sell. You are in this channel."]
         );
         assert_eq!(fresh.players.get(&player).map(|state| state.rep.clone()), {
             let mut rep = std::collections::BTreeMap::new();
@@ -680,6 +705,10 @@ mod tests {
         assert_eq!(
             plain(&world.command(player, "status | grep credits")),
             ["Credits: 0 cr"]
+        );
+        assert_eq!(
+            plain(&world.command(player, "channels | grep \"in this\"")),
+            ["#city: All of the test city. You are in this channel."]
         );
     }
 
