@@ -1,4 +1,7 @@
+mod markdown;
 mod sentence;
+
+use markdown::{Block, Kind};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Issue {
@@ -9,40 +12,28 @@ pub struct Issue {
 #[must_use]
 pub fn check(markdown: &str) -> Vec<Issue> {
     let mut issues = Vec::new();
-    for (line, paragraph) in paragraphs(markdown) {
-        for text in sentence::sentences(&paragraph) {
-            let words = sentence::word_count(text);
-            let limit = sentence::word_limit(text);
-            if words > limit {
-                issues.push(Issue {
-                    line,
-                    message: format!(
-                        "sentence has {words} words (max {limit}): {}",
-                        sentence::opening(text)
-                    ),
-                });
-            }
+    for block in markdown::blocks(markdown) {
+        if block.kind == Kind::Prose {
+            long_sentences(&block, &mut issues);
         }
     }
     issues
 }
 
-fn paragraphs(markdown: &str) -> Vec<(usize, String)> {
-    let mut found: Vec<(usize, String)> = Vec::new();
-    let mut open = false;
-    for (index, line) in markdown.lines().enumerate() {
-        let line_text = line.trim();
-        if line_text.is_empty() {
-            open = false;
-        } else if open && let Some((_, text)) = found.last_mut() {
-            text.push(' ');
-            text.push_str(line_text);
-        } else {
-            found.push((index + 1, line_text.to_owned()));
-            open = true;
+fn long_sentences(block: &Block, issues: &mut Vec<Issue>) {
+    for text in sentence::sentences(&block.text) {
+        let words = sentence::word_count(text);
+        let limit = sentence::word_limit(text);
+        if words > limit {
+            issues.push(Issue {
+                line: block.line,
+                message: format!(
+                    "sentence has {words} words (max {limit}): {}",
+                    sentence::opening(text)
+                ),
+            });
         }
     }
-    found
 }
 
 #[cfg(test)]
@@ -83,6 +74,21 @@ mod tests {
         let found = messages(&format!("Use {}.", words(20)));
         assert_eq!(found.len(), 1);
         assert!(found[0].starts_with("sentence has 21 words (max 20)"));
+    }
+
+    #[test]
+    fn headings_have_no_sentence_limit() {
+        assert_clean(&format!("# {}", words(30)));
+    }
+
+    #[test]
+    fn code_has_no_sentence_limit() {
+        assert_clean(&format!(
+            "```\n{}.\n```\n\n    {}.\n\nRun `{}` now.",
+            words(30),
+            words(30),
+            words(30)
+        ));
     }
 
     #[test]
