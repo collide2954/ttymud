@@ -1,5 +1,10 @@
-use std::io::{self, Write};
+use std::io::{self, BufRead, BufReader, Write};
+use std::net::TcpStream;
 use std::process::{Command, Output, Stdio};
+use std::time::Duration;
+
+use ttymud_net::Keys;
+use ttymud_wire::ServerMessage;
 
 fn server(args: &[&str]) -> io::Result<Output> {
     Command::new(env!("CARGO_BIN_EXE_ttymud-server"))
@@ -63,6 +68,65 @@ fn init_shows_the_fingerprint_and_keeps_the_key() -> io::Result<()> {
     assert!(fingerprint(&first).is_some());
     assert_eq!(fingerprint(&first), fingerprint(&second));
     Ok(())
+}
+
+fn scratch(name: &str) -> String {
+    let dir = std::env::temp_dir().join(format!("ttymud-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    dir.to_string_lossy().into_owned()
+}
+
+#[test]
+fn run_without_init_explains_what_to_do() -> io::Result<()> {
+    let dir = scratch("no-init");
+    let output = server(&["run", &dir])?;
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("has no server key. Run: ttymud-server init"));
+    Ok(())
+}
+
+#[test]
+fn run_opens_the_city_to_clients() -> io::Result<()> {
+    let dir = scratch("run");
+    server(&["init", &dir])?;
+    let mut child = Command::new(env!("CARGO_BIN_EXE_ttymud-server"))
+        .args(["run", &dir, "--listen", "127.0.0.1:0"])
+        .stdout(Stdio::piped())
+        .spawn()?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| io::Error::other("no stdout"))?;
+    let mut lines = BufReader::new(stdout).lines();
+    let first = lines.next().unwrap_or_else(|| Ok(String::new()))?;
+    let address = first
+        .trim_end_matches('.')
+        .rsplit(' ')
+        .next()
+        .unwrap_or_default()
+        .to_owned();
+    let welcome = welcome_from(&address);
+    child.kill()?;
+    child.wait()?;
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(
+        first.starts_with("Port Ostra is open on 127.0.0.1:"),
+        "{first}"
+    );
+    assert!(
+        matches!(welcome, Some(ServerMessage::Welcome { .. })),
+        "{welcome:?}"
+    );
+    Ok(())
+}
+
+fn welcome_from(address: &str) -> Option<ServerMessage> {
+    let mut stream = TcpStream::connect(address).ok()?;
+    stream.set_read_timeout(Some(Duration::from_secs(5))).ok()?;
+    let session = ttymud_net::connect(&mut stream, &Keys::generate().ok()?).ok()?;
+    let (mut receiver, _sender) = session.split(stream.try_clone().ok()?, stream);
+    ServerMessage::decode(&receiver.receive().ok()?).ok()
 }
 
 #[test]

@@ -13,6 +13,7 @@ repository = "https://github.com/collide2954/ttymud"
 ttymud-game = { path = "crates/game" }
 ttymud-net = { path = "crates/net" }
 ttymud-text = { path = "crates/text" }
+ttymud-wire = { path = "crates/wire" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

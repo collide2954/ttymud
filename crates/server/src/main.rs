@@ -1,15 +1,18 @@
 use std::ffi::OsString;
 use std::io;
+use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 const USAGE: &str = "\
 Usage: ttymud-server [OPTION]
        ttymud-server init <DIR>
+       ttymud-server run <DIR> [--listen ADDRESS]
        ttymud-server play [NAME]
 
 Commands:
   init <DIR>     Make a data directory with a new server key.
+  run <DIR>      Open the city to players. The default address is 0.0.0.0:7331.
   play [NAME]    Walk Port Ostra alone, offline.
 
 Options:
@@ -18,28 +21,72 @@ Options:
 ";
 
 const GUEST: &str = "guest";
+const LISTEN: &str = "0.0.0.0:7331";
 
 #[derive(Debug, PartialEq, Eq)]
 enum Cli {
     Help,
     Version,
     Init(PathBuf),
+    Run { dir: PathBuf, listen: String },
     Play(String),
 }
 
 fn parse(args: &[OsString]) -> Result<Cli, String> {
-    match args {
-        [] => Ok(Cli::Help),
-        [word] => match word.to_str() {
-            Some("-h" | "--help") => Ok(Cli::Help),
-            Some("-V" | "--version") => Ok(Cli::Version),
-            Some("play") => Ok(Cli::Play(GUEST.to_owned())),
-            Some("init") => Err("init needs a data directory".to_owned()),
-            _ => Err(format!("unknown argument '{}'", word.to_string_lossy())),
-        },
-        [command, dir] if command == "init" => Ok(Cli::Init(PathBuf::from(dir))),
-        [command, name] if command == "play" => Ok(Cli::Play(name.to_string_lossy().into_owned())),
+    let words: Vec<String> = args
+        .iter()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect();
+    let words: Vec<&str> = words.iter().map(String::as_str).collect();
+    let dir = || PathBuf::from(&args[1]);
+    match words.as_slice() {
+        [] | ["-h" | "--help"] => Ok(Cli::Help),
+        ["-V" | "--version"] => Ok(Cli::Version),
+        ["init", _] => Ok(Cli::Init(dir())),
+        ["run", _] => Ok(Cli::Run {
+            dir: dir(),
+            listen: LISTEN.to_owned(),
+        }),
+        ["run", _, "--listen", address] => Ok(Cli::Run {
+            dir: dir(),
+            listen: (*address).to_owned(),
+        }),
+        ["play"] => Ok(Cli::Play(GUEST.to_owned())),
+        ["play", name] => Ok(Cli::Play((*name).to_owned())),
+        [command @ ("init" | "run")] => Err(format!("{command} needs a data directory")),
+        [word] => Err(format!("unknown argument '{word}'")),
         _ => Err("too many arguments".to_owned()),
+    }
+}
+
+fn main() -> ExitCode {
+    let args: Vec<OsString> = std::env::args_os().skip(1).collect();
+    let cli = match parse(&args) {
+        Ok(cli) => cli,
+        Err(message) => {
+            eprintln!("ttymud-server: {message}\nTry 'ttymud-server --help'.");
+            return ExitCode::from(2);
+        }
+    };
+    let result = match cli {
+        Cli::Help => {
+            print!("{USAGE}");
+            Ok(())
+        }
+        Cli::Version => {
+            println!("ttymud-server {}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
+        Cli::Init(dir) => init(&dir),
+        Cli::Run { dir, listen } => run(&dir, &listen),
+        Cli::Play(name) => ttymud_server::play(&name, io::stdin().lock(), io::stdout().lock()),
+    };
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("ttymud-server: {error}");
+            ExitCode::FAILURE
+        }
     }
 }
 
@@ -56,38 +103,22 @@ fn init(dir: &Path) -> io::Result<()> {
     Ok(())
 }
 
-fn main() -> ExitCode {
-    let args: Vec<OsString> = std::env::args_os().skip(1).collect();
-    match parse(&args) {
-        Ok(Cli::Help) => {
-            print!("{USAGE}");
-            ExitCode::SUCCESS
-        }
-        Ok(Cli::Version) => {
-            println!("ttymud-server {}", env!("CARGO_PKG_VERSION"));
-            ExitCode::SUCCESS
-        }
-        Ok(Cli::Init(dir)) => match init(&dir) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(error) => {
-                eprintln!("ttymud-server: {error}");
-                ExitCode::FAILURE
-            }
-        },
-        Ok(Cli::Play(name)) => {
-            match ttymud_server::play(&name, io::stdin().lock(), io::stdout().lock()) {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(error) => {
-                    eprintln!("ttymud-server: {error}");
-                    ExitCode::FAILURE
-                }
-            }
-        }
-        Err(message) => {
-            eprintln!("ttymud-server: {message}\nTry 'ttymud-server --help'.");
-            ExitCode::from(2)
-        }
+fn run(dir: &Path, listen: &str) -> io::Result<()> {
+    let keys = ttymud_server::load_keys(dir).map_err(|error| missing_key(dir, error))?;
+    let world = ttymud_server::port_ostra()?;
+    let listener = TcpListener::bind(listen)?;
+    println!("{} is open on {}.", world.city(), listener.local_addr()?);
+    println!("Fingerprint: {}", keys.public().fingerprint());
+    ttymud_server::serve(&listener, keys, world)
+}
+
+fn missing_key(dir: &Path, error: io::Error) -> io::Error {
+    if error.kind() != io::ErrorKind::NotFound {
+        return error;
     }
+    let place = dir.display();
+    let message = format!("{place} has no server key. Run: ttymud-server init {place}");
+    io::Error::new(error.kind(), message)
 }
 
 #[cfg(test)]
@@ -127,10 +158,36 @@ mod tests {
     }
 
     #[test]
-    fn init_needs_a_data_directory() {
+    fn init_and_run_need_a_data_directory() {
         assert_eq!(
             parse(&args(&["init"])),
             Err("init needs a data directory".to_owned())
+        );
+        assert_eq!(
+            parse(&args(&["run"])),
+            Err("run needs a data directory".to_owned())
+        );
+    }
+
+    #[test]
+    fn run_listens_on_port_7331_by_default() {
+        assert_eq!(
+            parse(&args(&["run", "data"])),
+            Ok(Cli::Run {
+                dir: "data".into(),
+                listen: "0.0.0.0:7331".to_owned()
+            })
+        );
+    }
+
+    #[test]
+    fn run_takes_a_listen_address() {
+        assert_eq!(
+            parse(&args(&["run", "data", "--listen", "127.0.0.1:4000"])),
+            Ok(Cli::Run {
+                dir: "data".into(),
+                listen: "127.0.0.1:4000".to_owned()
+            })
         );
     }
 
