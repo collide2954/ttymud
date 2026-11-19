@@ -290,10 +290,7 @@ impl Reader {
             let id = section.id;
             self.error(section.line, format!("file {id} has no line"));
         }
-        let file = File {
-            name: name.to_owned(),
-            lines,
-        };
+        let file = File::new(name, lines);
         self.files.push((host.to_owned(), file, section.line));
     }
 

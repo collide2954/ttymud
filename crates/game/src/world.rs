@@ -449,6 +449,7 @@ impl World {
                 self.shop(player)
             }
             Verb::Buy => self.buy(player, args),
+            Verb::Sell => self.sell(player, args, input),
             Verb::Load => self.load(player, args),
             Verb::Unload => self.unload(player, args),
             Verb::Stash => self.stash(player, args),

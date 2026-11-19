@@ -78,10 +78,7 @@ impl World {
         if lines.is_empty() {
             lines.push("Nobody is on the burn list yet.".to_owned());
         }
-        let file = File {
-            name: BURN_LIST.to_owned(),
-            lines,
-        };
+        let file = File::new(BURN_LIST, lines);
         let files = &mut self.hosts[host.0].files;
         files.retain(|known| known.name != BURN_LIST);
         files.push(file);

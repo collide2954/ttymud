@@ -333,10 +333,7 @@ fn a_byte_order_mark_is_ignored() {
 #[test]
 fn files_belong_to_their_host() {
     let content = Content::parse(CITY).unwrap();
-    let notes = File {
-        name: "notes.txt".to_owned(),
-        lines: vec!["One.".to_owned(), "Two.".to_owned()],
-    };
+    let notes = File::new("notes.txt", vec!["One.".to_owned(), "Two.".to_owned()]);
     assert_eq!(content.hosts[0].files, [notes]);
     assert_eq!(content.hosts[1].files, Vec::<File>::new());
 }

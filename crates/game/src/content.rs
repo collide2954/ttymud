@@ -92,6 +92,17 @@ pub(crate) struct IceDef {
 pub(crate) struct File {
     pub(crate) name: String,
     pub(crate) lines: Vec<String>,
+    pub(crate) value: u32,
+}
+
+impl File {
+    pub(crate) fn new(name: impl Into<String>, lines: Vec<String>) -> Self {
+        Self {
+            name: name.into(),
+            lines,
+            value: 0,
+        }
+    }
 }
 
 impl Content {

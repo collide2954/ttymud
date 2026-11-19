@@ -327,10 +327,7 @@ fn parse_file(section: &Section<'_>, errors: &mut Vec<ContentError>) -> File {
         let (kind, name) = (section.kind, section.id);
         errors.push(problem(section.line, format!("{kind} {name} has no line")));
     }
-    File {
-        name: section.id.to_owned(),
-        lines,
-    }
+    File::new(section.id, lines)
 }
 
 fn allow(section: &Section<'_>, keys: &[&str], errors: &mut Vec<ContentError>) {

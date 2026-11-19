@@ -19,6 +19,7 @@ pub(crate) enum Verb {
     Contract,
     Shop,
     Buy,
+    Sell,
     Scan,
     Probe,
     Crack,
@@ -318,6 +319,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Buy a program or a rig upgrade at a shop.",
         example: "buy ram",
         takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Sell,
+        names: &["sell"],
+        usage: "sell <file>",
+        summary: "Sell stolen data to the fence at a shop.",
+        example: "inventory | grep .db | sell",
+        takes: Takes::Optional(Kinds::FILES),
         gives: Gives::Nothing,
     },
     Command {
