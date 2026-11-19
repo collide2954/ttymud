@@ -31,3 +31,6 @@ version = "0.1.0"
 [[package]]
 name = "ttymud-wire"
 version = "0.1.0"
+dependencies = [
+ "ttymud-text",
+]
