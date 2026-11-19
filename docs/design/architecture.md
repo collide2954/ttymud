@@ -61,7 +61,7 @@ The server uses threads from the Rust standard library. It does not use an async
 
 The game loop also runs a tick every two seconds. If the loop is late, it does not run the ticks that it missed. After the text of a tick, the loop sends a Refresh message with the new prompt. Each player who gets text from a different player also gets a Refresh message.
 
-After each input and each tick, the game loop gets the changed save texts from the world. It sends them to the storage thread. When the server starts, it reads all save files before it opens the port.
+After each input and each tick, the game loop gets the changed save texts from the world. It sends them to the storage thread. It also sends a Status message to each player whose state changed. When the server starts, it reads all save files before it opens the port.
 
 If an account connects again, with the same key or a different key, the new connection replaces the old connection. The old connection gets a Close message with the reason. A kick and a ban also end a connection with a Close message. After a Close message, the writer thread stops all writes and waits for the client to close the connection. As a result, the reset of a connection cannot delete the Close message.
 
@@ -75,7 +75,13 @@ The client has three threads:
 - **Network thread.** It receives and decodes the messages from the server.
 - **Main thread.** It receives the events of the two other threads through one channel. It sends the commands to the server, and it writes to the terminal.
 
-The main thread gives each event to a view. The line view writes lines. If text comes after an open prompt, the line view starts the text on a new line. The screen view has a line editor, and it keeps the input line below the text from the server. The client uses the screen view when the input and the output are terminals.
+The main thread gives each event to a view. The display layer selects the view:
+
+- The line view writes lines. If text comes after an open prompt, the line view starts the text on a new line.
+- The screen view has a line editor, and it keeps the input line below the text from the server. In the color layer, it also writes the colors of the styles.
+- The HUD view draws the full window from a grid of cells. After each change, it compares the new grid with the old grid, and it writes only the rows that changed.
+
+With the `verbose` setting, a narrator wraps the view. It writes the changes of state as lines, and it puts "Alert" before each telegraph.
 
 When the player quits, the client waits until each command has its prompt, for a maximum of 5 seconds. As a result, the player sees the answers to the last commands.
 

@@ -49,6 +49,16 @@ A count or a length cannot be larger than the number of bytes that remain in the
 | 4 | Close | Text: the reason. | The last message before the server closes the connection. |
 | 5 | Candidates | Text: the word. List: the names, as texts. | The answer to a Complete message. |
 | 6 | Refresh | Text: the prompt. | A new prompt after text that is not an answer to a command. |
+| 7 | Status | The fields of the status. | The state of the handle, for a status bar. |
+
+A Status message has these fields, in this order:
+
+1. Text: the host.
+2. Byte: 1 during a run, or 0 at other times.
+3. Only during a run: Text: the network. Text: the access. Number: the trace.
+4. Numbers: the integrity, the heat, the maximum heat, the RAM in use, the RAM in total, the cycles, the maximum cycles, and the credits.
+
+A different run byte is not valid. Each number in a Status message must be smaller than 4294967296.
 
 A span has two fields: a byte for the style, and a text.
 
@@ -81,6 +91,7 @@ A kind byte or a style byte with a different value is not valid.
 - After the answer to each Command message, the server sends a Prompt message. The client can count the prompts to know when all answers are in.
 - Some text comes without a command, for example the actions of ICE on a tick or the chat of other players. After this text, the server sends a Refresh message. A client shows a Refresh message as a prompt, but it does not count it as an answer.
 - The server does not send a Prompt message after a Candidates message.
+- If the state of a handle changes, the server sends a Status message before the next Prompt or Refresh message. After a tick, it also sends a Status message to each handle whose state changed. An account without a handle gets no Status message.
 - The word in a Candidates message is the end of the input that a name can replace. Each name starts with the word. This comparison ignores case.
 - If a message is not valid, the receiver closes the connection.
 - Text from the server can contain unsafe characters. The client must sanitize all text before it shows the text.

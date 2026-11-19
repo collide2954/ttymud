@@ -50,12 +50,27 @@ To use a different directory, set the `TTYMUD_CONFIG` environment variable, or u
 
 - `identity.key`: your identity key. On Unix, the file has the permissions 0600.
 - `known_servers`: the keys of the servers that you trust.
+- `settings.ini`: your display settings. This file is optional.
 
 > CAUTION: Keep the file `identity.key` secret. Keep a copy of it in a safe place. A person with this file can use your account. If you lose the file, you need your recovery code to get your account back.
 
+## The HUD
+
+In a terminal, the client shows the HUD. The HUD fills the window:
+
+- The top bar shows the host. During a run, it also shows the network, your access, and the trace.
+- The output pane shows the game text.
+- The chat pane shows `say` messages, channel messages, and private messages.
+- The input line shows the prompt and the text that you type.
+- The bottom bar shows the integrity of your rig, your heat, your RAM, your cycles, and your credits.
+
+Push PgUp and PgDn to scroll the output pane. When you scroll up, the line below the pane shows "more below". When you send a command, the pane shows the newest text again.
+
+If the window is small, the HUD has no side borders and no chat pane. If the window is very small, the HUD asks for a larger window.
+
 ## Edit mode
 
-In a terminal, the client edits your input line itself. Text from the server shows above the input line. As a result, it does not mix with the text that you type.
+In the HUD and in edit mode, the client edits your input line itself. Text from the server shows above the input line. As a result, it does not mix with the text that you type.
 
 | Key | Action |
 | --- | --- |
@@ -79,6 +94,35 @@ The client uses line mode when the input or the output is not a terminal. It als
 In line mode, the client reads full lines and writes full lines. Line mode works on all terminals and with screen readers. To use line mode in a terminal, use the `--line` option:
 
     ttymud connect ostra.example.net --line
+
+## Display settings
+
+The client selects the best display layer that your terminal can show:
+
+| Layer | What you see |
+| --- | --- |
+| `line` | Lines of text and a prompt. |
+| `edit` | The line editor, without color. |
+| `color` | The line editor, with color. |
+| `hud` | The HUD, with color. |
+
+Use these options with `ttymud connect`:
+
+- `--layer <layer>` selects a lower layer. `--line` is the same as `--layer line`.
+- `--color <depth>` sets the colors: `none`, `16`, `256`, or `true`.
+- `--ascii` draws lines and symbols with ASCII characters only.
+- `--verbose` writes changes of state as text, for screen readers.
+
+To keep your choices, write them in the file `settings.ini` in your configuration directory:
+
+    layer = color
+    color = 256
+    ascii = no
+    verbose = yes
+
+An option on the command line has priority over the file. The client never uses a layer that your terminal cannot show.
+
+The `verbose` setting writes a line when a run starts or ends, and when your trace, access, integrity, or heat changes. An example is `Trace is now 50 percent.` Each telegraph also starts with `Alert`.
 
 ## Play
 
