@@ -6,6 +6,7 @@ use super::{HostId, NetworkId, PlayerId, Step, World};
 use crate::contract::Event;
 use crate::heat::MAX_HEAT;
 use crate::ice::{Action, IceKind};
+use crate::target::Level;
 
 const SHOCK: u32 = 20;
 const LATE_TRACE: u32 = 75;
@@ -22,6 +23,8 @@ pub(super) struct Run {
     pub(super) firewall: bool,
     pub(super) mask: u32,
     pub(super) proxy: bool,
+    pub(super) access: Level,
+    pub(super) shells: Vec<(HostId, Level)>,
 }
 
 impl World {
@@ -200,6 +203,8 @@ impl World {
                     firewall: false,
                     mask: 0,
                     proxy: false,
+                    access: Level::Guest,
+                    shells: Vec::new(),
                 });
                 let name = &self.networks[network.0].name;
                 let shown = vec![Message::game(format!(

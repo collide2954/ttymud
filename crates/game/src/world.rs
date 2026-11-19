@@ -1,3 +1,4 @@
+mod access;
 mod account;
 mod burns;
 mod chat;
@@ -33,6 +34,7 @@ use crate::kits::Kit;
 use crate::matching::{self, Found};
 use crate::parse::{self, ParseError, Stage};
 use crate::random::Random;
+use crate::target::Level;
 
 use account::{Account, Phase};
 use burns::Burn;
@@ -64,6 +66,7 @@ struct Network {
     name: String,
     security: Security,
     entries: Vec<HostId>,
+    keys: Vec<(String, Level)>,
 }
 
 #[derive(Debug)]
@@ -240,6 +243,7 @@ impl World {
                 name: network.name,
                 security: network.security,
                 entries: Vec::new(),
+                keys: Vec::new(),
             })
             .collect();
         let shops = shop::shops(content.shops, find);
@@ -436,10 +440,18 @@ impl World {
             Verb::List => {
                 no_args(command, args)?;
                 let items = self.items(here, player);
-                Ok(Step {
-                    shown: listing(&items),
-                    items,
-                })
+                let shown = listing(&items)
+                    .into_iter()
+                    .zip(&items)
+                    .map(|(line, item)| match item {
+                        Item::File(file) => match self.needs(player, file) {
+                            Some(label) => line.text(label),
+                            None => line,
+                        },
+                        Item::Route(_) | Item::Ice { .. } | Item::Line(_) => line,
+                    })
+                    .collect();
+                Ok(Step { shown, items })
             }
             Verb::Go => self.go(player, args, input),
             Verb::Back => {
@@ -557,8 +569,17 @@ impl World {
             listed(Message::game("Routes: "), Style::Host, routes),
         ];
         if !host.files.is_empty() {
-            let files = host.files.iter().map(|file| file.name.as_str());
-            scene.push(listed(Message::game("Files: "), Style::File, files));
+            let mut line = Message::game("Files: ");
+            for (index, file) in host.files.iter().enumerate() {
+                if index > 0 {
+                    line = line.text(", ");
+                }
+                line = line.span(Style::File, &file.name);
+                if let Some(label) = self.needs(viewer, file) {
+                    line = line.text(label);
+                }
+            }
+            scene.push(line);
         }
         if self.is_shop(id) {
             let shop = Message::game("There is a shop here. Type ")

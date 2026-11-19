@@ -337,6 +337,7 @@ impl World {
             name: target.name.clone(),
             security: security.unwrap_or(Security::Low),
             entries,
+            keys: target.keys.clone(),
         });
         network
     }
@@ -399,6 +400,7 @@ impl World {
 #[cfg(test)]
 mod tests {
     use crate::heat::Security;
+    use crate::target::Level;
     use crate::testing::{plain, run, walk, world};
     use crate::world::{HostId, NetworkId};
     use crate::{PlayerId, World};
@@ -563,6 +565,9 @@ mod tests {
             .map(HostId);
         if let (Some(state), Some(holder)) = (world.players.get_mut(&player), holder) {
             state.chain.push(holder);
+            if let Some(run) = state.run.as_mut() {
+                run.access = Level::Admin;
+            }
         }
         world.command(player, &format!("download {goal}"));
         world.command(player, "back");
@@ -597,6 +602,9 @@ mod tests {
             .map(HostId);
         if let (Some(state), Some(holder)) = (world.players.get_mut(&player), holder) {
             state.chain.push(holder);
+            if let Some(run) = state.run.as_mut() {
+                run.access = Level::Admin;
+            }
         }
         for line in [
             &format!("download {goal}"),

@@ -9,7 +9,7 @@ const DOWNLOAD_NOISE: u32 = 2;
 
 impl World {
     pub(super) fn read(
-        &self,
+        &mut self,
         player: PlayerId,
         args: &[String],
         input: Option<Vec<Item>>,
@@ -25,6 +25,18 @@ impl World {
             }
             None => pick(args, &readable)?,
         };
+        let carried = |name: &str| {
+            self.players
+                .get(&player)
+                .is_some_and(|state| state.rig.files.iter().any(|file| file.name == name))
+        };
+        let refusal = files
+            .iter()
+            .filter(|file| !carried(&file.name))
+            .find_map(|file| self.locked(player, file));
+        if let Some(refusal) = refusal {
+            return Err(refusal);
+        }
         let named = files.len() > 1;
         let mut shown = Vec::new();
         let mut items = Vec::new();
@@ -37,6 +49,7 @@ impl World {
                 items.push(Item::Line(line.clone()));
             }
         }
+        shown.extend(self.learn(player, &files));
         Ok(Step { shown, items })
     }
 
@@ -57,12 +70,19 @@ impl World {
             }
             None => pick(args, &here)?,
         };
+        let mut shown = Vec::new();
+        let mut allowed = Vec::new();
+        for file in files {
+            match self.locked(player, &file) {
+                Some(refusal) => shown.push(refusal),
+                None => allowed.push(file),
+            }
+        }
         let Some(state) = self.players.get_mut(&player) else {
             return Ok(Step::default());
         };
-        let mut shown = Vec::new();
         let mut copied = Vec::new();
-        for file in files {
+        for file in allowed {
             if state.rig.files.iter().any(|known| known.name == file.name) {
                 let name = &file.name;
                 shown.push(Message::game(format!("{name} is already on your rig.")));

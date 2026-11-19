@@ -126,6 +126,8 @@ impl World {
         if let Some(run) = &state.run {
             let network = &self.networks[run.network.0].name;
             shown.push(Message::game(format!("Trace: {}% in {network}", run.trace)));
+            let access = self.access(player).word();
+            shown.push(Message::game(format!("Access here: {access}")));
         }
         shown.push(Message::game(format!("Heat: {}/{MAX_HEAT}", state.heat)));
         shown.push(Message::game(format!("Credits: {} cr", state.credits)));

@@ -13,7 +13,7 @@ use crate::commands::Verb;
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::ice::IceKind;
-use crate::target::Layer;
+use crate::target::{Layer, Level};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContentError {
@@ -124,6 +124,8 @@ pub(crate) struct File {
     pub(crate) name: String,
     pub(crate) lines: Vec<String>,
     pub(crate) value: u32,
+    pub(crate) lock: Level,
+    pub(crate) key: Option<String>,
 }
 
 impl File {
@@ -132,6 +134,8 @@ impl File {
             name: name.into(),
             lines,
             value: 0,
+            lock: Level::Guest,
+            key: None,
         }
     }
 }

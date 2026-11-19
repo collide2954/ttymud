@@ -5,6 +5,10 @@ use crate::random::Random;
 
 const LAN_VALUE: u32 = 40;
 const CORE_VALUE: u32 = 100;
+const WORDS: [&str; 12] = [
+    "amber", "cobalt", "delta", "ember", "falcon", "harbor", "indigo", "juniper", "lantern",
+    "marble", "orchid", "raven",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Layer {
@@ -13,11 +17,29 @@ pub(crate) enum Layer {
     Core,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum Level {
+    Guest,
+    User,
+    Admin,
+}
+
+impl Level {
+    pub(crate) fn word(self) -> &'static str {
+        match self {
+            Self::Guest => "guest",
+            Self::User => "user",
+            Self::Admin => "admin",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Target {
     pub(crate) name: String,
     pub(crate) hosts: Vec<TargetHost>,
     pub(crate) goal: String,
+    pub(crate) keys: Vec<(String, Level)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -66,6 +88,7 @@ pub(crate) fn generate(corp: &CorpDef, templates: &[TemplateDef], seed: u64) -> 
         name: corp.name.clone(),
         hosts: Vec::new(),
         goal: String::new(),
+        keys: Vec::new(),
     };
     for (layer, least) in [(Layer::Edge, 1), (Layer::Lan, 2), (Layer::Core, 2)] {
         let count = least + random.below(2);
@@ -74,7 +97,14 @@ pub(crate) fn generate(corp: &CorpDef, templates: &[TemplateDef], seed: u64) -> 
     target.link(&mut random);
     target.deploy(&mut random);
     target.fill(corp, &mut random);
+    target.lock();
+    target.leak(&mut random);
     target
+}
+
+fn password(random: &mut Random) -> String {
+    let word = WORDS[random.below(WORDS.len())];
+    format!("{word}-{}", 1000 + random.below(9000))
 }
 
 impl Target {
@@ -220,6 +250,51 @@ impl Target {
             self.hosts[host].files.push(file);
         }
     }
+
+    fn lock(&mut self) {
+        for host in &mut self.hosts {
+            for file in &mut host.files {
+                file.lock = match host.layer {
+                    Layer::Core => Level::Admin,
+                    Layer::Lan if file.value > 0 => Level::User,
+                    Layer::Lan | Layer::Edge => Level::Guest,
+                };
+            }
+        }
+    }
+
+    fn leak(&mut self, random: &mut Random) {
+        let leaks = [
+            (
+                Layer::Edge,
+                Level::Guest,
+                Level::User,
+                "helpdesk.txt",
+                "The help desk gives this password to new staff for the LAN:",
+            ),
+            (
+                Layer::Lan,
+                Level::User,
+                Level::Admin,
+                "it-notes.txt",
+                "Domain admin password. Do not share:",
+            ),
+        ];
+        for (layer, lock, level, name, line) in leaks {
+            let hosts = self.layer(layer);
+            if hosts.is_empty() {
+                continue;
+            }
+            let key = password(random);
+            let mut file = File::new(name, vec![line.to_owned(), key.clone()]);
+            file.lock = lock;
+            file.key = Some(key.clone());
+            self.hosts[hosts[random.below(hosts.len())]]
+                .files
+                .push(file);
+            self.keys.push((key, level));
+        }
+    }
 }
 
 impl Layer {
@@ -240,7 +315,7 @@ impl Layer {
 
 #[cfg(test)]
 mod tests {
-    use super::{Layer, Target, generate, security};
+    use super::{Layer, Level, Target, generate, security};
     use crate::Content;
     use crate::content::File;
     use crate::heat::Security;
@@ -347,6 +422,38 @@ mod tests {
                     assert_eq!(file.value, value, "{seed}: {}", file.name);
                 }
             }
+        }
+    }
+
+    #[test]
+    fn data_needs_access_and_credentials_give_it() {
+        for seed in 0..20 {
+            let target = target(seed);
+            for host in &target.hosts {
+                for file in &host.files {
+                    let lock = match host.layer {
+                        Layer::Core => Level::Admin,
+                        Layer::Lan if file.key.is_some() || file.value > 0 => Level::User,
+                        Layer::Lan | Layer::Edge => Level::Guest,
+                    };
+                    assert_eq!(file.lock, lock, "{seed}: {}", file.name);
+                }
+            }
+            let keys: Vec<(Layer, Level)> = target
+                .hosts
+                .iter()
+                .flat_map(|host| host.files.iter().map(move |file| (host.layer, file)))
+                .filter_map(|(layer, file)| {
+                    let key = file.key.as_ref()?;
+                    let (_, level) = target.keys.iter().find(|(known, _)| known == key)?;
+                    Some((layer, *level))
+                })
+                .collect();
+            assert_eq!(
+                keys,
+                [(Layer::Edge, Level::User), (Layer::Lan, Level::Admin)],
+                "{seed}"
+            );
         }
     }
 
