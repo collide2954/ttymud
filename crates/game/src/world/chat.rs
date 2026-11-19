@@ -1,6 +1,11 @@
-use ttymud_text::{Kind, Message, Style};
+use ttymud_text::{Kind, Message, Style, sanitize};
 
 use super::{Output, PlayerId, World};
+
+#[must_use]
+pub fn is_chat(line: &str) -> bool {
+    chat_text(&sanitize(line)).is_some()
+}
 
 pub(super) fn chat_text(line: &str) -> Option<&str> {
     let line = line.trim_start();
@@ -98,6 +103,16 @@ mod tests {
     #[test]
     fn chat_text_is_sanitized() {
         assert_eq!(run("say \u{1b}[31mred\u{202e}"), ["<ghost> [31mred"]);
+    }
+
+    #[test]
+    fn chat_lines_are_known_as_chat() {
+        use crate::is_chat;
+        assert!(is_chat("say hi"));
+        assert!(is_chat("'hi"));
+        assert!(is_chat("s\u{200b}ay hi"));
+        assert!(!is_chat("look"));
+        assert!(!is_chat("sayx"));
     }
 
     #[test]

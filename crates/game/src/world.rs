@@ -14,6 +14,8 @@ use crate::content::{Content, File};
 use crate::matching::{self, Found};
 use crate::parse::{self, ParseError, Stage};
 
+pub use chat::is_chat;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PlayerId(u64);
 
