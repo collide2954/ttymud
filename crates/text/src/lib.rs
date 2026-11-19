@@ -1,6 +1,8 @@
 mod sanitize;
+mod status;
 
 pub use sanitize::{MAX_LENGTH, clean, sanitize};
+pub use status::{RunStatus, Status};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {

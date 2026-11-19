@@ -84,6 +84,7 @@ impl<W: Write> View for Screen<W> {
                 return self.output.flush();
             }
             Shown::Candidates { word, names } => return self.complete(&word, &names),
+            Shown::Status(_) => return Ok(()),
         }
         self.draw()
     }

@@ -142,6 +142,7 @@ impl Game {
         let outputs = self.world.leave(player);
         self.deliver(outputs, None);
         link.account = account;
+        link.status = None;
         self.start(link)
     }
 

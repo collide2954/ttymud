@@ -34,7 +34,7 @@ impl<W: Write> View for Plain<W> {
                 write!(self.output, "{prompt}")?;
                 self.open = true;
             }
-            Shown::Candidates { .. } => return Ok(()),
+            Shown::Candidates { .. } | Shown::Status(_) => return Ok(()),
         }
         self.output.flush()
     }

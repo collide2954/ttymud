@@ -1,4 +1,4 @@
-use ttymud_text::{Kind, Message, Span, Style};
+use ttymud_text::{Kind, Message, RunStatus, Span, Status, Style};
 
 use crate::codec::{DecodeError, Reader, Writer};
 
@@ -11,6 +11,7 @@ const PROMPT: u8 = 3;
 const CLOSE: u8 = 4;
 const CANDIDATES: u8 = 5;
 const REFRESH: u8 = 6;
+const STATUS: u8 = 7;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ClientMessage {
@@ -26,6 +27,7 @@ pub enum ServerMessage {
     Close(String),
     Candidates { word: String, names: Vec<String> },
     Refresh(String),
+    Status(Status),
 }
 
 impl ClientMessage {
@@ -87,6 +89,10 @@ impl ServerMessage {
                     writer.text(name);
                 }
             }
+            Self::Status(status) => {
+                writer.byte(STATUS);
+                write_status(&mut writer, status);
+            }
         }
         writer.finish()
     }
@@ -106,11 +112,67 @@ impl ServerMessage {
                 word: reader.text()?,
                 names: read_names(&mut reader)?,
             },
+            STATUS => Self::Status(read_status(&mut reader)?),
             other => return Err(DecodeError::UnknownType(other)),
         };
         reader.finish()?;
         Ok(message)
     }
+}
+
+fn write_status(writer: &mut Writer, status: &Status) {
+    writer.text(&status.host);
+    match &status.run {
+        Some(run) => {
+            writer.byte(1);
+            writer.text(&run.network);
+            writer.text(&run.access);
+            writer.number(u64::from(run.trace));
+        }
+        None => writer.byte(0),
+    }
+    let numbers = [
+        status.integrity,
+        status.heat,
+        status.heat_max,
+        status.ram_used,
+        status.ram_total,
+        status.cycles,
+        status.cycles_max,
+        status.credits,
+    ];
+    for number in numbers {
+        writer.number(u64::from(number));
+    }
+}
+
+fn read_status(reader: &mut Reader<'_>) -> Result<Status, DecodeError> {
+    let host = reader.text()?;
+    let run = match reader.byte()? {
+        0 => None,
+        1 => Some(RunStatus {
+            network: reader.text()?,
+            access: reader.text()?,
+            trace: small(reader)?,
+        }),
+        _ => return Err(DecodeError::BadValue),
+    };
+    Ok(Status {
+        host,
+        run,
+        integrity: small(reader)?,
+        heat: small(reader)?,
+        heat_max: small(reader)?,
+        ram_used: small(reader)?,
+        ram_total: small(reader)?,
+        cycles: small(reader)?,
+        cycles_max: small(reader)?,
+        credits: small(reader)?,
+    })
+}
+
+fn small(reader: &mut Reader<'_>) -> Result<u32, DecodeError> {
+    u32::try_from(reader.number()?).map_err(|_| DecodeError::BadValue)
 }
 
 fn write_message(writer: &mut Writer, message: &Message) {
@@ -189,7 +251,7 @@ fn style_from(tag: u8) -> Result<Style, DecodeError> {
 
 #[cfg(test)]
 mod tests {
-    use ttymud_text::{Kind, Message, Style};
+    use ttymud_text::{Kind, Message, RunStatus, Status, Style};
 
     use super::{ClientMessage, ServerMessage};
     use crate::codec::DecodeError;
@@ -266,6 +328,45 @@ mod tests {
             "[trace 4% integ 100] $ ".to_owned(),
         ));
         server_round_trip(&ServerMessage::Close("The server stops.".to_owned()));
+    }
+
+    fn status(run: Option<RunStatus>) -> Status {
+        Status {
+            host: "arcadia-db".to_owned(),
+            run,
+            integrity: 82,
+            heat: 2,
+            heat_max: 5,
+            ram_used: 6,
+            ram_total: 8,
+            cycles: 3,
+            cycles_max: 4,
+            credits: 1_250,
+        }
+    }
+
+    #[test]
+    fn a_status_round_trips_in_and_out_of_a_run() {
+        server_round_trip(&ServerMessage::Status(status(None)));
+        let run = RunStatus {
+            network: "Arcadia Health".to_owned(),
+            access: "user".to_owned(),
+            trace: 31,
+        };
+        server_round_trip(&ServerMessage::Status(status(Some(run))));
+    }
+
+    #[test]
+    fn a_status_with_a_bad_run_flag_or_a_huge_value_fails() {
+        let bytes = ServerMessage::Status(status(None)).encode();
+        let flag = 2 + "arcadia-db".len();
+        let mut bad = bytes.clone();
+        bad[flag] = 2;
+        assert_eq!(ServerMessage::decode(&bad), Err(DecodeError::BadValue));
+        let mut huge = bytes[..=flag].to_vec();
+        huge.extend([0xff, 0xff, 0xff, 0xff, 0x7f]);
+        huge.extend(&bytes[flag + 2..]);
+        assert_eq!(ServerMessage::decode(&huge), Err(DecodeError::BadValue));
     }
 
     #[test]

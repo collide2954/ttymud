@@ -7,7 +7,7 @@ use std::time::Instant;
 
 use ttymud_game::{BANNED, Completion, Output, PlayerId, World};
 use ttymud_net::PublicKey;
-use ttymud_text::Message;
+use ttymud_text::{Message, Status};
 use ttymud_wire::ServerMessage;
 
 use crate::city::now;
@@ -55,6 +55,7 @@ struct Link {
     account: String,
     address: IpAddr,
     outbox: mpsc::Sender<ServerMessage>,
+    status: Option<Status>,
 }
 
 pub(crate) fn run(
@@ -150,6 +151,7 @@ impl Game {
             account,
             address,
             outbox,
+            status: None,
         });
         self.prompt(player);
     }
@@ -208,6 +210,10 @@ impl Game {
         self.world.set_time(now());
         let outputs = self.world.tick();
         self.deliver(outputs, None);
+        let players: Vec<PlayerId> = self.links.keys().copied().collect();
+        for player in players {
+            self.sync_status(player);
+        }
         self.save();
     }
 
@@ -220,7 +226,7 @@ impl Game {
         self.deliver(outputs, None);
     }
 
-    fn deliver(&self, outputs: Vec<Output>, answered: Option<PlayerId>) {
+    fn deliver(&mut self, outputs: Vec<Output>, answered: Option<PlayerId>) {
         let mut told = Vec::new();
         for output in outputs {
             if Some(output.player) != answered && !told.contains(&output.player) {
@@ -230,14 +236,30 @@ impl Game {
         }
         for player in told {
             if let Some(prompt) = self.world.prompt(player) {
+                self.sync_status(player);
                 self.send(player, ServerMessage::Refresh(prompt));
             }
         }
     }
 
-    fn prompt(&self, player: PlayerId) {
+    fn prompt(&mut self, player: PlayerId) {
         if let Some(prompt) = self.world.prompt(player) {
+            self.sync_status(player);
             self.send(player, ServerMessage::Prompt(prompt));
+        }
+    }
+
+    fn sync_status(&mut self, player: PlayerId) {
+        let status = self.world.status_of(player);
+        let Some(link) = self.links.get_mut(&player) else {
+            return;
+        };
+        if status.is_none() || link.status == status {
+            return;
+        }
+        link.status.clone_from(&status);
+        if let Some(status) = status {
+            let _ = link.outbox.send(ServerMessage::Status(status));
         }
     }
 
@@ -261,6 +283,7 @@ mod tests {
 
     use ttymud_game::{Content, World};
     use ttymud_net::{Keys, PublicKey};
+    use ttymud_text::Status;
     use ttymud_wire::ServerMessage;
 
     use super::{Event, Game};
@@ -282,6 +305,55 @@ mod tests {
     fn found(messages: &[ServerMessage], start: &str) -> Option<String> {
         let mut shown = texts(messages).into_iter();
         shown.find_map(|line| line.strip_prefix(start).map(str::to_owned))
+    }
+
+    fn statuses(messages: &[ServerMessage]) -> Vec<Status> {
+        let found = messages.iter().filter_map(|message| match message {
+            ServerMessage::Status(status) => Some(status.clone()),
+            _ => None,
+        });
+        found.collect()
+    }
+
+    #[test]
+    fn the_status_goes_out_before_the_prompt_when_it_changes() {
+        let mut game = game();
+        let mailbox = join(&mut game, 1, key());
+        assert_eq!(statuses(&drain(&mailbox)), []);
+        command(&mut game, 1, "ghost");
+        command(&mut game, 1, "breaker");
+        let made: Vec<String> = statuses(&drain(&mailbox))
+            .into_iter()
+            .map(|status| status.host)
+            .collect();
+        assert_eq!(made, ["relay"]);
+        command(&mut game, 1, "look");
+        assert_eq!(statuses(&drain(&mailbox)), []);
+        command(&mut game, 1, "go safehouse");
+        let moved = drain(&mailbox);
+        let hosts: Vec<String> = statuses(&moved)
+            .into_iter()
+            .map(|status| status.host)
+            .collect();
+        assert_eq!(hosts, ["safehouse"]);
+        assert!(matches!(moved.last(), Some(ServerMessage::Prompt(_))));
+    }
+
+    #[test]
+    fn a_tick_sends_the_status_when_the_cycles_come_back() {
+        let mut game = with_world(World::new(Content::parse(LAB).unwrap(), 0));
+        let mailbox = hacker(&mut game, 1, "ghost");
+        command(&mut game, 1, "go gate");
+        command(&mut game, 1, "scan");
+        let spent = statuses(&drain(&mailbox))
+            .last()
+            .map_or(0, |status| status.cycles);
+        game.tick();
+        let after: Vec<u32> = statuses(&drain(&mailbox))
+            .iter()
+            .map(|status| status.cycles)
+            .collect();
+        assert_eq!(after, [spent + 1]);
     }
 
     fn welcome(name: &str) -> ServerMessage {

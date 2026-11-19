@@ -66,7 +66,7 @@ impl Client {
         loop {
             match self.next() {
                 ServerMessage::Text(text) => return text.plain(),
-                ServerMessage::Refresh(_) => {}
+                ServerMessage::Refresh(_) | ServerMessage::Status(_) => {}
                 other => panic!("expected text, got {other:?}"),
             }
         }
@@ -90,7 +90,7 @@ impl Client {
             match self.next() {
                 ServerMessage::Text(text) => texts.push(text.plain()),
                 ServerMessage::Prompt(_) => return texts,
-                ServerMessage::Refresh(_) => {}
+                ServerMessage::Refresh(_) | ServerMessage::Status(_) => {}
                 other => panic!("unexpected {other:?}"),
             }
         }

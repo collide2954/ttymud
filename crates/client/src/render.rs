@@ -1,4 +1,4 @@
-use ttymud_text::clean;
+use ttymud_text::{RunStatus, Status, clean};
 use ttymud_wire::ServerMessage;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -7,6 +7,7 @@ pub enum Shown {
     Prompt(String),
     Closed(String),
     Candidates { word: String, names: Vec<String> },
+    Status(Status),
 }
 
 #[must_use]
@@ -25,12 +26,21 @@ pub fn render(message: &ServerMessage) -> Shown {
             word: clean(word),
             names: names.iter().map(|name| clean(name)).collect(),
         },
+        ServerMessage::Status(status) => Shown::Status(Status {
+            host: clean(&status.host),
+            run: status.run.as_ref().map(|run| RunStatus {
+                network: clean(&run.network),
+                access: clean(&run.access),
+                trace: run.trace,
+            }),
+            ..status.clone()
+        }),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use ttymud_text::{Message, Style};
+    use ttymud_text::{Message, RunStatus, Status, Style};
     use ttymud_wire::ServerMessage;
 
     use super::{Shown, render};
@@ -80,6 +90,26 @@ mod tests {
                 names: vec!["market".to_owned()],
             }
         );
+    }
+
+    #[test]
+    fn a_status_is_cleaned() {
+        let run = |network: &str| RunStatus {
+            network: network.to_owned(),
+            access: "user".to_owned(),
+            trace: 31,
+        };
+        let status = Status {
+            host: "arc\u{1b}adia".to_owned(),
+            run: Some(run("Arcadia\u{202e} Health")),
+            ..Status::default()
+        };
+        let clean = Status {
+            host: "arcadia".to_owned(),
+            run: Some(run("Arcadia Health")),
+            ..Status::default()
+        };
+        assert_eq!(render(&ServerMessage::Status(status)), Shown::Status(clean));
     }
 
     #[test]

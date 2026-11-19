@@ -1,4 +1,4 @@
-use ttymud_text::{Message, Style};
+use ttymud_text::{Message, RunStatus, Status, Style};
 
 use super::{PlayerId, Step, World, lines, listed};
 use crate::commands::{self, Verb};
@@ -145,6 +145,30 @@ impl World {
         ));
         lines(shown)
     }
+
+    #[must_use]
+    pub fn status_of(&self, player: PlayerId) -> Option<Status> {
+        self.handle(player)?;
+        let state = self.players.get(&player)?;
+        let run = state.run.as_ref().map(|run| RunStatus {
+            network: self.networks[run.network.0].name.clone(),
+            access: self.access(player).word().to_owned(),
+            trace: run.trace,
+        });
+        let rig = &state.rig;
+        Some(Status {
+            host: self.hosts[self.here(player).0].id.clone(),
+            run,
+            integrity: rig.integrity,
+            heat: state.heat,
+            heat_max: MAX_HEAT,
+            ram_used: rig.used(),
+            ram_total: rig.ram,
+            cycles: rig.cycles,
+            cycles_max: rig.cpu,
+            credits: state.credits,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -154,6 +178,35 @@ mod tests {
 
     fn cycles(world: &mut World, player: PlayerId) -> Vec<String> {
         plain(&world.command(player, "status | grep cycles"))
+    }
+
+    #[test]
+    fn status_of_gives_the_state_for_a_status_bar() {
+        use ttymud_text::Status;
+        let (mut world, player) = joined();
+        let expected = Status {
+            host: "relay".to_owned(),
+            run: None,
+            integrity: 100,
+            heat: 0,
+            heat_max: 5,
+            ram_used: 8,
+            ram_total: 8,
+            cycles: 4,
+            cycles_max: 4,
+            credits: 0,
+        };
+        assert_eq!(world.status_of(player), Some(expected));
+        for line in ["go back-room", "go gate"] {
+            world.command(player, line);
+        }
+        let run = world.status_of(player).and_then(|status| status.run);
+        assert_eq!(
+            run.map(|run| (run.network, run.access)),
+            Some(("Test Lab".to_owned(), "guest".to_owned()))
+        );
+        let (naming, _) = world.connect("a");
+        assert_eq!(world.status_of(naming), None);
     }
 
     #[test]
