@@ -2,6 +2,7 @@ use ttymud_text::{Message, Style};
 
 use super::ice::{Ice, deploy};
 use super::{HostId, NetworkId, PlayerId, Step, World};
+use crate::contract::Event;
 use crate::ice::{Action, IceKind};
 
 const SHOCK: u32 = 20;
@@ -162,14 +163,21 @@ impl World {
                     ice: deploy(&self.hosts, network),
                 });
                 let name = &self.networks[network.0].name;
-                vec![Message::game(format!(
+                let shown = vec![Message::game(format!(
                     "You connect to the network of {name}."
-                ))]
+                ))];
+                if self.is_job(player, network) {
+                    self.advance(player, Event::Enter);
+                }
+                shown
             }
             (Some(network), None) => {
                 state.run = None;
                 let name = &self.networks[network.0].name;
                 let exit = Message::game(format!("You leave the network of {name}. Clean exit."));
+                if self.is_job(player, network) {
+                    self.advance(player, Event::Exit);
+                }
                 std::iter::once(exit)
                     .chain(self.finish_contract(player, network))
                     .collect()

@@ -1,4 +1,5 @@
 use super::{ContentError, ContractDef, File, HostDef, IceDef, NetworkDef};
+use crate::contract::Event;
 use crate::ice::IceKind;
 
 struct Section<'a> {
@@ -128,7 +129,7 @@ impl Reader {
             );
             return;
         }
-        self.allow(section, &["fixer", "network", "goal", "offer"]);
+        self.allow(section, &["fixer", "network", "goal", "offer", "step"]);
         self.check_name(section.line, id, Name::Plain);
         let fixer = self.single(section, "fixer");
         let network = self.single(section, "network");
@@ -140,6 +141,10 @@ impl Reader {
         if offer.is_empty() {
             self.error(section.line, format!("contract {id} has no offer"));
         }
+        let steps = values(section, "step")
+            .into_iter()
+            .filter_map(|(text, line)| self.step(&text, line))
+            .collect();
         if let (Some((fixer, _)), Some((network, at)), Some((goal, goal_at))) =
             (fixer, network, goal)
         {
@@ -149,9 +154,28 @@ impl Reader {
                 network,
                 goal,
                 offer,
+                steps,
             };
             self.contracts.push((def, at, goal_at));
         }
+    }
+
+    fn step(&mut self, text: &str, line: usize) -> Option<(Event, String)> {
+        let Some((word, hint)) = text
+            .split_once(':')
+            .filter(|(_, hint)| !hint.trim().is_empty())
+        else {
+            let message = "a step needs an event and a hint, for example step = scan: Type scan.";
+            self.error(line, message);
+            return None;
+        };
+        let word = word.trim();
+        let Some(event) = Event::find(word) else {
+            let events = "home, enter, scan, probe, crack, download, scrub, patch, or exit";
+            self.error(line, format!("unknown step: {word} (use {events})"));
+            return None;
+        };
+        Some((event, hint.trim().to_owned()))
     }
 
     fn network(&mut self, section: &Section<'_>) {

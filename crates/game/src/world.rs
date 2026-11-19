@@ -17,13 +17,14 @@ use ttymud_text::{Kind, Message, Style, sanitize};
 
 use crate::commands::{self, Command, Item, Verb};
 use crate::content::{Content, File, IceDef};
+use crate::contract::Event;
 use crate::matching::{self, Found};
 use crate::parse::{self, ParseError, Stage};
 use crate::random::Random;
 
 pub use chat::is_chat;
 pub use complete::Completion;
-use contract::Contract;
+use contract::{Contract, Job};
 use rig::Rig;
 use run::Run;
 
@@ -64,7 +65,7 @@ struct Player {
     chain: Vec<HostId>,
     rig: Rig,
     run: Option<Run>,
-    contract: Option<usize>,
+    contract: Option<Job>,
 }
 
 #[derive(Debug)]
@@ -147,6 +148,7 @@ impl World {
                 network: network(&def.network).unwrap_or(NetworkId(0)),
                 goal: def.goal,
                 offer: def.offer,
+                steps: def.steps,
             })
             .collect();
         let networks = content
@@ -179,7 +181,7 @@ impl World {
                 chain: vec![self.start],
                 rig: Rig::new(),
                 run: None,
-                contract: self.offer,
+                contract: self.offer.map(Job::new),
             },
         );
         self.notify(self.start, player, &presence::named(name, " connects."));
@@ -210,7 +212,8 @@ impl World {
             if let Some(state) = self.players.get_mut(&player) {
                 state.rig.tick();
             }
-            let shown = self.tick_ice(player);
+            let mut shown = self.tick_ice(player);
+            shown.extend(self.hint(player));
             outputs.extend(address(player, shown));
         }
         outputs.append(&mut self.outbox);
@@ -273,6 +276,9 @@ impl World {
             match self.execute(player, command, &stage.args, input.take()) {
                 Ok(step) => {
                     ran.extend(command.verb.program());
+                    if let Some(event) = Event::of(command.verb) {
+                        self.advance(player, event);
+                    }
                     shown = step.shown;
                     input = Some(step.items);
                 }

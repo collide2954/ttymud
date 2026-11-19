@@ -9,6 +9,11 @@ network = lab
 goal = data.db
 offer = The lab has data that a client wants.
 offer = Get data.db and leave clean.
+step = home: Go to back-room. Your rig is there.
+step = enter: Type go gate to connect to the lab.
+step = scan: Type scan to find the ICE.
+step = download: Go to core and type download data.db.
+step = exit: Type back until you leave the lab.
 ";
 
 pub(crate) fn world() -> World {

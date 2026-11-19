@@ -2,6 +2,7 @@ use ttymud_text::Message;
 
 use super::{HostId, PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::Item;
+use crate::contract::Event;
 
 impl World {
     pub(super) fn go(
@@ -46,6 +47,9 @@ impl World {
     fn arrive(&mut self, player: PlayerId, from: HostId, to: HostId) -> Step {
         self.relocate(player, from, to);
         let mut shown = self.cross(player, from, to);
+        if self.home == Some(to) {
+            self.advance(player, Event::Home);
+        }
         shown.extend(self.scene(to, player));
         Step::show(shown)
     }

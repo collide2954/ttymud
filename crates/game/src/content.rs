@@ -7,6 +7,7 @@ use std::fmt;
 
 use reader::Reader;
 
+use crate::contract::Event;
 use crate::ice::IceKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,6 +44,7 @@ pub(crate) struct ContractDef {
     pub(crate) network: String,
     pub(crate) goal: String,
     pub(crate) offer: Vec<String>,
+    pub(crate) steps: Vec<(Event, String)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

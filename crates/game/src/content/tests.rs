@@ -1,4 +1,5 @@
 use super::{Content, ContractDef, File, IceDef, NetworkDef};
+use crate::contract::Event;
 use crate::ice::IceKind;
 
 const NET: &str = "\
@@ -39,9 +40,41 @@ fn the_city_offers_a_contract() {
         network: "n".to_owned(),
         goal: "x.db".to_owned(),
         offer: vec!["Get x.db.".to_owned(), "Go.".to_owned()],
+        steps: Vec::new(),
     };
     assert_eq!(content.contracts, [job]);
     assert_eq!(content.contract.as_deref(), Some("job"));
+}
+
+#[test]
+fn contract_steps_have_an_event_and_a_hint() {
+    let text = with_contract(
+        "[contract job]\nfixer = Pell\nnetwork = n\ngoal = x.db\noffer = Go.\n\
+         step = enter: Connect to b.\nstep = exit: Leave.\n",
+    );
+    let content = Content::parse(&text).unwrap();
+    assert_eq!(
+        content.contracts[0].steps,
+        [
+            (Event::Enter, "Connect to b.".to_owned()),
+            (Event::Exit, "Leave.".to_owned())
+        ]
+    );
+}
+
+#[test]
+fn bad_steps_fail() {
+    let text = with_contract(
+        "[contract job]\nfixer = Pell\nnetwork = n\ngoal = x.db\noffer = Go.\n\
+         step = dance: No.\nstep = scan\n",
+    );
+    assert_eq!(
+        errors(&text),
+        [
+            "line 27: unknown step: dance (use home, enter, scan, probe, crack, download, scrub, patch, or exit)",
+            "line 28: a step needs an event and a hint, for example step = scan: Type scan.",
+        ]
+    );
 }
 
 #[test]

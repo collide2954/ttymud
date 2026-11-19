@@ -3,6 +3,7 @@ use ttymud_text::{Kind, Message, Style};
 use super::{PlayerId, Step, Thing, World, choose, listing, usage};
 use crate::commands::Item;
 use crate::content::File;
+use crate::contract::Event;
 
 const DOWNLOAD_NOISE: u32 = 2;
 
@@ -60,7 +61,7 @@ impl World {
             return Ok(Step::default());
         };
         let mut shown = Vec::new();
-        let mut copied = false;
+        let mut copied = Vec::new();
         for file in files {
             if state.rig.files.iter().any(|known| known.name == file.name) {
                 let name = &file.name;
@@ -75,10 +76,13 @@ impl World {
             if let Some(run) = &mut state.run {
                 run.loot.push(file.name.clone());
             }
+            copied.push(file.name.clone());
             state.rig.files.push(file);
-            copied = true;
         }
-        if copied {
+        if copied.iter().any(|name| self.is_goal(player, name)) {
+            self.advance(player, Event::Download);
+        }
+        if !copied.is_empty() {
             shown.extend(self.noise(player, DOWNLOAD_NOISE));
         }
         Ok(Step::show(shown))
