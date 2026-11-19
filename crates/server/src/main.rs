@@ -107,11 +107,27 @@ fn init(dir: &Path) -> io::Result<()> {
 
 fn run(dir: &Path, listen: &str) -> io::Result<()> {
     let keys = ttymud_server::load_keys(dir).map_err(|error| missing_key(dir, error))?;
-    let world = ttymud_server::port_ostra(ttymud_server::seed())?;
+    let mut world = ttymud_server::port_ostra(ttymud_server::seed())?;
+    let saves = ttymud_server::load_saves(dir)?;
+    for (path, text) in &saves {
+        world.restore(path, text).map_err(|errors| {
+            let lines: Vec<String> = errors
+                .iter()
+                .map(|error| format!("{path}: {error}"))
+                .collect();
+            io::Error::other(lines.join("\n"))
+        })?;
+    }
+    let store = ttymud_server::Store::start(dir)?;
     let listener = TcpListener::bind(listen)?;
     println!("{} is open on {}.", world.city(), listener.local_addr()?);
     println!("Fingerprint: {}", keys.public().fingerprint());
-    ttymud_server::serve(&listener, keys, world)
+    let accounts = saves
+        .iter()
+        .filter(|(path, _)| path.starts_with("accounts/"))
+        .count();
+    println!("Accounts: {accounts}");
+    ttymud_server::serve(&listener, keys, world, Some(store))
 }
 
 fn missing_key(dir: &Path, error: io::Error) -> io::Error {

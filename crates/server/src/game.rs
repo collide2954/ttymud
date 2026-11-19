@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::mpsc::{self, RecvTimeoutError};
-use std::time::Instant;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use ttymud_game::{Completion, Output, PlayerId, World};
 use ttymud_net::PublicKey;
@@ -29,10 +29,13 @@ pub(crate) enum Event {
     },
 }
 
+pub(crate) type Saves = mpsc::Sender<(String, String)>;
+
 pub(crate) struct Game {
     world: World,
     connections: HashMap<u64, PlayerId>,
     links: HashMap<PlayerId, Link>,
+    store: Option<Saves>,
 }
 
 struct Link {
@@ -41,8 +44,8 @@ struct Link {
     outbox: mpsc::Sender<ServerMessage>,
 }
 
-pub(crate) fn run(world: World, inbox: &mpsc::Receiver<Event>) {
-    let mut game = Game::new(world);
+pub(crate) fn run(world: World, inbox: &mpsc::Receiver<Event>, store: Option<Saves>) {
+    let mut game = Game::new(world, store);
     let mut ticker = Ticker::new(TICK, Instant::now());
     loop {
         match inbox.recv_timeout(ticker.left(Instant::now())) {
@@ -60,16 +63,24 @@ pub(crate) fn name_for(key: PublicKey) -> String {
     format!("anon-{}", &key.to_hex()[..8])
 }
 
+fn now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |since| since.as_secs())
+}
+
 impl Game {
-    pub(crate) fn new(world: World) -> Self {
+    pub(crate) fn new(world: World, store: Option<Saves>) -> Self {
         Self {
             world,
             connections: HashMap::new(),
             links: HashMap::new(),
+            store,
         }
     }
 
     pub(crate) fn handle(&mut self, event: Event) {
+        self.world.set_time(now());
         match event {
             Event::Join {
                 connection,
@@ -79,6 +90,16 @@ impl Game {
             Event::Command { connection, line } => self.command(connection, &line),
             Event::Complete { connection, text } => self.complete(connection, &text),
             Event::Leave { connection } => self.leave(connection),
+        }
+        self.save();
+    }
+
+    fn save(&mut self) {
+        let saves = self.world.saves();
+        if let Some(store) = &self.store {
+            for save in saves {
+                let _ = store.send(save);
+            }
         }
     }
 
@@ -130,8 +151,10 @@ impl Game {
     }
 
     fn tick(&mut self) {
+        self.world.set_time(now());
         let outputs = self.world.tick();
         self.deliver(outputs, None);
+        self.save();
     }
 
     fn leave(&mut self, connection: u64) {
@@ -187,7 +210,7 @@ mod tests {
                        network = net\nroute = hub\n[ice gate/sentry]\ntype = sentry\n";
 
     fn game() -> Game {
-        Game::new(port_ostra(0).unwrap())
+        Game::new(port_ostra(0).unwrap(), None)
     }
 
     fn key() -> PublicKey {
@@ -325,7 +348,7 @@ mod tests {
 
     #[test]
     fn a_tick_with_news_sends_the_text_and_a_refresh() {
-        let mut game = Game::new(World::new(Content::parse(LAB).unwrap(), 0));
+        let mut game = Game::new(World::new(Content::parse(LAB).unwrap(), 0), None);
         let mailbox = hacker(&mut game, 1, "ghost");
         command(&mut game, 1, "go gate");
         command(&mut game, 1, "scan");
@@ -349,6 +372,21 @@ mod tests {
         drain(&mailbox);
         game.tick();
         assert_eq!(drain(&mailbox), Vec::<ServerMessage>::new());
+    }
+
+    #[test]
+    fn changes_go_to_the_store() {
+        let (saves, stored) = mpsc::channel();
+        let mut game = Game::new(port_ostra(0).unwrap(), Some(saves));
+        let key = key();
+        let _mailbox = join(&mut game, 1, key);
+        command(&mut game, 1, "ghost");
+        command(&mut game, 1, "breaker");
+        let paths: Vec<String> = stored.try_iter().map(|(path, _)| path).collect();
+        assert!(
+            paths.contains(&format!("accounts/{}.ini", key.to_hex())),
+            "{paths:?}"
+        );
     }
 
     #[test]

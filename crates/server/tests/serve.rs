@@ -14,7 +14,7 @@ fn start() -> (SocketAddr, PublicKey) {
     let keys = Keys::generate().unwrap();
     let public = keys.public();
     thread::spawn(move || {
-        ttymud_server::serve(&listener, keys, ttymud_server::port_ostra(0).unwrap())
+        ttymud_server::serve(&listener, keys, ttymud_server::port_ostra(0).unwrap(), None)
     });
     (address, public)
 }
