@@ -7,6 +7,7 @@ use crate::content::File;
 const MAX_INTEGRITY: u32 = 100;
 const MAX_CYCLES: u32 = 4;
 const RAM: u32 = 8;
+const PATCH: u32 = 20;
 
 #[derive(Debug)]
 pub(super) struct Rig {
@@ -34,6 +35,21 @@ impl World {
         if let Some(state) = self.players.get_mut(&player) {
             state.rig.cycles = state.rig.cycles.saturating_sub(cycles);
         }
+    }
+
+    pub(super) fn patch(&mut self, player: PlayerId) -> Result<Step, Message> {
+        let Some(rig) = self.players.get_mut(&player).map(|state| &mut state.rig) else {
+            return Ok(Step::default());
+        };
+        let before = rig.integrity;
+        if before == MAX_INTEGRITY {
+            return Err(Message::error("Your rig needs no patch."));
+        }
+        rig.integrity = (before + PATCH).min(MAX_INTEGRITY);
+        let after = rig.integrity;
+        Ok(Step::show(vec![Message::game(format!(
+            "patch repairs your rig. Integrity: {before} -> {after}."
+        ))]))
     }
 
     pub(super) fn repair(&mut self, player: PlayerId) -> Result<Step, Message> {
@@ -119,6 +135,26 @@ mod tests {
     }
 
     #[test]
+    fn patch_repairs_some_integrity_during_a_run() {
+        let (mut world, player) = joined();
+        for line in ["go back-room", "go gate"] {
+            world.command(player, line);
+        }
+        assert_eq!(
+            plain(&world.command(player, "patch")),
+            ["Your rig needs no patch."]
+        );
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.integrity = 90;
+        }
+        assert_eq!(
+            plain(&world.command(player, "patch")),
+            ["patch repairs your rig. Integrity: 90 -> 100."]
+        );
+        assert_eq!(run("patch"), ["patch works only in a target network."]);
+    }
+
+    #[test]
     fn repair_works_only_at_home() {
         assert_eq!(
             run("repair"),
@@ -141,8 +177,8 @@ mod tests {
             [
                 "Integrity: 100/100",
                 "Cycles: 4/4",
-                "RAM: 6/8 GB",
-                "Programs: scan, probe, crack, scrub"
+                "RAM: 8/8 GB",
+                "Programs: scan, probe, crack, scrub, patch"
             ]
         );
     }

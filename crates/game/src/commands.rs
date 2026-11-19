@@ -16,6 +16,7 @@ pub(crate) enum Verb {
     Probe,
     Crack,
     Scrub,
+    Patch,
     Grep,
     Say,
     Help,
@@ -43,7 +44,7 @@ impl Verb {
         let (ram, cycles, noise) = match self {
             Self::Scan | Self::Probe => (1, 1, 1),
             Self::Crack => (2, 2, 2),
-            Self::Scrub => (2, 2, 0),
+            Self::Scrub | Self::Patch => (2, 2, 0),
             _ => return None,
         };
         Some(Program { ram, cycles, noise })
@@ -235,6 +236,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "scrub",
         summary: "Delete your log lines to lower the trace.",
         example: "scrub",
+        takes: Takes::Nothing,
+        output: false,
+    },
+    Command {
+        verb: Verb::Patch,
+        names: &["patch"],
+        usage: "patch",
+        summary: "Repair some integrity during a run.",
+        example: "patch",
         takes: Takes::Nothing,
         output: false,
     },

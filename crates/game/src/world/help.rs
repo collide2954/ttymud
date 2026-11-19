@@ -36,7 +36,8 @@ impl World {
             .filter(|command| match command.verb {
                 Verb::Go => !host.routes.is_empty(),
                 Verb::Back => hops > 1,
-                Verb::Jackout | Verb::Scan | Verb::Probe | Verb::Crack | Verb::Scrub => running,
+                Verb::Jackout => running,
+                verb if verb.program().is_some() => running,
                 Verb::Repair => self.home == Some(here),
                 Verb::Read => readable,
                 Verb::Download => !host.files.is_empty(),
