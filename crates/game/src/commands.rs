@@ -19,6 +19,23 @@ pub(crate) enum Verb {
     Available,
 }
 
+pub(crate) const SETUP: u32 = 1;
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Program {
+    pub(crate) ram: u32,
+    pub(crate) cycles: u32,
+}
+
+impl Verb {
+    pub(crate) fn program(self) -> Option<Program> {
+        match self {
+            Self::Scan => Some(Program { ram: 1, cycles: 1 }),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Item {
     Route(String),
@@ -129,7 +146,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         verb: Verb::Status,
         names: &["status", "st"],
         usage: "status",
-        summary: "Show your trace, integrity, and cycles.",
+        summary: "Show your trace, integrity, cycles, and RAM.",
         example: "status",
         takes: Takes::Nothing,
         output: true,
@@ -203,6 +220,25 @@ pub(crate) fn names() -> impl Iterator<Item = &'static str> {
     COMMANDS
         .iter()
         .flat_map(|command| command.names.iter().copied())
+}
+
+pub(crate) fn programs() -> impl Iterator<Item = (&'static Command, Program)> {
+    COMMANDS
+        .iter()
+        .filter_map(|command| command.verb.program().map(|program| (command, program)))
+}
+
+pub(crate) fn cost(commands: &[&Command]) -> u32 {
+    let cycles: Vec<u32> = commands
+        .iter()
+        .filter_map(|command| command.verb.program())
+        .map(|program| program.cycles)
+        .collect();
+    if cycles.is_empty() {
+        0
+    } else {
+        SETUP + cycles.iter().sum::<u32>()
+    }
 }
 
 pub(crate) fn find(name: &str) -> Option<&'static Command> {

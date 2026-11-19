@@ -230,11 +230,18 @@ impl World {
         if let Err(problem) = commands::check(&found) {
             return vec![Message::error(problem)];
         }
+        if let Err(message) = self.ready(player, &found) {
+            return vec![message];
+        }
+        let mut setup = commands::SETUP;
         let mut input = None;
         let mut shown = Vec::new();
         for (command, stage) in found.iter().zip(stages) {
             match self.execute(player, command, &stage.args, input.take()) {
                 Ok(step) => {
+                    if let Some(program) = command.verb.program() {
+                        self.spend(player, program.cycles + std::mem::take(&mut setup));
+                    }
                     shown = step.shown;
                     input = Some(step.items);
                 }

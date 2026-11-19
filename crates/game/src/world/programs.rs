@@ -1,9 +1,37 @@
 use ttymud_text::{Kind, Message, Style};
 
 use super::{PlayerId, Step, World};
-use crate::commands::Item;
+use crate::commands::{self, Command, Item};
 
 impl World {
+    pub(super) fn ready(&self, player: PlayerId, found: &[&Command]) -> Result<(), Message> {
+        let programs: Vec<&str> = found
+            .iter()
+            .filter(|command| command.verb.program().is_some())
+            .map(|command| command.name())
+            .collect();
+        let (Some(first), Some(state)) = (programs.first(), self.players.get(&player)) else {
+            return Ok(());
+        };
+        if state.run.is_none() {
+            return Err(Message::error(format!(
+                "{first} works only in a target network."
+            )));
+        }
+        let (cost, have) = (commands::cost(found), state.rig.cycles);
+        if have >= cost {
+            return Ok(());
+        }
+        let what = if programs.len() == 1 {
+            first
+        } else {
+            "This pipeline"
+        };
+        Err(Message::error(format!(
+            "{what} needs {cost} cycles, but you have {have}. You get 1 cycle on each tick."
+        )))
+    }
+
     pub(super) fn scan(&mut self, player: PlayerId) -> Result<Step, Message> {
         let here = self.here(player);
         let run = self
@@ -85,6 +113,19 @@ mod tests {
     #[test]
     fn scan_without_ice_says_so() {
         assert_eq!(at_gate(&["go core", "scan"]), ["scan finds no ICE here."]);
+    }
+
+    #[test]
+    fn a_program_costs_its_cycles_and_one_for_the_setup() {
+        assert_eq!(at_gate(&["scan", "status | grep cycles"]), ["Cycles: 2/4"]);
+    }
+
+    #[test]
+    fn a_program_needs_enough_cycles() {
+        assert_eq!(
+            at_gate(&["scan", "scan", "scan"]),
+            ["scan needs 2 cycles, but you have 0. You get 1 cycle on each tick."]
+        );
     }
 
     #[test]

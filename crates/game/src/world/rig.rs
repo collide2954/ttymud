@@ -1,10 +1,12 @@
 use ttymud_text::{Message, Style};
 
-use super::{PlayerId, Step, World, lines};
+use super::{PlayerId, Step, World, lines, listed};
+use crate::commands;
 use crate::content::File;
 
 const MAX_INTEGRITY: u32 = 100;
 const MAX_CYCLES: u32 = 4;
+const RAM: u32 = 8;
 
 #[derive(Debug)]
 pub(super) struct Rig {
@@ -28,6 +30,12 @@ impl Rig {
 }
 
 impl World {
+    pub(super) fn spend(&mut self, player: PlayerId, cycles: u32) {
+        if let Some(state) = self.players.get_mut(&player) {
+            state.rig.cycles = state.rig.cycles.saturating_sub(cycles);
+        }
+    }
+
     pub(super) fn repair(&mut self, player: PlayerId) -> Result<Step, Message> {
         let Some(home) = self.home else {
             return Err(Message::error("This city has no place to repair a rig."));
@@ -68,6 +76,10 @@ impl World {
             "Cycles: {}/{MAX_CYCLES}",
             rig.cycles
         )));
+        let used: u32 = commands::programs().map(|(_, program)| program.ram).sum();
+        shown.push(Message::game(format!("RAM: {used}/{RAM} GB")));
+        let loaded = commands::programs().map(|(command, _)| command.name());
+        shown.push(listed(Message::game("Programs: "), Style::Command, loaded));
         lines(shown)
     }
 }
@@ -124,7 +136,15 @@ mod tests {
 
     #[test]
     fn status_shows_the_rig() {
-        assert_eq!(run("status"), ["Integrity: 100/100", "Cycles: 4/4"]);
+        assert_eq!(
+            run("status"),
+            [
+                "Integrity: 100/100",
+                "Cycles: 4/4",
+                "RAM: 1/8 GB",
+                "Programs: scan"
+            ]
+        );
     }
 
     #[test]
