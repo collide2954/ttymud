@@ -1,0 +1,34 @@
+# Walk from the relay to the market, the bazaar, and back.
+The Relay
+A crowded public node.
+Routes: market, back-room, bazaar
+Files: motd.txt, rules.txt
+> go market
+The Night Market
+Stalls sell cracked firmware.
+Routes: relay, bazaar
+Files: prices.db
+> ls
+relay/
+bazaar/
+prices.db
+> cd bazaar
+The Bazaar
+Everything is for sale.
+Routes: relay, market
+> back
+The Night Market
+Stalls sell cracked firmware.
+Routes: relay, bazaar
+Files: prices.db
+> cd ..
+The Relay
+A crowded public node.
+Routes: market, back-room, bazaar
+Files: motd.txt, rules.txt
+> back
+There is no hop behind you.
+> go ba
+ba could mean back-room or bazaar.
+> go nowhere
+No route to nowhere. Routes: market, back-room, bazaar

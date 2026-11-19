@@ -1,0 +1,22 @@
+# Pipelines pass items from one command to the next.
+The Relay
+A crowded public node.
+Routes: market, back-room, bazaar
+Files: motd.txt, rules.txt
+> ls | grep a | grep ba
+back-room/
+bazaar/
+> read motd.txt | grep polite
+Be polite.
+> ls | grep baz | go
+The Bazaar
+Everything is for sale.
+Routes: relay, market
+> look | ls
+ls takes no input from a pipe.
+> grep x
+grep needs input from a pipe. Example: ls | grep txt
+> back | ls
+back gives no output to a pipe.
+> ls |
+Each side of | needs a command.

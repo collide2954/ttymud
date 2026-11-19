@@ -1,0 +1,25 @@
+# Help, man, ?, and suggestions for typos.
+The Relay
+A crowded public node.
+Routes: market, back-room, bazaar
+Files: motd.txt, rules.txt
+> ?
+Here you can use: look, ls, go, read, download, inventory, grep, help
+> help go
+go <place>
+Move to a host through a route.
+Other names: cd, connect, ssh
+Example: go market
+> man pipes
+Pipelines
+Join commands with | to send the items of one command to the next.
+Only the last command shows its output.
+Example: ls | grep txt | read
+> help | grep rig
+read <file>       Show the text of a file here or on your rig.
+download <file>   Copy a file from this host to your rig.
+inventory         Show the files on your rig.
+> lok
+Unknown command: lok. Did you mean look?
+> xyzzy
+Unknown command: xyzzy. Type help to see the commands.

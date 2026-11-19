@@ -1,0 +1,33 @@
+# Read and download files, then read them from the rig.
+The Relay
+A crowded public node.
+Routes: market, back-room, bazaar
+Files: motd.txt, rules.txt
+> cat motd.txt
+Welcome to the Relay.
+Be polite.
+> ls | read
+motd.txt
+Welcome to the Relay.
+Be polite.
+rules.txt
+No spam.
+> inventory
+Your rig has no files.
+> ls | grep txt | download
+Downloaded motd.txt.
+Downloaded rules.txt.
+> get motd.txt
+motd.txt is already on your rig.
+> go market
+The Night Market
+Stalls sell cracked firmware.
+Routes: relay, bazaar
+Files: prices.db
+> inv
+motd.txt
+rules.txt
+> read rules.txt
+No spam.
+> read mtod.txt
+No file named mtod.txt. Did you mean motd.txt?
