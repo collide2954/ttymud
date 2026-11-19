@@ -8,15 +8,19 @@ TTYmud is a Cargo workspace.
 
     ttymud/
     ├── Cargo.toml       the workspace, shared lints, and shared versions
+    ├── clippy.toml      clippy settings
+    ├── rustfmt.toml     rustfmt settings
     ├── crates/
-    │   ├── game/        rules, world, ICE, trace, and the command parser
-    │   ├── wire/        frames, messages, and the text sanitizer
-    │   ├── server/      the ttymud-server binary
-    │   └── client/      the ttymud binary
+    │   ├── game/        ttymud-game: rules, world, ICE, trace, and the command parser
+    │   ├── wire/        ttymud-wire: frames, messages, and the text sanitizer
+    │   ├── server/      ttymud-server: the server binary
+    │   └── client/      ttymud: the client binary
     ├── tools/
-    │   └── stelint/     the STE check for the documents
+    │   └── stelint/     stelint: the STE check for the documents
     ├── content/         hubs, corporations, ICE, and programs as data files
     └── docs/            the documents, in ASD-STE100
+
+Each directory in `crates/` and `tools/` contains one package. The name before the colon is the package name.
 
 These rules control the dependencies between crates:
 
@@ -119,9 +123,11 @@ TTYmud does not use serde, tokio, clap, or a crate for logs. The standard librar
 
 - Write the test first. Then write the code.
 - All crates use the lints of the workspace. Unsafe code is forbidden.
+- Clippy uses the pedantic group. The lints that ask for doc comments are off, because TTYmud keeps comments to a minimum.
 - Do not use `unwrap` or `expect` outside tests. Use error types.
 - Format the code with `cargo fmt`. Fix all warnings from `cargo clippy`.
 - Keep comments to a minimum. Clear names are better than comments.
+- Use the latest stable Rust. The `rust-version` field in `Cargo.toml` gives the minimum version.
 
 ## Tests
 
@@ -134,4 +140,4 @@ TTYmud does not use serde, tokio, clap, or a crate for logs. The standard librar
 
 ## Continuous integration
 
-GitHub Actions runs `cargo fmt --check`, `cargo clippy`, and `cargo test` on Linux, macOS, and Windows for each push.
+GitHub Actions runs `cargo fmt --check`, `cargo clippy`, and `cargo test` on Linux, macOS, and Windows. It runs for each push to `main` and for each pull request. The workflow uses only the official checkout action, pinned to a commit hash.
