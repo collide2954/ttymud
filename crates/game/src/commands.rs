@@ -14,6 +14,7 @@ pub(crate) enum Verb {
     Repair,
     Scan,
     Probe,
+    Crack,
     Grep,
     Say,
     Help,
@@ -32,6 +33,7 @@ impl Verb {
     pub(crate) fn program(self) -> Option<Program> {
         match self {
             Self::Scan | Self::Probe => Some(Program { ram: 1, cycles: 1 }),
+            Self::Crack => Some(Program { ram: 2, cycles: 2 }),
             _ => None,
         }
     }
@@ -187,6 +189,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         example: "probe sentry",
         takes: Takes::Optional,
         output: true,
+    },
+    Command {
+        verb: Verb::Crack,
+        names: &["crack"],
+        usage: "crack <ice>",
+        summary: "Attack an ICE. At zero integrity, the ICE breaks.",
+        example: "crack sentry",
+        takes: Takes::Optional,
+        output: false,
     },
     Command {
         verb: Verb::Grep,

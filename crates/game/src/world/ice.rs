@@ -1,6 +1,6 @@
 use ttymud_text::{Kind, Message, Style};
 
-use super::{Host, HostId, NetworkId, PlayerId, World, listed};
+use super::{Host, HostId, NetworkId, PlayerId, World};
 use crate::ice::IceKind;
 
 #[derive(Debug)]
@@ -15,12 +15,21 @@ pub(super) struct Ice {
 }
 
 impl Ice {
-    pub(super) fn max(&self) -> u32 {
-        self.kind.integrity(self.version)
+    pub(super) fn broken(&self) -> bool {
+        self.integrity == 0
     }
 
-    pub(super) fn title(&self) -> String {
-        format!("{} v{}", self.kind.title(), self.version)
+    pub(super) fn describe(&self) -> Message {
+        let title = format!("{} v{}", self.kind.title(), self.version);
+        let state = if self.broken() {
+            format!(": {title}, broken")
+        } else {
+            let max = self.kind.integrity(self.version);
+            format!(": {title}, integrity {}/{max}", self.integrity)
+        };
+        Message::new(Kind::Game)
+            .span(Style::Ice, &self.name)
+            .text(state)
     }
 }
 
@@ -78,20 +87,22 @@ impl World {
         if here.is_empty() {
             return None;
         }
-        let known: Vec<&str> = here
-            .iter()
-            .filter(|ice| ice.known)
-            .map(|ice| ice.name.as_str())
-            .collect();
+        let known: Vec<&Ice> = here.iter().copied().filter(|ice| ice.known).collect();
         let unknown = here.len() - known.len();
         let mut message = Message::game("ICE: ");
-        if !known.is_empty() {
-            message = listed(message, Style::Ice, known);
-            if unknown > 0 {
+        for (index, ice) in known.iter().enumerate() {
+            if index > 0 {
                 message = message.text(", ");
+            }
+            message = message.span(Style::Ice, &ice.name);
+            if ice.broken() {
+                message = message.text(" (broken)");
             }
         }
         if unknown > 0 {
+            if !known.is_empty() {
+                message = message.text(", ");
+            }
             message = message
                 .text(format!("{unknown} unknown. Type "))
                 .span(Style::Command, "scan")

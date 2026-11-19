@@ -31,9 +31,17 @@ pub(crate) fn walk(lines: &[&str]) -> (Vec<String>, Option<String>) {
     let (mut world, player) = joined();
     let mut last = Vec::new();
     for line in lines {
-        last = plain(&world.command(player, line));
+        last = plain(&step(&mut world, player, line));
     }
     (last, world.prompt(player))
+}
+
+pub(crate) fn step(world: &mut World, player: PlayerId, line: &str) -> Vec<Output> {
+    let Some(count) = line.strip_prefix('~') else {
+        return world.command(player, line);
+    };
+    let count: usize = count.parse().unwrap_or(1);
+    (0..count).flat_map(|_| world.tick()).collect()
 }
 
 pub(crate) fn run(line: &str) -> Vec<String> {

@@ -4,6 +4,8 @@ use super::run::Run;
 use super::{PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::{self, Command, Item};
 
+const CRACK: u32 = 15;
+
 impl World {
     pub(super) fn ready(&self, player: PlayerId, found: &[&Command]) -> Result<(), Message> {
         let programs: Vec<&str> = found
@@ -43,15 +45,11 @@ impl World {
         let mut step = Step::default();
         for ice in run.ice.iter_mut().filter(|ice| ice.host == here) {
             ice.known = true;
-            let state = format!(
-                ": {}, integrity {}/{}",
-                ice.title(),
-                ice.integrity,
-                ice.max()
-            );
-            let mut line = Message::new(Kind::Game)
-                .span(Style::Ice, &ice.name)
-                .text(state);
+            let mut line = ice.describe();
+            if ice.broken() {
+                step.shown.push(line);
+                continue;
+            }
             if let Some(target) = ice.guards {
                 line = line
                     .text(", guards ")
@@ -64,6 +62,56 @@ impl World {
             step.shown.push(Message::game("scan finds no ICE here."));
         }
         Ok(step)
+    }
+
+    pub(super) fn crack(
+        &mut self,
+        player: PlayerId,
+        args: &[String],
+        input: Option<Vec<Item>>,
+    ) -> Result<Step, Message> {
+        let names = self.targets(player, "crack", args, input)?;
+        let [name] = names.as_slice() else {
+            return Err(Message::error("crack takes one ICE at a time."));
+        };
+        let here = self.here(player);
+        let ice = self
+            .players
+            .get_mut(&player)
+            .and_then(|state| state.run.as_mut())
+            .and_then(|run| {
+                run.ice
+                    .iter_mut()
+                    .find(|ice| ice.host == here && &ice.name == name)
+            });
+        let Some(ice) = ice else {
+            return Ok(Step::default());
+        };
+        if ice.broken() {
+            return Err(Message::new(Kind::Error)
+                .span(Style::Ice, name)
+                .text(" is already broken."));
+        }
+        let before = ice.integrity;
+        ice.integrity = before.saturating_sub(CRACK);
+        if !ice.broken() {
+            let after = ice.integrity;
+            return Ok(Step::show(vec![
+                Message::game("crack hits ")
+                    .span(Style::Ice, name)
+                    .text(format!(". Integrity: {before} -> {after}.")),
+            ]));
+        }
+        let mut message = Message::game("crack breaks ")
+            .span(Style::Ice, name)
+            .text(".");
+        if let Some(target) = ice.guards {
+            message = message
+                .text(" The route to ")
+                .span(Style::Host, &self.hosts[target.0].id)
+                .text(" is open.");
+        }
+        Ok(Step::show(vec![message]))
     }
 
     pub(super) fn probe(
@@ -83,18 +131,12 @@ impl World {
             .iter()
             .filter(|ice| ice.host == here && names.contains(&ice.name))
         {
-            let state = format!(
-                ": {}, integrity {}/{}. Weak point: {}.",
-                ice.title(),
-                ice.integrity,
-                ice.max(),
-                ice.kind.weakness()
-            );
-            step.shown.push(
-                Message::new(Kind::Game)
-                    .span(Style::Ice, &ice.name)
-                    .text(state),
-            );
+            if ice.broken() {
+                step.shown.push(ice.describe().text("."));
+                continue;
+            }
+            let weakness = format!(". Weak point: {}.", ice.kind.weakness());
+            step.shown.push(ice.describe().text(weakness));
             step.items.push(Item::Ice(ice.name.clone()));
         }
         Ok(step)
@@ -245,6 +287,68 @@ mod tests {
     fn a_program_that_fails_costs_nothing() {
         let shown = at_gate(&["probe sentry", "status | grep cycles"]);
         assert_eq!(shown, ["Cycles: 4/4"]);
+    }
+
+    #[test]
+    fn crack_hits_an_ice() {
+        assert_eq!(
+            at_gate(&["scan", "~", "crack warden"]),
+            ["crack hits warden. Integrity: 40 -> 25."]
+        );
+    }
+
+    #[test]
+    fn crack_breaks_an_ice_at_zero_integrity() {
+        let lines = ["scan", "~", "crack sentry", "~3", "crack sentry"];
+        assert_eq!(at_gate(&lines), ["crack breaks sentry."]);
+        let lines = [&lines[..], &["look"]].concat();
+        assert_eq!(last(&at_gate(&lines)), Some("ICE: sentry (broken), warden"));
+    }
+
+    #[test]
+    fn a_broken_warden_opens_its_route() {
+        let lines = [
+            "scan",
+            "~",
+            "crack warden",
+            "~3",
+            "crack warden",
+            "~3",
+            "crack warden",
+        ];
+        assert_eq!(
+            at_gate(&lines),
+            ["crack breaks warden. The route to vault is open."]
+        );
+        let lines = [&lines[..], &["go vault"]].concat();
+        assert_eq!(at_gate(&lines)[0], "Lab Vault");
+    }
+
+    #[test]
+    fn a_broken_ice_cannot_be_cracked_again() {
+        let lines = [
+            "scan",
+            "~",
+            "crack sentry",
+            "~3",
+            "crack sentry",
+            "~3",
+            "crack sentry",
+        ];
+        assert_eq!(at_gate(&lines), ["sentry is already broken."]);
+    }
+
+    #[test]
+    fn crack_takes_one_ice_at_a_time() {
+        assert_eq!(
+            at_gate(&["scan | crack"]),
+            ["crack takes one ICE at a time."]
+        );
+        assert_eq!(at_gate(&["status | grep cycles"]), ["Cycles: 4/4"]);
+        assert_eq!(
+            at_gate(&["scan | crack", "status | grep cycles"]),
+            ["Cycles: 2/4"]
+        );
     }
 
     #[test]
