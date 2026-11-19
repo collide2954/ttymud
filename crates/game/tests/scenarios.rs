@@ -10,12 +10,17 @@ fn replay(content: &Content, transcript: &str) -> Vec<String> {
     let mut world = World::new(content.clone(), 0);
     let (player, joined) = world.join("ghost");
     let mut lines: Vec<String> = joined.iter().map(|out| out.message.plain()).collect();
-    for command in transcript
-        .lines()
-        .filter_map(|line| line.strip_prefix("> "))
-    {
-        lines.push(format!("> {command}"));
-        let outputs = world.command(player, command);
+    for line in transcript.lines() {
+        let outputs = if let Some(command) = line.strip_prefix("> ") {
+            lines.push(format!("> {command}"));
+            world.command(player, command)
+        } else if let Some(count) = line.strip_prefix("~ ") {
+            lines.push(format!("~ {count}"));
+            let count: usize = count.trim().parse().unwrap_or(1);
+            (0..count).flat_map(|_| world.tick()).collect()
+        } else {
+            continue;
+        };
         lines.extend(outputs.iter().map(|out| out.message.plain()));
     }
     lines

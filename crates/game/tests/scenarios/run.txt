@@ -1,0 +1,39 @@
+# A run in the lab: scan, a combo against the sentry, a warden, and a clean exit.
+# A line that starts with ~ lets ticks go by.
+The Relay
+A crowded public node.
+Routes: market, back-room, bazaar
+Files: motd.txt, rules.txt
+> go back-room
+The Back Room
+Fixers drink here.
+Routes: relay, gate
+> go gate
+You connect to the network of Test Lab.
+Lab Gate
+The way into the lab.
+Routes: back-room, core, vault
+ICE: 2 unknown. Type scan to see them.
+> scan
+sentry: Sentry v1, integrity 20/20
+warden: Warden v1, integrity 40/40, guards vault
+sentry starts to compile ALERT (3 ticks).
+~ 2
+> probe sentry | crack
+crack breaks sentry through its weak point.
+> go vault
+warden blocks the route to vault.
+> status
+Trace: 8% in Test Lab
+Integrity: 100/100
+Cycles: 0/4
+RAM: 8/8 GB
+Programs: scan, probe, crack, scrub, patch
+~ 4
+> scrub
+scrub deletes your log lines. Trace: 8% -> 0%.
+> back
+You leave the network of Test Lab. Clean exit.
+The Back Room
+Fixers drink here.
+Routes: relay, gate
