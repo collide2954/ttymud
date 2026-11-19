@@ -2,19 +2,7 @@ use super::{ContentError, ContractDef, File, HostDef, IceDef, NetworkDef};
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::ice::IceKind;
-
-struct Section<'a> {
-    kind: &'a str,
-    id: &'a str,
-    line: usize,
-    pairs: Vec<Pair<'a>>,
-}
-
-struct Pair<'a> {
-    key: &'a str,
-    value: &'a str,
-    line: usize,
-}
+use crate::ini::{self, Section};
 
 #[derive(Clone, Copy)]
 enum Name {
@@ -42,9 +30,13 @@ pub(super) struct Reader {
 
 impl Reader {
     pub(super) fn read(text: &str) -> Self {
-        let mut reader = Self::default();
-        for section in reader.sections(text) {
-            reader.section(&section);
+        let (sections, errors) = ini::read(text);
+        let mut reader = Self {
+            errors,
+            ..Self::default()
+        };
+        for section in &sections {
+            reader.section(section);
         }
         reader
     }
@@ -54,46 +46,6 @@ impl Reader {
             line,
             message: message.into(),
         });
-    }
-
-    fn sections<'a>(&mut self, text: &'a str) -> Vec<Section<'a>> {
-        let mut sections: Vec<Section<'a>> = Vec::new();
-        for (index, raw) in text.lines().enumerate() {
-            let line = index + 1;
-            let text = raw.trim();
-            if text.is_empty() || text.starts_with('#') {
-                continue;
-            }
-            if let Some(header) = text
-                .strip_prefix('[')
-                .and_then(|rest| rest.strip_suffix(']'))
-            {
-                match header.trim().split_once(' ') {
-                    Some((kind, id)) if !id.trim().is_empty() => sections.push(Section {
-                        kind,
-                        id: id.trim(),
-                        line,
-                        pairs: Vec::new(),
-                    }),
-                    _ => self.error(
-                        line,
-                        "section needs a type and a name, for example [host relay]",
-                    ),
-                }
-            } else if let Some((key, value)) = text.split_once('=') {
-                match sections.last_mut() {
-                    Some(section) => section.pairs.push(Pair {
-                        key: key.trim(),
-                        value: value.trim(),
-                        line,
-                    }),
-                    None => self.error(line, "key before the first section"),
-                }
-            } else {
-                self.error(line, format!("cannot read this line: {text}"));
-            }
-        }
-        sections
     }
 
     fn section(&mut self, section: &Section<'_>) {
