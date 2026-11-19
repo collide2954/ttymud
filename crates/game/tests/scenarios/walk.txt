@@ -16,6 +16,7 @@ prices.db
 The Bazaar
 Everything is for sale.
 Routes: relay, market
+Files: burn-list.txt
 > back
 The Night Market
 Stalls sell cracked firmware.

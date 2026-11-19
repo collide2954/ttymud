@@ -12,6 +12,7 @@ Be polite.
 The Bazaar
 Everything is for sale.
 Routes: relay, market
+Files: burn-list.txt
 > look | ls
 ls takes no input from a pipe.
 > grep x

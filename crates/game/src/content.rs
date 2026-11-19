@@ -32,6 +32,7 @@ pub struct Content {
     pub(crate) city: String,
     pub(crate) start: String,
     pub(crate) home: Option<String>,
+    pub(crate) burns: Option<String>,
     pub(crate) contract: Option<String>,
     pub(crate) networks: Vec<NetworkDef>,
     pub(crate) hosts: Vec<HostDef>,

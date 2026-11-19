@@ -17,6 +17,7 @@ impl Reader {
             city: self.city_name.unwrap_or_default(),
             start: self.start.unwrap_or_default().0,
             home: self.home.map(|(home, _)| home),
+            burns: self.burns.map(|(host, _)| host),
             contract: self.contract.map(|(id, _)| id),
             networks: self
                 .networks
@@ -159,11 +160,14 @@ impl Reader {
                 self.error(line, format!("start is an unknown host: {start}"));
             }
         }
-        if let Some((home, line)) = self.home.clone() {
-            if !self.has_host(&home) {
-                self.error(line, format!("home is an unknown host: {home}"));
-            } else if self.network_of(&home).is_some() {
-                self.error(line, format!("home is in a network: {home}"));
+        for (key, value) in [("home", self.home.clone()), ("burns", self.burns.clone())] {
+            let Some((host, line)) = value else {
+                continue;
+            };
+            if !self.has_host(&host) {
+                self.error(line, format!("{key} is an unknown host: {host}"));
+            } else if self.network_of(&host).is_some() {
+                self.error(line, format!("{key} is in a network: {host}"));
             }
         }
     }

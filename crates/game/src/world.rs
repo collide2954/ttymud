@@ -1,4 +1,5 @@
 mod account;
+mod burns;
 mod chat;
 mod complete;
 mod contract;
@@ -108,6 +109,7 @@ pub struct World {
     hosts: Vec<Host>,
     start: HostId,
     home: Option<HostId>,
+    burns_host: Option<HostId>,
     contracts: Vec<Contract>,
     offer: Option<usize>,
     players: BTreeMap<PlayerId, Player>,
@@ -193,10 +195,11 @@ impl World {
                 security: network.security,
             })
             .collect();
-        Self {
+        let mut world = Self {
             city: content.city,
             start: find(&content.start),
             home: content.home.as_deref().map(find),
+            burns_host: content.burns.as_deref().map(find),
             contracts,
             offer,
             networks,
@@ -206,7 +209,9 @@ impl World {
             next_player: 0,
             outbox: Vec::new(),
             random: Random::new(seed),
-        }
+        };
+        world.post_burns();
+        world
     }
 
     pub fn join(&mut self, name: &str) -> (PlayerId, Vec<Output>) {

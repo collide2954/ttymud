@@ -25,6 +25,20 @@ network = n
 ";
 
 #[test]
+fn the_city_can_name_a_host_for_the_burn_list() {
+    let text = NET.replace("start = a", "start = a\nburns = a");
+    assert_eq!(Content::parse(&text).unwrap().burns.as_deref(), Some("a"));
+    assert_eq!(
+        errors(&NET.replace("start = a", "start = a\nburns = x")),
+        ["line 4: burns is an unknown host: x"]
+    );
+    assert_eq!(
+        errors(&NET.replace("start = a", "start = a\nburns = b")),
+        ["line 4: burns is in a network: b"]
+    );
+}
+
+#[test]
 fn a_network_has_a_security_level() {
     let text = NET.replace("name = N\n", "name = N\nsecurity = high\n");
     let content = Content::parse(&text).unwrap();
