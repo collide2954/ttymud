@@ -54,13 +54,26 @@ impl World {
             }
             None => pick(args, &here)?,
         };
-        let shown = match self.players.get_mut(&player) {
-            Some(state) => files
-                .into_iter()
-                .map(|file| store(&mut state.rig.files, file))
-                .collect(),
-            None => Vec::new(),
+        let Some(state) = self.players.get_mut(&player) else {
+            return Ok(Step::default());
         };
+        let mut shown = Vec::new();
+        for file in files {
+            if state.rig.files.iter().any(|known| known.name == file.name) {
+                let name = &file.name;
+                shown.push(Message::game(format!("{name} is already on your rig.")));
+                continue;
+            }
+            shown.push(
+                Message::game("Downloaded ")
+                    .span(Style::File, &file.name)
+                    .text("."),
+            );
+            if let Some(run) = &mut state.run {
+                run.loot.push(file.name.clone());
+            }
+            state.rig.files.push(file);
+        }
         Ok(Step {
             shown,
             items: Vec::new(),
@@ -124,18 +137,6 @@ fn piped_files(command: &str, items: Vec<Item>) -> Result<Vec<File>, Message> {
         )));
     }
     Ok(files)
-}
-
-fn store(rig: &mut Vec<File>, file: File) -> Message {
-    if rig.iter().any(|known| known.name == file.name) {
-        let name = &file.name;
-        return Message::game(format!("{name} is already on your rig."));
-    }
-    let message = Message::game("Downloaded ")
-        .span(Style::File, &file.name)
-        .text(".");
-    rig.push(file);
-    message
 }
 
 #[cfg(test)]

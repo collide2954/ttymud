@@ -26,16 +26,16 @@ pub(super) fn help(args: &[String]) -> Result<Step, Message> {
 impl World {
     pub(super) fn available(&self, player: PlayerId) -> Step {
         let host = &self.hosts[self.here(player).0];
-        let hops = self
-            .players
-            .get(&player)
-            .map_or(0, |state| state.chain.len());
+        let state = self.players.get(&player);
+        let hops = state.map_or(0, |state| state.chain.len());
+        let running = state.is_some_and(|state| state.run.is_some());
         let readable = !self.readable(player).is_empty();
         let names = COMMANDS
             .iter()
             .filter(|command| match command.verb {
                 Verb::Go => !host.routes.is_empty(),
                 Verb::Back => hops > 1,
+                Verb::Jackout => running,
                 Verb::Read => readable,
                 Verb::Download => !host.files.is_empty(),
                 Verb::Available => false,
@@ -160,6 +160,12 @@ mod tests {
             run("?"),
             ["Here you can use: look, ls, go, read, download, inventory, status, grep, say, help"]
         );
+    }
+
+    #[test]
+    fn question_mark_adds_jackout_during_a_run() {
+        let shown = walk(&["go back-room", "go gate", "?"]).0;
+        assert!(shown[0].contains(" status, jackout, grep,"), "{shown:?}");
     }
 
     #[test]

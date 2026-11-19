@@ -10,6 +10,7 @@ pub(crate) enum Verb {
     Download,
     Inventory,
     Status,
+    Jackout,
     Grep,
     Say,
     Help,
@@ -129,6 +130,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         example: "status",
         takes: Takes::Nothing,
         output: true,
+    },
+    Command {
+        verb: Verb::Jackout,
+        names: &["jackout"],
+        usage: "jackout",
+        summary: "Drop the link to the target at once. It costs integrity.",
+        example: "jackout",
+        takes: Takes::Nothing,
+        output: false,
     },
     Command {
         verb: Verb::Grep,
