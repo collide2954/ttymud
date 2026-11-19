@@ -1,9 +1,12 @@
 use std::collections::HashMap;
-use std::sync::mpsc;
+use std::sync::mpsc::{self, RecvTimeoutError};
+use std::time::Instant;
 
 use ttymud_game::{Completion, Output, PlayerId, World};
 use ttymud_net::PublicKey;
 use ttymud_wire::ServerMessage;
+
+use crate::ticker::{TICK, Ticker};
 
 const TAKEN_OVER: &str = "You connected from another place.";
 
@@ -40,8 +43,16 @@ struct Link {
 
 pub(crate) fn run(world: World, inbox: &mpsc::Receiver<Event>) {
     let mut game = Game::new(world);
-    for event in inbox {
-        game.handle(event);
+    let mut ticker = Ticker::new(TICK, Instant::now());
+    loop {
+        match inbox.recv_timeout(ticker.left(Instant::now())) {
+            Ok(event) => game.handle(event),
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => return,
+        }
+        if ticker.due(Instant::now()) {
+            game.tick();
+        }
     }
 }
 
@@ -113,6 +124,11 @@ impl Game {
         };
         let Completion { word, names } = self.world.complete(player, text);
         self.send(player, ServerMessage::Candidates { word, names });
+    }
+
+    fn tick(&mut self) {
+        let outputs = self.world.tick();
+        self.deliver(outputs);
     }
 
     fn leave(&mut self, connection: u64) {
