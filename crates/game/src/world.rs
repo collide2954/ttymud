@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use ttymud_text::{Kind, Message, Style};
 
-use crate::commands::{self, Command, Verb};
+use crate::commands::{self, Command, Item, Verb};
 use crate::content::{Content, File};
 use crate::matching;
 use crate::parse::{self, ParseError, Stage};
@@ -114,16 +114,17 @@ impl World {
             };
             found.push(command);
         }
-        if let Some(command) = found.iter().skip(1).find(|command| !command.takes_input) {
-            let name = command.name();
-            return vec![Message::error(format!(
-                "{name} takes no input from a pipe."
-            ))];
+        if let Err(problem) = commands::check(&found) {
+            return vec![Message::error(problem)];
         }
+        let mut input = None;
         let mut shown = Vec::new();
         for (command, stage) in found.iter().zip(stages) {
-            match self.execute(player, command, &stage.args) {
-                Ok(messages) => shown = messages,
+            match self.execute(player, command, &stage.args, input.take()) {
+                Ok(step) => {
+                    shown = step.shown;
+                    input = Some(step.items);
+                }
                 Err(message) => return vec![message],
             }
         }
@@ -135,16 +136,27 @@ impl World {
         player: PlayerId,
         command: &Command,
         args: &[String],
-    ) -> Result<Vec<Message>, Message> {
-        if !args.is_empty() {
-            let name = command.name();
-            return Err(Message::error(format!("{name} takes no arguments.")));
-        }
+        input: Option<Vec<Item>>,
+    ) -> Result<Step, Message> {
         let here = self.here(player);
-        Ok(match command.verb {
-            Verb::Look => self.scene(here),
-            Verb::List => self.listing(here),
-        })
+        match command.verb {
+            Verb::Look => {
+                no_args(command, args)?;
+                Ok(Step {
+                    shown: self.scene(here),
+                    items: self.items(here),
+                })
+            }
+            Verb::List => {
+                no_args(command, args)?;
+                let items = self.items(here);
+                Ok(Step {
+                    shown: listing(&items),
+                    items,
+                })
+            }
+            Verb::Grep => grep(args, input.unwrap_or_default()),
+        }
     }
 
     fn here(&self, player: PlayerId) -> HostId {
@@ -154,16 +166,13 @@ impl World {
             .unwrap_or(self.start)
     }
 
-    fn listing(&self, id: HostId) -> Vec<Message> {
+    fn items(&self, id: HostId) -> Vec<Item> {
         let host = &self.hosts[id.0];
-        let routes = host.routes.iter().map(|route| {
-            let name = format!("{}/", self.hosts[route.0].id);
-            Message::new(Kind::Game).span(Style::Host, name)
-        });
-        let files = host
-            .files
+        let routes = host
+            .routes
             .iter()
-            .map(|file| Message::new(Kind::Game).span(Style::File, &file.name));
+            .map(|route| Item::Route(self.hosts[route.0].id.clone()));
+        let files = host.files.iter().cloned().map(Item::File);
         routes.chain(files).collect()
     }
 
@@ -184,6 +193,49 @@ impl World {
         }
         scene
     }
+}
+
+struct Step {
+    shown: Vec<Message>,
+    items: Vec<Item>,
+}
+
+fn no_args(command: &Command, args: &[String]) -> Result<(), Message> {
+    if args.is_empty() {
+        Ok(())
+    } else {
+        let name = command.name();
+        Err(Message::error(format!("{name} takes no arguments.")))
+    }
+}
+
+fn grep(args: &[String], items: Vec<Item>) -> Result<Step, Message> {
+    let [pattern] = args else {
+        return Err(Message::error(
+            "Usage: grep <pattern>. Example: ls | grep txt",
+        ));
+    };
+    let needle = pattern.to_lowercase();
+    let items: Vec<Item> = items
+        .into_iter()
+        .filter(|item| item.name().to_lowercase().contains(&needle))
+        .collect();
+    let shown = if items.is_empty() {
+        vec![Message::game(format!("No match for {pattern}."))]
+    } else {
+        listing(&items)
+    };
+    Ok(Step { shown, items })
+}
+
+fn listing(items: &[Item]) -> Vec<Message> {
+    items
+        .iter()
+        .map(|item| match item {
+            Item::Route(id) => Message::new(Kind::Game).span(Style::Host, format!("{id}/")),
+            Item::File(file) => Message::new(Kind::Game).span(Style::File, &file.name),
+        })
+        .collect()
 }
 
 fn unknown(name: &str) -> Message {
@@ -338,6 +390,47 @@ mod tests {
     #[test]
     fn commands_without_input_reject_pipes() {
         assert_eq!(run("look | ls"), ["ls takes no input from a pipe."]);
+    }
+
+    #[test]
+    fn grep_filters_piped_items() {
+        assert_eq!(run("ls | grep txt"), ["motd.txt", "rules.txt"]);
+    }
+
+    #[test]
+    fn grep_ignores_case() {
+        assert_eq!(run("ls | grep MARKET"), ["market/"]);
+    }
+
+    #[test]
+    fn look_pipes_the_same_items_as_ls() {
+        assert_eq!(run("look | grep ba"), ["back-room/", "bazaar/"]);
+    }
+
+    #[test]
+    fn grep_can_follow_grep() {
+        assert_eq!(run("ls | grep a | grep ba"), ["back-room/", "bazaar/"]);
+    }
+
+    #[test]
+    fn grep_without_a_match_says_so() {
+        assert_eq!(run("ls | grep zzz"), ["No match for zzz."]);
+    }
+
+    #[test]
+    fn grep_needs_input() {
+        assert_eq!(
+            run("grep txt"),
+            ["grep needs input from a pipe. Example: ls | grep txt"]
+        );
+    }
+
+    #[test]
+    fn grep_needs_one_pattern() {
+        assert_eq!(
+            run("ls | grep"),
+            ["Usage: grep <pattern>. Example: ls | grep txt"]
+        );
     }
 
     #[test]
