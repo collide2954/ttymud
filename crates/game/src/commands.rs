@@ -12,6 +12,7 @@ pub(crate) enum Verb {
     Status,
     Jackout,
     Repair,
+    Scan,
     Grep,
     Say,
     Help,
@@ -22,6 +23,7 @@ pub(crate) enum Verb {
 pub(crate) enum Item {
     Route(String),
     File(File),
+    Ice(String),
     Line(String),
 }
 
@@ -30,7 +32,7 @@ impl Item {
         match self {
             Self::Route(id) => id,
             Self::File(file) => &file.name,
-            Self::Line(text) => text,
+            Self::Ice(name) | Self::Line(name) => name,
         }
     }
 }
@@ -149,6 +151,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         example: "repair",
         takes: Takes::Nothing,
         output: false,
+    },
+    Command {
+        verb: Verb::Scan,
+        names: &["scan"],
+        usage: "scan",
+        summary: "Find the ICE on this host.",
+        example: "scan",
+        takes: Takes::Nothing,
+        output: true,
     },
     Command {
         verb: Verb::Grep,

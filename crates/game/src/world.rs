@@ -3,8 +3,10 @@ mod complete;
 mod files;
 mod grep;
 mod help;
+mod ice;
 mod movement;
 mod presence;
+mod programs;
 mod rig;
 mod run;
 
@@ -13,7 +15,7 @@ use std::collections::BTreeMap;
 use ttymud_text::{Kind, Message, Style, sanitize};
 
 use crate::commands::{self, Command, Item, Verb};
-use crate::content::{Content, File};
+use crate::content::{Content, File, IceDef};
 use crate::matching::{self, Found};
 use crate::parse::{self, ParseError, Stage};
 
@@ -50,6 +52,7 @@ struct Host {
     network: Option<NetworkId>,
     routes: Vec<HostId>,
     files: Vec<File>,
+    ice: Vec<IceDef>,
 }
 
 #[derive(Debug)]
@@ -118,6 +121,7 @@ impl World {
                 network: def.network.as_deref().and_then(network),
                 routes: Vec::new(),
                 files: def.files,
+                ice: def.ice,
             });
         }
         for (from, to) in links {
@@ -287,6 +291,10 @@ impl World {
                 no_args(command, args)?;
                 self.repair(player)
             }
+            Verb::Scan => {
+                no_args(command, args)?;
+                self.scan(player)
+            }
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Help => help::help(args),
@@ -333,6 +341,7 @@ impl World {
             let files = host.files.iter().map(|file| file.name.as_str());
             scene.push(listed(Message::game("Files: "), Style::File, files));
         }
+        scene.extend(self.ice_line(id, viewer));
         let present: Vec<&str> = self.others(id, viewer).map(|(_, name)| name).collect();
         if !present.is_empty() {
             scene.push(listed(Message::game("Here: "), Style::Player, present));
@@ -364,6 +373,7 @@ fn listing(items: &[Item]) -> Vec<Message> {
         .map(|item| match item {
             Item::Route(id) => Message::new(Kind::Game).span(Style::Host, format!("{id}/")),
             Item::File(file) => Message::new(Kind::Game).span(Style::File, &file.name),
+            Item::Ice(name) => Message::new(Kind::Game).span(Style::Ice, name),
             Item::Line(text) => Message::game(text),
         })
         .collect()

@@ -1,4 +1,82 @@
-use super::{Content, File, NetworkDef};
+use super::{Content, File, IceDef, NetworkDef};
+use crate::ice::IceKind;
+
+const NET: &str = "\
+[city t]
+name = T
+start = a
+[host a]
+name = A
+desc = A.
+[network n]
+name = N
+[host b]
+name = B
+desc = B.
+network = n
+route = a
+route = c
+[host c]
+name = C
+desc = C.
+network = n
+";
+
+#[test]
+fn ice_belongs_to_its_host() {
+    let text =
+        format!("{NET}[ice b/sentry]\ntype = sentry\n[ice b/hound]\ntype = hound\nversion = 2\n");
+    let content = Content::parse(&text).unwrap();
+    let ice = |name: &str, kind, version| IceDef {
+        name: name.to_owned(),
+        kind,
+        version,
+    };
+    assert_eq!(
+        content.hosts[1].ice,
+        [
+            ice("sentry", IceKind::Sentry, 1),
+            ice("hound", IceKind::Hound, 2)
+        ]
+    );
+    assert_eq!(content.hosts[2].ice, []);
+}
+
+#[test]
+fn bad_ice_fails() {
+    let text = format!(
+        "{NET}\
+[ice a/sentry]
+type = sentry
+[ice b/x]
+type = dragon
+[ice b/hound]
+type = hound
+version = 10
+[ice z/sentry]
+type = sentry
+[ice c/twin]
+type = sentry
+[ice c/twin]
+type = scorch
+[ice c/blank]
+[ice nohost]
+type = sentry
+"
+    );
+    assert_eq!(
+        errors(&text),
+        [
+            "line 19: ice must be on a host in a network: a/sentry",
+            "line 22: unknown ICE type: dragon (use sentry, warden, hound, or scorch)",
+            "line 25: bad ICE version: 10 (use 1 to 9)",
+            "line 26: ice is on an unknown host: z",
+            "line 30: ice c/twin is defined more than once",
+            "line 32: ice c/blank has no type",
+            "line 33: ice needs a host and a name, for example [ice gate/sentry]",
+        ]
+    );
+}
 
 const CITY: &str = "\
 # A small city.

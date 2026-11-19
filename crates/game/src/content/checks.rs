@@ -3,78 +3,11 @@ use super::{Content, ContentError, HostDef};
 
 impl Reader {
     pub(super) fn finish(mut self) -> Result<Content, Vec<ContentError>> {
-        for (host, file, line) in std::mem::take(&mut self.files) {
-            let position = self.hosts.iter().position(|(def, _)| def.id == host);
-            match position {
-                None => self.error(line, format!("file is on an unknown host: {host}")),
-                Some(index)
-                    if self.hosts[index]
-                        .0
-                        .files
-                        .iter()
-                        .any(|f| f.name == file.name) =>
-                {
-                    let name = &file.name;
-                    self.error(
-                        line,
-                        format!("file {host}/{name} is defined more than once"),
-                    );
-                }
-                Some(index) => self.hosts[index].0.files.push(file),
-            }
-        }
-        for (host, network, line) in std::mem::take(&mut self.members) {
-            if !self.networks.iter().any(|(def, _)| def.id == network) {
-                self.error(
-                    line,
-                    format!("host {host} is in an unknown network: {network}"),
-                );
-            }
-        }
-        let empty: Vec<(String, usize)> = self
-            .networks
-            .iter()
-            .filter(|(def, _)| self.members_of(&def.id) == 0)
-            .map(|(def, line)| (def.id.clone(), *line))
-            .collect();
-        for (id, line) in empty {
-            self.error(line, format!("network {id} has no hosts"));
-        }
-        for (from, to, line) in std::mem::take(&mut self.routes) {
-            let crossing = matches!(
-                (self.network_of(&from), self.network_of(&to)),
-                (Some(a), Some(b)) if a != b
-            );
-            if from == to {
-                self.error(line, format!("host {from} has a route to itself"));
-            } else if !self.has_host(&to) {
-                self.error(line, format!("route to an unknown host: {to}"));
-            } else if crossing {
-                self.error(line, format!("route between two networks: {from} and {to}"));
-            }
-        }
-        if self.city.is_none() {
-            self.error(0, "no city section");
-        }
-        if let Some((start, line)) = self.start.clone() {
-            if self.has_host(&start) {
-                for (id, line) in unreachable(&self.hosts, &start) {
-                    self.error(
-                        line,
-                        format!("host {id} cannot be reached from the start host"),
-                    );
-                }
-            } else {
-                self.error(line, format!("start is an unknown host: {start}"));
-            }
-        }
-        if let Some((home, line)) = self.home.clone() {
-            if !self.has_host(&home) {
-                self.error(line, format!("home is an unknown host: {home}"));
-            } else if self.network_of(&home).is_some() {
-                self.error(line, format!("home is in a network: {home}"));
-            }
-        }
+        self.place_files();
+        self.place_ice();
+        self.check_networks();
+        self.check_routes();
+        self.check_city();
         self.errors.sort_by_key(|error| error.line);
         if !self.errors.is_empty() {
             return Err(self.errors);
@@ -90,6 +23,105 @@ impl Reader {
                 .collect(),
             hosts: self.hosts.into_iter().map(|(host, _)| host).collect(),
         })
+    }
+
+    fn position(&self, host: &str) -> Option<usize> {
+        self.hosts.iter().position(|(def, _)| def.id == host)
+    }
+
+    fn place_files(&mut self) {
+        for (host, file, line) in std::mem::take(&mut self.files) {
+            let name = &file.name;
+            let Some(index) = self.position(&host) else {
+                self.error(line, format!("file is on an unknown host: {host}"));
+                continue;
+            };
+            let files = &mut self.hosts[index].0.files;
+            if files.iter().any(|known| known.name == file.name) {
+                self.error(
+                    line,
+                    format!("file {host}/{name} is defined more than once"),
+                );
+            } else {
+                files.push(file);
+            }
+        }
+    }
+
+    fn place_ice(&mut self) {
+        for (host, ice, line) in std::mem::take(&mut self.ice) {
+            let name = &ice.name;
+            let Some(index) = self.position(&host) else {
+                self.error(line, format!("ice is on an unknown host: {host}"));
+                continue;
+            };
+            let def = &self.hosts[index].0;
+            if def.network.is_none() {
+                let message = format!("ice must be on a host in a network: {host}/{name}");
+                self.error(line, message);
+            } else if def.ice.iter().any(|known| known.name == ice.name) {
+                self.error(line, format!("ice {host}/{name} is defined more than once"));
+            } else {
+                self.hosts[index].0.ice.push(ice);
+            }
+        }
+    }
+
+    fn check_networks(&mut self) {
+        for (host, network, line) in std::mem::take(&mut self.members) {
+            if !self.networks.iter().any(|(def, _)| def.id == network) {
+                let message = format!("host {host} is in an unknown network: {network}");
+                self.error(line, message);
+            }
+        }
+        let empty: Vec<(String, usize)> = self
+            .networks
+            .iter()
+            .filter(|(def, _)| self.members_of(&def.id) == 0)
+            .map(|(def, line)| (def.id.clone(), *line))
+            .collect();
+        for (id, line) in empty {
+            self.error(line, format!("network {id} has no hosts"));
+        }
+    }
+
+    fn check_routes(&mut self) {
+        for (from, to, line) in std::mem::take(&mut self.routes) {
+            let crossing = matches!(
+                (self.network_of(&from), self.network_of(&to)),
+                (Some(a), Some(b)) if a != b
+            );
+            if from == to {
+                self.error(line, format!("host {from} has a route to itself"));
+            } else if !self.has_host(&to) {
+                self.error(line, format!("route to an unknown host: {to}"));
+            } else if crossing {
+                self.error(line, format!("route between two networks: {from} and {to}"));
+            }
+        }
+    }
+
+    fn check_city(&mut self) {
+        if self.city.is_none() {
+            self.error(0, "no city section");
+        }
+        if let Some((start, line)) = self.start.clone() {
+            if self.has_host(&start) {
+                for (id, line) in unreachable(&self.hosts, &start) {
+                    let message = format!("host {id} cannot be reached from the start host");
+                    self.error(line, message);
+                }
+            } else {
+                self.error(line, format!("start is an unknown host: {start}"));
+            }
+        }
+        if let Some((home, line)) = self.home.clone() {
+            if !self.has_host(&home) {
+                self.error(line, format!("home is an unknown host: {home}"));
+            } else if self.network_of(&home).is_some() {
+                self.error(line, format!("home is in a network: {home}"));
+            }
+        }
     }
 }
 

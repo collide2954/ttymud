@@ -1,4 +1,5 @@
-use super::{ContentError, File, HostDef, NetworkDef};
+use super::{ContentError, File, HostDef, IceDef, NetworkDef};
+use crate::ice::IceKind;
 
 struct Section<'a> {
     kind: &'a str,
@@ -31,6 +32,7 @@ pub(super) struct Reader {
     pub(super) members: Vec<(String, String, usize)>,
     pub(super) routes: Vec<(String, String, usize)>,
     pub(super) files: Vec<(String, File, usize)>,
+    pub(super) ice: Vec<(String, IceDef, usize)>,
 }
 
 impl Reader {
@@ -95,6 +97,7 @@ impl Reader {
             "network" => self.network(section),
             "host" => self.host(section),
             "file" => self.file(section),
+            "ice" => self.ice(section),
             other => self.error(section.line, format!("unknown section type: {other}")),
         }
     }
@@ -162,8 +165,53 @@ impl Reader {
             network: network.map(|(network, _)| network),
             routes: routes.into_iter().map(|(target, _)| target).collect(),
             files: Vec::new(),
+            ice: Vec::new(),
         };
         self.hosts.push((host, section.line));
+    }
+
+    fn ice(&mut self, section: &Section<'_>) {
+        self.allow(section, &["type", "version"]);
+        let Some((host, name)) = section.id.split_once('/') else {
+            self.error(
+                section.line,
+                "ice needs a host and a name, for example [ice gate/sentry]",
+            );
+            return;
+        };
+        self.check_name(section.line, host, Name::Plain);
+        self.check_name(section.line, name, Name::Plain);
+        let kind = self.single(section, "type").and_then(|(word, line)| {
+            let kind = IceKind::find(&word);
+            if kind.is_none() {
+                self.error(
+                    line,
+                    format!("unknown ICE type: {word} (use sentry, warden, hound, or scorch)"),
+                );
+            }
+            kind
+        });
+        let version = match self.optional(section, "version") {
+            None => Some(1),
+            Some((word, line)) => {
+                let version = word
+                    .parse()
+                    .ok()
+                    .filter(|version| (1..=9).contains(version));
+                if version.is_none() {
+                    self.error(line, format!("bad ICE version: {word} (use 1 to 9)"));
+                }
+                version
+            }
+        };
+        if let (Some(kind), Some(version)) = (kind, version) {
+            let ice = IceDef {
+                name: name.to_owned(),
+                kind,
+                version,
+            };
+            self.ice.push((host.to_owned(), ice, section.line));
+        }
     }
 
     fn file(&mut self, section: &Section<'_>) {

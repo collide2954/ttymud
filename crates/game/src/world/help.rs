@@ -36,7 +36,7 @@ impl World {
             .filter(|command| match command.verb {
                 Verb::Go => !host.routes.is_empty(),
                 Verb::Back => hops > 1,
-                Verb::Jackout => running,
+                Verb::Jackout | Verb::Scan => running,
                 Verb::Repair => self.home == Some(here),
                 Verb::Read => readable,
                 Verb::Download => !host.files.is_empty(),
@@ -165,9 +165,13 @@ mod tests {
     }
 
     #[test]
-    fn question_mark_adds_jackout_during_a_run() {
-        let shown = walk(&["go back-room", "go gate", "?"]).0;
-        assert!(shown[0].contains(" status, jackout, grep,"), "{shown:?}");
+    fn question_mark_adds_the_run_commands_during_a_run() {
+        let outside = run("?");
+        let inside = walk(&["go back-room", "go gate", "?"]).0;
+        for name in ["jackout", "scan"] {
+            assert!(!outside[0].contains(name), "{outside:?}");
+            assert!(inside[0].contains(name), "{inside:?}");
+        }
     }
 
     #[test]

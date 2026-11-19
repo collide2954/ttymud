@@ -1,5 +1,6 @@
 mod commands;
 mod content;
+mod ice;
 mod matching;
 mod parse;
 #[cfg(test)]

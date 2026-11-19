@@ -1,5 +1,6 @@
 use ttymud_text::{Message, Style};
 
+use super::ice::{Ice, deploy};
 use super::{HostId, NetworkId, PlayerId, Step, World};
 
 const SHOCK: u32 = 20;
@@ -11,6 +12,7 @@ pub(super) struct Run {
     pub(super) start: usize,
     pub(super) trace: u32,
     pub(super) loot: Vec<String>,
+    pub(super) ice: Vec<Ice>,
 }
 
 impl World {
@@ -81,6 +83,7 @@ impl World {
                     start: state.chain.len() - 1,
                     trace: 0,
                     loot: Vec::new(),
+                    ice: deploy(&self.hosts, network),
                 });
                 let name = &self.networks[network.0].name;
                 Some(Message::game(format!(

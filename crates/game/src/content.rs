@@ -7,6 +7,8 @@ use std::fmt;
 
 use reader::Reader;
 
+use crate::ice::IceKind;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContentError {
     pub line: usize,
@@ -46,6 +48,14 @@ pub(crate) struct HostDef {
     pub(crate) network: Option<String>,
     pub(crate) routes: Vec<String>,
     pub(crate) files: Vec<File>,
+    pub(crate) ice: Vec<IceDef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct IceDef {
+    pub(crate) name: String,
+    pub(crate) kind: IceKind,
+    pub(crate) version: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
