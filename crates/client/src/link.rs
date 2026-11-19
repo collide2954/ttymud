@@ -13,6 +13,7 @@ const TIMEOUT: Duration = Duration::from_secs(10);
 pub struct Link {
     pub receiver: Receiver<TcpStream>,
     pub sender: Sender<TcpStream>,
+    pub control: TcpStream,
     pub server: PublicKey,
 }
 
@@ -84,10 +85,12 @@ pub fn connect(
             });
         }
     }
+    let control = stream.try_clone()?;
     let (receiver, sender) = session.split(stream.try_clone()?, stream);
     Ok(Link {
         receiver,
         sender,
+        control,
         server,
     })
 }
@@ -96,36 +99,25 @@ pub fn connect(
 mod tests {
     use std::cell::Cell;
     use std::fs;
-    use std::net::{SocketAddr, TcpListener};
+    use std::net::{SocketAddr, TcpStream};
     use std::path::PathBuf;
     use std::thread;
     use std::time::Duration;
 
-    use ttymud_net::{Keys, PublicKey};
+    use ttymud_net::{Keys, PublicKey, Receiver, Sender};
     use ttymud_wire::ServerMessage;
 
     use super::{ConnectError, connect};
     use crate::KnownServers;
+    use crate::testing::send;
+
+    fn prompt(_: Receiver<TcpStream>, mut sender: Sender<TcpStream>) {
+        send(&mut sender, &ServerMessage::Prompt("$ ".to_owned()));
+        thread::sleep(Duration::from_secs(2));
+    }
 
     fn server() -> (SocketAddr, PublicKey) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
-        let keys = Keys::generate().unwrap();
-        let public = keys.public();
-        thread::spawn(move || {
-            for mut stream in listener.incoming().flatten() {
-                let keys = keys.clone();
-                thread::spawn(move || {
-                    let Ok(session) = ttymud_net::accept(&mut stream, &keys) else {
-                        return;
-                    };
-                    let (_, mut sender) = session.split(stream.try_clone().unwrap(), stream);
-                    let _ = sender.send(&ServerMessage::Prompt("$ ".to_owned()).encode());
-                    thread::sleep(Duration::from_secs(2));
-                });
-            }
-        });
-        (address, public)
+        crate::testing::server(prompt)
     }
 
     fn scratch(name: &str) -> PathBuf {
