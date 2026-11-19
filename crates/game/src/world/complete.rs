@@ -55,15 +55,9 @@ impl World {
                 .iter()
                 .map(|file| file.name.as_str())
                 .collect(),
-            (Verb::Probe | Verb::Crack | Verb::Pretext, _) => self
-                .players
-                .get(&player)
-                .and_then(|state| state.run.as_ref())
-                .into_iter()
-                .flat_map(|run| &run.ice)
-                .filter(|ice| ice.host == here && ice.known && !ice.broken())
-                .map(|ice| ice.name.as_str())
-                .collect(),
+            (Verb::Probe | Verb::Crack | Verb::Pretext, _) => {
+                self.targets_here(player, command.verb == Verb::Pretext)
+            }
             (Verb::Contract, 1) => vec!["drop"],
             (Verb::Tell | Verb::Ignore | Verb::Block | Verb::Report, 1) => self.online_names(),
             (Verb::Unignore | Verb::Unblock, 1) => {
@@ -125,6 +119,25 @@ impl World {
             }
             _ => Vec::new(),
         }
+    }
+}
+
+impl World {
+    fn targets_here(&self, player: PlayerId, analysts: bool) -> Vec<&str> {
+        let here = self.here(player);
+        let mut names: Vec<&str> = self
+            .players
+            .get(&player)
+            .and_then(|state| state.run.as_ref())
+            .into_iter()
+            .flat_map(|run| &run.ice)
+            .filter(|ice| ice.host == here && ice.known && !ice.broken())
+            .map(|ice| ice.name.as_str())
+            .collect();
+        if analysts {
+            names.extend(self.analyst_names(player));
+        }
+        names
     }
 }
 

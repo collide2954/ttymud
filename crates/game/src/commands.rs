@@ -494,7 +494,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         verb: Verb::Pretext,
         names: &["pretext"],
         usage: "pretext <warden>",
-        summary: "Talk your way past a warden.",
+        summary: "Talk your way past a warden, or make an analyst stop watching you.",
         example: "pretext warden",
         takes: Takes::Optional(Kinds::ICE),
         gives: Gives::Nothing,

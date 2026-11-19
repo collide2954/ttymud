@@ -54,6 +54,11 @@ impl World {
         args: &[String],
         input: Option<Vec<Item>>,
     ) -> Result<Step, Message> {
+        if let ([word], None) = (args, &input)
+            && let Some(fooled) = self.fool(player, word)
+        {
+            return fooled;
+        }
         let targets = self.targets(player, "pretext", args, input)?;
         let [(name, _)] = targets.as_slice() else {
             return Err(Message::error("pretext takes one warden at a time."));

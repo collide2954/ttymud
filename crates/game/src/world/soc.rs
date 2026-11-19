@@ -1,8 +1,9 @@
 use ttymud_text::{Kind, Message, Style};
 
 use super::run::MAX_TRACE;
-use super::{HostId, NetworkId, PlayerId, World};
+use super::{HostId, NetworkId, PlayerId, Step, World};
 use crate::random::{Random, mix};
+use crate::target::Level;
 
 const POOL: usize = 6;
 const DAY_STAFF: usize = 2;
@@ -48,6 +49,7 @@ pub(super) struct Analyst {
     pub(super) habit: Habit,
     pub(super) wait: u32,
     pub(super) target: Option<HostId>,
+    pub(super) fooled: bool,
 }
 
 pub(super) fn day_shift(now: u64) -> bool {
@@ -91,8 +93,44 @@ impl World {
                 habit,
                 wait: habit.every() + 2 * index,
                 target: None,
+                fooled: false,
             })
             .collect()
+    }
+
+    pub(super) fn analyst_names(&self, player: PlayerId) -> Vec<&str> {
+        let run = self
+            .players
+            .get(&player)
+            .and_then(|state| state.run.as_ref());
+        run.into_iter()
+            .flat_map(|run| &run.analysts)
+            .map(|analyst| analyst.name.as_str())
+            .collect()
+    }
+
+    pub(super) fn fool(&mut self, player: PlayerId, word: &str) -> Option<Result<Step, Message>> {
+        let run = self.players.get_mut(&player)?.run.as_mut()?;
+        let analyst = run
+            .analysts
+            .iter_mut()
+            .find(|analyst| analyst.name.eq_ignore_ascii_case(word))?;
+        let named = |rest: &str| {
+            Message::error("")
+                .span(Style::Player, &analyst.name)
+                .text(rest.to_owned())
+        };
+        if analyst.habit == Habit::Strict {
+            return Some(Err(named(" is strict and does not believe you.")));
+        }
+        if analyst.fooled {
+            return Some(Err(named(" already believes you.")));
+        }
+        (analyst.fooled, analyst.target) = (true, None);
+        let fooled = Message::game("You call the SOC as the help desk. ")
+            .span(Style::Player, &analyst.name)
+            .text(" believes you and stops watching this run.");
+        Some(Ok(Step::show(vec![fooled])))
     }
 
     pub(super) fn night_bonus(&self, network: NetworkId) -> u32 {
@@ -133,14 +171,14 @@ impl World {
             .max_by_key(|&&(_, noise)| noise)
             .map(|&(host, _)| host);
         let mut events = Vec::new();
-        for analyst in &mut run.analysts {
+        for analyst in run.analysts.iter_mut().filter(|analyst| !analyst.fooled) {
             analyst.wait = analyst.wait.saturating_sub(1);
             if analyst.wait > 0 {
                 continue;
             }
             if let Some(host) = analyst.target.take() {
                 analyst.wait = analyst.habit.every();
-                events.push((analyst.name.clone(), host, true));
+                events.push((analyst.name.clone(), analyst.habit, host, true));
                 continue;
             }
             let host = match analyst.habit {
@@ -153,14 +191,14 @@ impl World {
             };
             analyst.target = Some(host);
             analyst.wait = READ_TICKS;
-            events.push((analyst.name.clone(), host, false));
+            events.push((analyst.name.clone(), analyst.habit, host, false));
         }
         let mut shown = Vec::new();
-        for (name, host, read) in events {
+        for (name, habit, host, read) in events {
             if !self.running(player) {
                 break;
             }
-            shown.extend(self.soc_event(player, &name, host, read));
+            shown.extend(self.soc_event(player, (&name, habit), host, read));
         }
         shown
     }
@@ -168,7 +206,7 @@ impl World {
     fn soc_event(
         &mut self,
         player: PlayerId,
-        name: &str,
+        (name, habit): (&str, Habit),
         host: HostId,
         read: bool,
     ) -> Vec<Message> {
@@ -205,6 +243,18 @@ impl World {
         let mut shown = vec![line.text(format!(
             " and finds your trail. Trace: {before}% -> {after}%."
         ))];
+        if habit != Habit::Lazy && run.access > Level::Guest {
+            run.access = Level::Guest;
+            let network = &self.networks[run.network.0].name;
+            shown.push(
+                Message::new(Kind::Telegraph)
+                    .text("[SOC] Analyst ")
+                    .span(Style::Player, name)
+                    .text(format!(
+                        " locks your stolen account. Your access in {network}: guest."
+                    )),
+            );
+        }
         shown.extend(self.raise_trace(player, gain));
         shown
     }
@@ -213,6 +263,8 @@ impl World {
 #[cfg(test)]
 mod tests {
     use super::Habit;
+    use crate::commands::Verb;
+    use crate::target::Level;
     use crate::testing::{enter_job, hired_at, plain, walk};
     use crate::{PlayerId, World};
 
@@ -325,6 +377,105 @@ mod tests {
             world.tick();
         }
         assert_eq!(plain(&world.tick()), [nothing]);
+    }
+
+    fn set_up(world: &mut World, player: PlayerId, habits: &[Habit], access: Level) {
+        let Some(state) = world.players.get_mut(&player) else {
+            return;
+        };
+        state.rig.loads.push(Verb::Pretext);
+        state.rig.cycles = 20;
+        let Some(run) = state.run.as_mut() else {
+            return;
+        };
+        run.access = access;
+        for (analyst, &habit) in run.analysts.iter_mut().zip(habits) {
+            analyst.habit = habit;
+        }
+    }
+
+    #[test]
+    fn a_careful_or_strict_analyst_locks_your_stolen_account() {
+        let (mut world, player, name, here) = watched(NOON);
+        set_up(&mut world, player, &[Habit::Strict], Level::User);
+        world.command(player, "scan");
+        world.tick();
+        world.tick();
+        assert_eq!(
+            plain(&world.tick()),
+            [
+                format!(
+                    "[SOC] Analyst {name} reads the logs of {here} and finds your trail. Trace: 2% -> 9%."
+                ),
+                format!(
+                    "[SOC] Analyst {name} locks your stolen account. Your access in Acme Corp: guest."
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_lazy_analyst_does_not_lock_your_account() {
+        let (mut world, player, name, here) = watched(NOON);
+        set_up(&mut world, player, &[Habit::Lazy], Level::User);
+        world.command(player, "scan");
+        let host = world.here(player);
+        if let Some(run) = world
+            .players
+            .get_mut(&player)
+            .and_then(|state| state.run.as_mut())
+        {
+            run.analysts[0].target = Some(host);
+        }
+        assert_eq!(
+            plain(&world.tick()),
+            [format!(
+                "[SOC] Analyst {name} reads the logs of {here} and finds your trail. Trace: 2% -> 9%."
+            )]
+        );
+        let access = world
+            .players
+            .get(&player)
+            .and_then(|state| state.run.as_ref());
+        assert_eq!(access.map(|run| run.access), Some(Level::User));
+    }
+
+    #[test]
+    fn pretext_fools_a_careful_analyst_but_not_a_strict_one() {
+        let (mut world, player) = hired_at(NOON);
+        enter_job(&mut world, player);
+        set_up(
+            &mut world,
+            player,
+            &[Habit::Careful, Habit::Strict],
+            Level::Guest,
+        );
+        let names = staff(&world, player);
+        let (careful, strict) = (names[0].clone(), names[1].clone());
+        assert_eq!(
+            world.complete(player, "pretext ").names,
+            [careful.clone(), strict.clone()]
+        );
+        assert_eq!(
+            plain(&world.command(player, &format!("pretext {}", careful.to_uppercase())))[0],
+            format!(
+                "You call the SOC as the help desk. {careful} believes you and stops watching this run."
+            )
+        );
+        assert_eq!(
+            plain(&world.command(player, &format!("pretext {strict}"))),
+            [format!("{strict} is strict and does not believe you.")]
+        );
+        if let Some(run) = world
+            .players
+            .get_mut(&player)
+            .and_then(|state| state.run.as_mut())
+        {
+            run.ice.clear();
+            run.analysts[0].wait = 1;
+            run.analysts[1].wait = 100;
+        }
+        assert_eq!(plain(&world.tick()), Vec::<String>::new());
     }
 
     #[test]
