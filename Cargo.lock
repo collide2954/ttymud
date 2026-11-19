@@ -19,5 +19,9 @@ name = "ttymud-server"
 version = "0.1.0"
 
 [[package]]
+name = "ttymud-text"
+version = "0.1.0"
+
+[[package]]
 name = "ttymud-wire"
 version = "0.1.0"
