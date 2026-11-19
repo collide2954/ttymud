@@ -39,11 +39,11 @@ fn play_walks_the_default_city() -> io::Result<()> {
         .stdout(Stdio::piped())
         .spawn()?;
     if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(b"go night-market\nquit\n")?;
+        stdin.write_all(b"nyx\nghost\ngo night-market\nquit\n")?;
     }
     let output = child.wait_with_output()?;
     assert!(output.status.success());
-    assert!(String::from_utf8_lossy(&output.stdout).contains("guest@night-market $ "));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("nyx@night-market $ "));
     Ok(())
 }
 

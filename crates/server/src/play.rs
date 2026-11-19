@@ -9,7 +9,7 @@ use crate::ticker::{TICK, Ticker};
 use crate::{port_ostra, seed};
 
 pub fn play(
-    name: &str,
+    name: Option<&str>,
     input: impl BufRead + Send + 'static,
     output: impl Write,
 ) -> io::Result<()> {
@@ -17,19 +17,22 @@ pub fn play(
 }
 
 fn session(
-    name: &str,
+    name: Option<&str>,
     input: impl BufRead + Send + 'static,
     mut output: impl Write,
     every: Duration,
 ) -> io::Result<()> {
     let mut world = port_ostra(seed())?;
-    let (player, joined) = world.join(name);
+    let (player, joined) = world.connect("offline");
     let city = world.city();
     writeln!(
         output,
         "Offline mode. You are alone in {city}. Type quit to leave."
     )?;
     show(&mut output, &joined)?;
+    if let Some(name) = name {
+        show(&mut output, &world.command(player, name))?;
+    }
     prompt(&mut output, &world, player)?;
     let lines = read(input)?;
     let mut ticker = Ticker::new(every, Instant::now());
@@ -96,14 +99,14 @@ mod tests {
         let (reader, mut writer) = std::io::pipe().unwrap();
         let typist = thread::spawn(move || {
             writer
-                .write_all(b"go safehouse\ngo smile-gw\nscan\n")
+                .write_all(b"ghost\ngo safehouse\ngo smile-gw\nscan\n")
                 .unwrap();
             thread::sleep(Duration::from_millis(400));
             writer.write_all(b"quit\n").unwrap();
         });
         let mut output = Vec::new();
         let every = Duration::from_millis(20);
-        session("nyx", BufReader::new(reader), &mut output, every).unwrap();
+        session(Some("nyx"), BufReader::new(reader), &mut output, every).unwrap();
         typist.join().unwrap();
         let text = String::from_utf8(output).unwrap();
         assert!(
@@ -112,31 +115,42 @@ mod tests {
         );
     }
 
-    fn play(input: &str) -> String {
+    fn play(name: Option<&str>, input: &str) -> String {
         let mut output = Vec::new();
-        run("nyx", Cursor::new(input.as_bytes().to_vec()), &mut output).unwrap();
+        run(name, Cursor::new(input.as_bytes().to_vec()), &mut output).unwrap();
         String::from_utf8(output).unwrap()
     }
 
     #[test]
-    fn play_greets_the_player_in_port_ostra() {
-        assert!(play("").starts_with(
-            "Offline mode. You are alone in Port Ostra. Type quit to leave.\nThe Relay\n"
+    fn play_starts_with_a_new_handle() {
+        let text = play(None, "");
+        assert!(text.starts_with(
+            "Offline mode. You are alone in Port Ostra. Type quit to leave.\nYou are new in Port Ostra."
         ));
+        assert!(text.ends_with("handle: \n"), "{text}");
+    }
+
+    #[test]
+    fn a_name_answers_the_first_question() {
+        let text = play(Some("nyx"), "");
+        assert!(text.contains("Choose a starter kit:"), "{text}");
+        assert!(text.ends_with("kit: \n"), "{text}");
     }
 
     #[test]
     fn play_runs_each_line_as_a_command() {
-        assert!(play("ls\n").contains("nyx@relay $ night-market/\n"));
+        let text = play(Some("nyx"), "ghost\nls\n");
+        assert!(text.contains("nyx@relay $ night-market/\n"), "{text}");
     }
 
     #[test]
     fn a_byte_order_mark_before_a_command_is_ignored() {
-        assert!(play("\u{feff}ls\n").contains("nyx@relay $ night-market/\n"));
+        let text = play(Some("nyx"), "ghost\n\u{feff}ls\n");
+        assert!(text.contains("nyx@relay $ night-market/\n"), "{text}");
     }
 
     #[test]
     fn quit_ends_the_session() {
-        assert!(!play("quit\nls\n").contains("night-market/"));
+        assert!(!play(Some("nyx"), "ghost\nquit\nls\n").contains("night-market/"));
     }
 }

@@ -20,7 +20,6 @@ Options:
   -V, --version  Show the version.
 ";
 
-const GUEST: &str = "guest";
 const LISTEN: &str = "0.0.0.0:7331";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -29,7 +28,7 @@ enum Cli {
     Version,
     Init(PathBuf),
     Run { dir: PathBuf, listen: String },
-    Play(String),
+    Play(Option<String>),
 }
 
 fn parse(args: &[OsString]) -> Result<Cli, String> {
@@ -51,8 +50,8 @@ fn parse(args: &[OsString]) -> Result<Cli, String> {
             dir: dir(),
             listen: (*address).to_owned(),
         }),
-        ["play"] => Ok(Cli::Play(GUEST.to_owned())),
-        ["play", name] => Ok(Cli::Play((*name).to_owned())),
+        ["play"] => Ok(Cli::Play(None)),
+        ["play", name] => Ok(Cli::Play(Some((*name).to_owned()))),
         [command @ ("init" | "run")] => Err(format!("{command} needs a data directory")),
         [word] => Err(format!("unknown argument '{word}'")),
         _ => Err("too many arguments".to_owned()),
@@ -79,9 +78,11 @@ fn main() -> ExitCode {
         }
         Cli::Init(dir) => init(&dir),
         Cli::Run { dir, listen } => run(&dir, &listen),
-        Cli::Play(name) => {
-            ttymud_server::play(&name, io::BufReader::new(io::stdin()), io::stdout().lock())
-        }
+        Cli::Play(name) => ttymud_server::play(
+            name.as_deref(),
+            io::BufReader::new(io::stdin()),
+            io::stdout().lock(),
+        ),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -210,15 +211,15 @@ mod tests {
     }
 
     #[test]
-    fn play_has_a_default_name() {
-        assert_eq!(parse(&args(&["play"])), Ok(Cli::Play("guest".to_owned())));
+    fn play_needs_no_name() {
+        assert_eq!(parse(&args(&["play"])), Ok(Cli::Play(None)));
     }
 
     #[test]
     fn play_takes_a_name() {
         assert_eq!(
             parse(&args(&["play", "nyx"])),
-            Ok(Cli::Play("nyx".to_owned()))
+            Ok(Cli::Play(Some("nyx".to_owned())))
         );
     }
 }
