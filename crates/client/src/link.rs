@@ -59,10 +59,7 @@ pub fn connect(
     ask: impl FnOnce(&str, PublicKey) -> io::Result<bool>,
 ) -> Result<Link, ConnectError> {
     let address = normalize(address);
-    let target = address.to_socket_addrs()?.next().ok_or_else(|| {
-        io::Error::new(io::ErrorKind::NotFound, format!("no address for {address}"))
-    })?;
-    let mut stream = TcpStream::connect_timeout(&target, TIMEOUT)?;
+    let mut stream = open(&address)?;
     stream.set_read_timeout(Some(TIMEOUT))?;
     let session = ttymud_net::connect(&mut stream, keys)?;
     stream.set_read_timeout(None)?;
@@ -93,6 +90,17 @@ pub fn connect(
         control,
         server,
     })
+}
+
+fn open(address: &str) -> io::Result<TcpStream> {
+    let mut last = io::Error::new(io::ErrorKind::NotFound, format!("no address for {address}"));
+    for target in address.to_socket_addrs()? {
+        match TcpStream::connect_timeout(&target, TIMEOUT) {
+            Ok(stream) => return Ok(stream),
+            Err(error) => last = error,
+        }
+    }
+    Err(last)
 }
 
 #[cfg(test)]
@@ -149,6 +157,16 @@ mod tests {
             known.check(&address.to_string(), server_key),
             crate::Trust::Known
         );
+    }
+
+    #[test]
+    fn each_address_of_a_name_gets_a_try() {
+        let (address, _) = server();
+        let path = scratch("localhost");
+        let name = format!("localhost:{}", address.port());
+        let link = connect(&name, &keys(), &path, |_, _| Ok(true));
+        let _ = fs::remove_file(&path);
+        link.unwrap();
     }
 
     #[test]
