@@ -169,10 +169,10 @@ impl World {
                 .map_or_default(|fixer| fixer.id.clone());
             state.done.push((day, id, slot));
         }
-        let (heat, fixer) = (state.heat, contract.fixer);
+        let (heat, fixer, loot) = (state.heat, contract.fixer, contract.goal.clone());
         let taken = match pay {
-            0 => format!(" takes {}.", contract.goal),
-            pay => format!(" takes {} and pays you {pay} cr.", contract.goal),
+            0 => format!(" takes {loot}."),
+            pay => format!(" takes {loot} and pays you {pay} cr."),
         };
         let name = self.fixer_name(fixer);
         let said = |rest: String| Message::game("").span(Style::Player, name).text(rest);
@@ -188,6 +188,8 @@ impl World {
         shown.extend(self.gain_rep(player, fixer));
         if let Some(corp) = self.networks[network.0].corp {
             self.raise_alert(corp, BREACH_ALERT);
+            let name = &self.corps[corp].name;
+            self.publish(format!("{name} loses {loot} in a breach."));
         }
         shown
     }

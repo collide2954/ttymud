@@ -244,7 +244,7 @@ mod tests {
     fn question_mark_lists_what_works_here() {
         assert_eq!(
             run("?")[0],
-            "Here you can use: look, ls, go, read, download, inventory, status, stash, grep, say, channels, join, leave, who, tell, ignore, block, report, help"
+            "Here you can use: look, ls, go, read, download, inventory, status, stash, grep, say, channels, join, leave, who, news, tell, ignore, block, report, help"
         );
     }
 

@@ -60,6 +60,16 @@ fn the_city_can_name_a_host_for_the_burn_list() {
 }
 
 #[test]
+fn the_city_can_name_a_host_for_the_news() {
+    let text = NET.replace("start = a", "start = a\nnews = a");
+    assert_eq!(Content::parse(&text).unwrap().news.as_deref(), Some("a"));
+    assert_eq!(
+        errors(&NET.replace("start = a", "start = a\nnews = x")),
+        ["line 4: news is an unknown host: x"]
+    );
+}
+
+#[test]
 fn a_network_has_a_security_level() {
     let text = NET.replace("name = N\n", "name = N\nsecurity = high\n");
     let content = Content::parse(&text).unwrap();

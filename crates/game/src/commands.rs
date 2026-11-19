@@ -38,6 +38,7 @@ pub(crate) enum Verb {
     Join,
     Leave,
     Who,
+    News,
     Tell,
     Reply,
     Ignore,
@@ -99,6 +100,7 @@ impl Verb {
                 | Self::Exploit
                 | Self::Channels
                 | Self::Who
+                | Self::News
                 | Self::Recovery
                 | Self::Link
                 | Self::Keys
@@ -559,6 +561,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "who",
         summary: "Show the handles that are online.",
         example: "who",
+        takes: Takes::Nothing,
+        gives: Gives::Items(Kinds::LINES),
+    },
+    Command {
+        verb: Verb::News,
+        names: &["news"],
+        usage: "news",
+        summary: "Show the latest news of the city: breaches, traces, burns, patches, and alerts.",
+        example: "news | grep alert",
         takes: Takes::Nothing,
         gives: Gives::Items(Kinds::LINES),
     },

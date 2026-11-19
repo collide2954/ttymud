@@ -16,6 +16,7 @@ mod ignore;
 mod jobs;
 mod moderation;
 mod movement;
+mod news;
 mod presence;
 mod programs;
 mod ram;
@@ -56,6 +57,7 @@ pub use complete::Completion;
 use contract::{Contract, Job};
 use jobs::Fixer;
 use moderation::Moderation;
+use news::News;
 use rig::Rig;
 use run::Run;
 use shop::Shop;
@@ -201,6 +203,7 @@ pub struct World {
     dirty: BTreeSet<String>,
     burns: Vec<Burn>,
     burns_dirty: bool,
+    news: News,
     now: u64,
     next_player: u64,
     outbox: Vec<Output>,
@@ -300,12 +303,17 @@ impl World {
             dirty: BTreeSet::new(),
             burns: Vec::new(),
             burns_dirty: false,
+            news: News {
+                host: content.news.as_deref().map(find),
+                ..News::default()
+            },
             now: 0,
             next_player: 0,
             outbox: Vec::new(),
             random: Random::new(seed),
         };
         world.post_burns();
+        world.post_news();
         world
     }
 
@@ -348,6 +356,7 @@ impl World {
     }
 
     pub fn tick(&mut self) -> Vec<Output> {
+        self.watch_corps();
         let players: Vec<PlayerId> = self.players.keys().copied().collect();
         let mut outputs = Vec::new();
         for player in players {
@@ -507,6 +516,7 @@ impl World {
             Verb::Tell => Err(Message::error("Usage: tell <handle> <text>.")),
             Verb::Reply => Err(Message::error("Usage: reply <text>.")),
             Verb::Who => Ok(self.who()),
+            Verb::News => Ok(self.read_news()),
             Verb::Ignore => self.ignore(player, args),
             Verb::Unignore => self.unignore(player, args),
             Verb::Block => self.block(player, args),

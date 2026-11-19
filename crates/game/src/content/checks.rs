@@ -21,6 +21,7 @@ impl Reader {
             start: self.start.unwrap_or_default().0,
             home: self.home.map(|(home, _)| home),
             burns: self.burns.map(|(host, _)| host),
+            news: self.news.map(|(host, _)| host),
             contract: self.contract.map(|(id, _)| id),
             networks: self
                 .networks
@@ -184,11 +185,14 @@ impl Reader {
             .shops
             .iter()
             .map(|(shop, line)| ("shop", Some((shop.host.clone(), *line))));
-        let places: Vec<(&str, Option<(String, usize)>)> =
-            [("home", self.home.clone()), ("burns", self.burns.clone())]
-                .into_iter()
-                .chain(shops)
-                .collect();
+        let places: Vec<(&str, Option<(String, usize)>)> = [
+            ("home", self.home.clone()),
+            ("burns", self.burns.clone()),
+            ("news", self.news.clone()),
+        ]
+        .into_iter()
+        .chain(shops)
+        .collect();
         for (key, value) in places {
             let Some((host, line)) = value else {
                 continue;

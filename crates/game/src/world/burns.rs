@@ -54,6 +54,9 @@ impl World {
         self.burns_dirty = true;
         self.touch(player);
         self.post_burns();
+        self.publish(format!(
+            "The handle {name} burns. The police seize its rig."
+        ));
         let taken = presence::named(&name, " burns. The police take the rig away.");
         self.notify(here, player, &taken);
         vec![
@@ -79,10 +82,7 @@ impl World {
         if lines.is_empty() {
             lines.push("Nobody is on the burn list yet.".to_owned());
         }
-        let file = File::new(BURN_LIST, lines);
-        let files = &mut self.hosts[host.0].files;
-        files.retain(|known| known.name != BURN_LIST);
-        files.push(file);
+        self.post_file(host, File::new(BURN_LIST, lines));
     }
 }
 
@@ -184,6 +184,10 @@ mod tests {
         assert_eq!(
             plain(&world.command(player, "read burn-list.txt")),
             ["nyx burned on 2023-11-14."]
+        );
+        assert_eq!(
+            plain(&world.command(player, "news")),
+            ["2023-11-14 22:13 The handle nyx burns. The police seize its rig."]
         );
     }
 

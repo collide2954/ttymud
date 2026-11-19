@@ -12,7 +12,7 @@ Be polite.
 The Bazaar
 Everything is for sale.
 Routes: relay, market
-Files: burn-list.txt
+Files: burn-list.txt, news.txt
 Fixers here: Pell. Type jobs to see their work.
 > look | ls
 ls takes no input from a pipe.

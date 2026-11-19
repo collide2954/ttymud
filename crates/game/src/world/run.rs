@@ -181,6 +181,8 @@ impl World {
         ))];
         if let Some(corp) = corp {
             self.raise_alert(corp, TRACE_ALERT);
+            let name = &self.corps[corp].name;
+            self.publish(format!("{name} traces an intruder and calls the police."));
         }
         shown.push(self.add_heat(player, heat));
         let scene = self.drop_link(player, true);

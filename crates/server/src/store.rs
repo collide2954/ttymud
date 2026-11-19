@@ -8,6 +8,7 @@ use crate::identity::KEYS;
 
 const ACCOUNTS: &str = "accounts";
 const BURNS: &str = "burns.ini";
+const NEWS: &str = "news.ini";
 const WORLD: &str = "world.ini";
 pub(crate) const MODERATORS: &str = "moderators.ini";
 const AUDIT: &str = "audit.log";
@@ -55,7 +56,7 @@ pub(crate) fn load_saves(dir: &Path) -> io::Result<Vec<(String, String)>> {
             saves.push((format!("{ACCOUNTS}/{name}"), text));
         }
     }
-    for name in [BURNS, MODERATORS, AUDIT, REPORTS, BANS] {
+    for name in [BURNS, NEWS, MODERATORS, AUDIT, REPORTS, BANS] {
         load_file(dir, name, &mut saves)?;
     }
     Ok(saves)
@@ -89,7 +90,7 @@ pub(crate) fn write(dir: &Path, path: &str, text: &str) -> io::Result<()> {
 }
 
 fn target(dir: &Path, path: &str) -> Option<PathBuf> {
-    if [BURNS, WORLD, MODERATORS, AUDIT, REPORTS, BANS, KEYS].contains(&path) {
+    if [BURNS, NEWS, WORLD, MODERATORS, AUDIT, REPORTS, BANS, KEYS].contains(&path) {
         return Some(dir.join(path));
     }
     let name = path.strip_prefix("accounts/")?.strip_suffix(".ini")?;
@@ -114,6 +115,7 @@ mod tests {
         write(&dir, "burns.ini", "[burn nyx]\nwhen = 1\n").unwrap();
         write(&dir, "accounts/a1.ini", "[account a1]\nknow = scan\n").unwrap();
         write(&dir, "world.ini", "[world c]\nseed = 7\n").unwrap();
+        write(&dir, "news.ini", "[news c]\n").unwrap();
         write(&dir, "moderators.ini", "[moderator a1]\n").unwrap();
         write(&dir, "audit.log", "x mutes y.\n").unwrap();
         write(&dir, "reports.ini", "[report 1]\n").unwrap();
@@ -127,6 +129,7 @@ mod tests {
                     "[account a1]\nknow = scan\n".to_owned()
                 ),
                 ("burns.ini".to_owned(), "[burn nyx]\nwhen = 1\n".to_owned()),
+                ("news.ini".to_owned(), "[news c]\n".to_owned()),
                 ("moderators.ini".to_owned(), "[moderator a1]\n".to_owned()),
                 ("audit.log".to_owned(), "x mutes y.\n".to_owned()),
                 ("reports.ini".to_owned(), "[report 1]\n".to_owned()),

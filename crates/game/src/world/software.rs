@@ -34,10 +34,29 @@ impl World {
         state
             .patched
             .insert(software.to_owned(), self.now + days * DAY);
-        let name = &self.corps[corp].name;
+        let name = self.corps[corp].name.clone();
+        self.publish(format!("{name} patches a hole in {software}."));
         Some(Message::game(format!(
             "{name} finds the hole you used and patches {software}."
         )))
+    }
+
+    pub(super) fn patch_news(&mut self, corp: usize) -> Vec<String> {
+        let now = self.now;
+        let Some(state) = self.corp_states.get_mut(corp) else {
+            return Vec::new();
+        };
+        let mut open = Vec::new();
+        state.patched.retain(|software, &mut until| {
+            if until <= now {
+                open.push(software.clone());
+            }
+            until > now
+        });
+        let name = &self.corps[corp].name;
+        open.into_iter()
+            .map(|software| format!("Somebody finds a new hole in {software} at {name}."))
+            .collect()
     }
 
     pub(super) fn exposed(&self, player: PlayerId) -> Option<(usize, String)> {

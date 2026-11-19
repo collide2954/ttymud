@@ -17,7 +17,7 @@ prices.db
 The Bazaar
 Everything is for sale.
 Routes: relay, market
-Files: burn-list.txt
+Files: burn-list.txt, news.txt
 Fixers here: Pell. Type jobs to see their work.
 > back
 The Night Market

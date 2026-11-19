@@ -4,12 +4,14 @@ use super::{NetworkId, PlayerId, World};
 
 const COOLING: u64 = 5 * 60;
 const MAX_ALERT: u32 = 100;
+const CALM: u32 = 5;
 pub(super) const TRACE_ALERT: u32 = 25;
 pub(super) const BREACH_ALERT: u32 = 15;
 pub(super) const MAX_VERSION: u32 = 9;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum Alert {
+    #[default]
     Green,
     Yellow,
     Orange,
@@ -51,6 +53,7 @@ pub(super) struct CorpState {
     pub(super) since: u64,
     pub(super) used: BTreeMap<String, u32>,
     pub(super) patched: BTreeMap<String, u64>,
+    pub(super) level: Alert,
 }
 
 impl World {
@@ -89,6 +92,21 @@ impl World {
 
     pub(super) fn ice_bonus(&self, network: NetworkId) -> u32 {
         self.network_alert(network).map_or(0, Alert::steps) + self.night_bonus(network)
+    }
+
+    pub(super) fn alert_news(&mut self, corp: usize) -> Option<String> {
+        let points = self.alert_points(corp);
+        let state = self.corp_states.get_mut(corp)?;
+        let (level, verb) = if Alert::of(points) > state.level {
+            (Alert::of(points), "raises")
+        } else if Alert::of(points + CALM) < state.level {
+            (Alert::of(points + CALM), "lowers")
+        } else {
+            return None;
+        };
+        state.level = level;
+        let (name, word) = (&self.corps[corp].name, level.word());
+        Some(format!("{name} {verb} its alert to {word}."))
     }
 }
 
@@ -184,6 +202,11 @@ mod tests {
         world.command(player, "back");
         world.command(player, "back");
         assert_eq!(world.alert_points(corp), before + 15);
+        let news = plain(&world.command(player, "news"));
+        assert!(
+            news[0].ends_with(&format!(" Acme Corp loses {goal} in a breach.")),
+            "{news:?}"
+        );
     }
 
     #[test]
