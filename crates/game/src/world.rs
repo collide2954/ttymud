@@ -306,6 +306,10 @@ impl World {
             }
             Verb::Probe => self.probe(player, args, input),
             Verb::Crack => self.crack(player, args, input),
+            Verb::Scrub => {
+                no_args(command, args)?;
+                self.scrub(player)
+            }
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Help => help::help(args),

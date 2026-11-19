@@ -15,6 +15,7 @@ pub(crate) enum Verb {
     Scan,
     Probe,
     Crack,
+    Scrub,
     Grep,
     Say,
     Help,
@@ -42,6 +43,7 @@ impl Verb {
         let (ram, cycles, noise) = match self {
             Self::Scan | Self::Probe => (1, 1, 1),
             Self::Crack => (2, 2, 2),
+            Self::Scrub => (2, 2, 0),
             _ => return None,
         };
         Some(Program { ram, cycles, noise })
@@ -55,12 +57,16 @@ pub(crate) fn cost(programs: impl IntoIterator<Item = Program>) -> Cost {
     }
     let start = Cost {
         cycles: SETUP,
-        noise: CONNECTION,
+        noise: 0,
     };
-    programs.fold(start, |cost, program| Cost {
+    let mut cost = programs.fold(start, |cost, program| Cost {
         cycles: cost.cycles + program.cycles,
         noise: cost.noise + program.noise,
-    })
+    });
+    if cost.noise > 0 {
+        cost.noise += CONNECTION;
+    }
+    cost
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -221,6 +227,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Attack an ICE. At zero integrity, the ICE breaks.",
         example: "crack sentry",
         takes: Takes::Optional,
+        output: false,
+    },
+    Command {
+        verb: Verb::Scrub,
+        names: &["scrub"],
+        usage: "scrub",
+        summary: "Delete your log lines to lower the trace.",
+        example: "scrub",
+        takes: Takes::Nothing,
         output: false,
     },
     Command {

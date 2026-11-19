@@ -5,6 +5,7 @@ use super::{PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::{self, Command, Item, Program};
 
 const CRACK: u32 = 15;
+const SCRUB: u32 = 15;
 
 impl World {
     pub(super) fn ready(&self, player: PlayerId, found: &[&Command]) -> Result<(), Message> {
@@ -69,6 +70,25 @@ impl World {
             step.shown.push(Message::game("scan finds no ICE here."));
         }
         Ok(step)
+    }
+
+    pub(super) fn scrub(&mut self, player: PlayerId) -> Result<Step, Message> {
+        let Some(run) = self
+            .players
+            .get_mut(&player)
+            .and_then(|state| state.run.as_mut())
+        else {
+            return Ok(Step::default());
+        };
+        if run.trace == 0 {
+            return Err(Message::error("There is no trace to scrub."));
+        }
+        let before = run.trace;
+        run.trace = before.saturating_sub(SCRUB);
+        let after = run.trace;
+        Ok(Step::show(vec![Message::game(format!(
+            "scrub deletes your log lines. Trace: {before}% -> {after}%."
+        ))]))
     }
 
     pub(super) fn crack(
@@ -356,6 +376,25 @@ mod tests {
             at_gate(&["scan | crack", "status | grep cycles"]),
             ["Cycles: 2/4"]
         );
+    }
+
+    #[test]
+    fn scrub_lowers_the_trace_without_noise() {
+        let lines = ["scan", "~", "crack sentry", "~3", "scrub"];
+        assert_eq!(
+            at_gate(&lines),
+            ["scrub deletes your log lines. Trace: 10% -> 0%."]
+        );
+        let prompt = walk(&[&GATE[..], &lines].concat()).1;
+        assert_eq!(
+            prompt.as_deref(),
+            Some("[trace 0% integ 100] ghost@gate $ ")
+        );
+    }
+
+    #[test]
+    fn scrub_needs_a_trace() {
+        assert_eq!(at_gate(&["scrub"]), ["There is no trace to scrub."]);
     }
 
     #[test]
