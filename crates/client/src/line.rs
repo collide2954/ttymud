@@ -1,6 +1,7 @@
 use std::io::{self, BufRead, Write};
 use std::sync::mpsc;
 
+use crate::narrate::Narrated;
 use crate::session::{Event, View, run};
 use crate::{Ending, Link, Shown};
 
@@ -8,12 +9,18 @@ pub fn line_mode(
     link: Link,
     input: impl BufRead + Send + 'static,
     output: impl Write,
+    verbose: bool,
 ) -> io::Result<Ending> {
     let mut plain = Plain {
         output,
         open: false,
     };
-    run(link, move |events| read(input, events), &mut plain)
+    let reader = move |events: &mpsc::Sender<Event>| read(input, events);
+    if verbose {
+        run(link, reader, &mut Narrated::new(plain))
+    } else {
+        run(link, reader, &mut plain)
+    }
 }
 
 struct Plain<W> {
@@ -72,7 +79,7 @@ mod tests {
     fn session(input: &str) -> (Ending, String) {
         let input = Cursor::new(input.as_bytes().to_vec());
         let mut screen = Vec::new();
-        let ending = line_mode(link(echo), input, &mut screen).unwrap();
+        let ending = line_mode(link(echo), input, &mut screen, false).unwrap();
         (ending, String::from_utf8_lossy(&screen).into_owned())
     }
 
@@ -80,7 +87,7 @@ mod tests {
     fn a_refresh_shows_the_prompt_but_is_not_an_answer() {
         let input = Cursor::new(b"look\nquit\n".to_vec());
         let mut screen = Vec::new();
-        line_mode(link(ticker), input, &mut screen).unwrap();
+        line_mode(link(ticker), input, &mut screen, false).unwrap();
         let text = String::from_utf8_lossy(&screen);
         assert!(text.contains("tick\n% "), "{text}");
         assert!(text.contains("echo look\n"), "{text}");
@@ -90,7 +97,7 @@ mod tests {
     fn text_after_an_open_prompt_starts_on_a_new_line() {
         let input = Cursor::new(b"look\nquit\n".to_vec());
         let mut screen = Vec::new();
-        line_mode(link(ticker), input, &mut screen).unwrap();
+        line_mode(link(ticker), input, &mut screen, false).unwrap();
         let text = String::from_utf8_lossy(&screen);
         assert!(text.contains("% \necho look\n$ "), "{text}");
     }

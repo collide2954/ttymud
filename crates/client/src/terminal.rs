@@ -5,9 +5,10 @@ use crossterm::event::{self, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use crossterm::terminal;
 
 use crate::editor::Key;
+use crate::narrate::Narrated;
 use crate::screen::Screen;
 use crate::session::{Event, run};
-use crate::settings::{Depth, Settings, detect};
+use crate::settings::{Settings, detect};
 use crate::{Ending, Link};
 
 #[must_use]
@@ -16,14 +17,15 @@ pub fn detect_terminal() -> Settings {
     detect(|name| std::env::var(name).ok(), terminal, cfg!(windows))
 }
 
-pub fn edit_mode(link: Link, depth: Depth) -> io::Result<Ending> {
+pub fn edit_mode(link: Link, settings: Settings) -> io::Result<Ending> {
     let _raw = Raw::enable()?;
     let width = terminal::size().map_or(80, |(width, _)| width);
-    run(
-        link,
-        read_keys,
-        &mut Screen::new(io::stdout(), width, depth),
-    )
+    let mut screen = Screen::new(io::stdout(), width, settings.color);
+    if settings.verbose {
+        run(link, read_keys, &mut Narrated::new(screen))
+    } else {
+        run(link, read_keys, &mut screen)
+    }
 }
 
 #[cfg(windows)]
