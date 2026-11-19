@@ -4,6 +4,8 @@ use crate::content::File;
 pub(crate) enum Verb {
     Look,
     List,
+    Go,
+    Back,
     Grep,
 }
 
@@ -25,6 +27,7 @@ impl Item {
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Takes {
     Nothing,
+    Optional,
     Required,
 }
 
@@ -34,6 +37,7 @@ pub(crate) struct Command {
     pub(crate) names: &'static [&'static str],
     pub(crate) example: &'static str,
     pub(crate) takes: Takes,
+    pub(crate) output: bool,
 }
 
 impl Command {
@@ -48,18 +52,35 @@ pub(crate) const COMMANDS: &[Command] = &[
         names: &["look", "l"],
         example: "look",
         takes: Takes::Nothing,
+        output: true,
     },
     Command {
         verb: Verb::List,
         names: &["ls"],
         example: "ls",
         takes: Takes::Nothing,
+        output: true,
+    },
+    Command {
+        verb: Verb::Go,
+        names: &["go", "cd", "connect", "ssh"],
+        example: "go market",
+        takes: Takes::Optional,
+        output: false,
+    },
+    Command {
+        verb: Verb::Back,
+        names: &["back", "exit"],
+        example: "back",
+        takes: Takes::Nothing,
+        output: false,
     },
     Command {
         verb: Verb::Grep,
         names: &["grep"],
         example: "ls | grep txt",
         takes: Takes::Required,
+        output: true,
     },
 ];
 
@@ -78,8 +99,11 @@ pub(crate) fn find(name: &str) -> Option<&'static Command> {
 
 pub(crate) fn check(commands: &[&Command]) -> Result<(), String> {
     let mut piped = false;
-    for command in commands {
+    for (index, command) in commands.iter().enumerate() {
         let name = command.name();
+        if !command.output && index + 1 < commands.len() {
+            return Err(format!("{name} gives no output to a pipe."));
+        }
         match (command.takes, piped) {
             (Takes::Nothing, true) => return Err(format!("{name} takes no input from a pipe.")),
             (Takes::Required, false) => {

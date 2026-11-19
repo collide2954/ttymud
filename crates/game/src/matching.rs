@@ -23,6 +23,30 @@ pub(crate) fn distance(a: &str, b: &str) -> usize {
     table[a.len()][b.len()]
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Found<'a> {
+    One(&'a str),
+    Many(Vec<&'a str>),
+    Nothing(Option<&'a str>),
+}
+
+pub(crate) fn resolve<'a>(word: &str, names: &[&'a str]) -> Found<'a> {
+    let word = word.to_lowercase();
+    if let Some(&exact) = names.iter().find(|&&name| name == word) {
+        return Found::One(exact);
+    }
+    let prefixed: Vec<&'a str> = names
+        .iter()
+        .copied()
+        .filter(|name| name.starts_with(&word))
+        .collect();
+    match prefixed.len() {
+        0 => Found::Nothing(closest(&word, names.iter().copied())),
+        1 => Found::One(prefixed[0]),
+        _ => Found::Many(prefixed),
+    }
+}
+
 pub(crate) fn closest<'a>(
     word: &str,
     candidates: impl IntoIterator<Item = &'a str>,
@@ -42,7 +66,36 @@ pub(crate) fn closest<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::{closest, distance};
+    use super::{Found, closest, distance, resolve};
+
+    #[test]
+    fn resolve_prefers_an_exact_name() {
+        assert_eq!(
+            resolve("market", &["market-2", "market"]),
+            Found::One("market")
+        );
+    }
+
+    #[test]
+    fn resolve_accepts_a_unique_prefix() {
+        assert_eq!(resolve("MA", &["market", "relay"]), Found::One("market"));
+    }
+
+    #[test]
+    fn resolve_gives_all_names_with_a_shared_prefix() {
+        assert_eq!(
+            resolve("ba", &["back-room", "bazaar"]),
+            Found::Many(vec!["back-room", "bazaar"])
+        );
+    }
+
+    #[test]
+    fn resolve_suggests_a_near_name() {
+        assert_eq!(
+            resolve("markte", &["market"]),
+            Found::Nothing(Some("market"))
+        );
+    }
 
     #[test]
     fn identical_words_have_no_distance() {

@@ -1,0 +1,231 @@
+use ttymud_text::{Message, Style};
+
+use super::{HostId, PlayerId, Step, World, listed};
+use crate::commands::Item;
+use crate::matching::{self, Found};
+
+impl World {
+    pub(super) fn go(
+        &mut self,
+        player: PlayerId,
+        args: &[String],
+        input: Option<Vec<Item>>,
+    ) -> Result<Step, Message> {
+        let place = match (args, input) {
+            ([place], None) if place == ".." => return self.back(player),
+            ([place], None) => place.clone(),
+            ([], Some(items)) => piped_route(items)?,
+            ([], None) => {
+                let usage = Message::error("Usage: go <place>. Routes: ");
+                let routes = self.route_names(self.here(player));
+                return Err(listed(usage, Style::Host, routes));
+            }
+            (_, Some(_)) => {
+                return Err(Message::error("go takes a place or a pipe, not both."));
+            }
+            (_, None) => return Err(Message::error("Usage: go <place>.")),
+        };
+        let target = self.route(player, &place)?;
+        self.move_to(player, target);
+        Ok(Step {
+            shown: self.scene(target),
+            items: Vec::new(),
+        })
+    }
+
+    pub(super) fn back(&mut self, player: PlayerId) -> Result<Step, Message> {
+        match self.players.get_mut(&player) {
+            Some(state) if state.chain.len() > 1 => {
+                state.chain.pop();
+            }
+            _ => return Err(Message::error("There is no hop behind you.")),
+        }
+        let here = self.here(player);
+        Ok(Step {
+            shown: self.scene(here),
+            items: Vec::new(),
+        })
+    }
+
+    fn route(&self, player: PlayerId, place: &str) -> Result<HostId, Message> {
+        let here = self.here(player);
+        let names = self.route_names(here);
+        match matching::resolve(place, &names) {
+            Found::One(name) => Ok(self.hosts[here.0]
+                .routes
+                .iter()
+                .copied()
+                .find(|route| self.hosts[route.0].id == name)
+                .unwrap_or(here)),
+            Found::Many(matches) => {
+                let options = either(&matches);
+                Err(Message::error(format!("{place} could mean {options}.")))
+            }
+            Found::Nothing(Some(near)) => Err(Message::error(format!(
+                "No route to {place}. Did you mean "
+            ))
+            .span(Style::Host, near)
+            .text("?")),
+            Found::Nothing(None) => {
+                let message = Message::error(format!("No route to {place}. Routes: "));
+                Err(listed(message, Style::Host, names))
+            }
+        }
+    }
+
+    fn move_to(&mut self, player: PlayerId, target: HostId) {
+        if let Some(state) = self.players.get_mut(&player) {
+            match state.chain.iter().position(|&hop| hop == target) {
+                Some(index) => state.chain.truncate(index + 1),
+                None => state.chain.push(target),
+            }
+        }
+    }
+}
+
+fn piped_route(items: Vec<Item>) -> Result<String, Message> {
+    let mut routes: Vec<String> = items
+        .into_iter()
+        .filter_map(|item| match item {
+            Item::Route(id) => Some(id),
+            Item::File(_) => None,
+        })
+        .collect();
+    if routes.len() == 1 {
+        return Ok(routes.remove(0));
+    }
+    let count = routes.len();
+    Err(Message::error(format!(
+        "go needs one route, but the input has {count}."
+    )))
+}
+
+fn either(names: &[&str]) -> String {
+    match names {
+        [rest @ .., last] if !rest.is_empty() => format!("{} or {last}", rest.join(", ")),
+        _ => names.join(""),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::testing::walk;
+
+    #[test]
+    fn go_moves_along_a_route_and_shows_the_host() {
+        let (shown, prompt) = walk(&["go market"]);
+        assert_eq!(
+            shown,
+            [
+                "The Night Market",
+                "Stalls sell cracked firmware.",
+                "Routes: relay, bazaar",
+                "Files: prices.db",
+            ]
+        );
+        assert_eq!(prompt.as_deref(), Some("ghost@market $ "));
+    }
+
+    #[test]
+    fn cd_connect_and_ssh_also_move() {
+        for verb in ["cd", "connect", "ssh"] {
+            let (_, prompt) = walk(&[&format!("{verb} market")]);
+            assert_eq!(prompt.as_deref(), Some("ghost@market $ "), "{verb}");
+        }
+    }
+
+    #[test]
+    fn a_unique_prefix_is_enough() {
+        assert_eq!(walk(&["go m"]).1.as_deref(), Some("ghost@market $ "));
+        assert_eq!(walk(&["go back"]).1.as_deref(), Some("ghost@back-room $ "));
+    }
+
+    #[test]
+    fn an_ambiguous_prefix_fails() {
+        assert_eq!(walk(&["go ba"]).0, ["ba could mean back-room or bazaar."]);
+    }
+
+    #[test]
+    fn a_misspelled_place_gets_a_suggestion() {
+        assert_eq!(
+            walk(&["go markte"]).0,
+            ["No route to markte. Did you mean market?"]
+        );
+    }
+
+    #[test]
+    fn an_unknown_place_lists_the_routes() {
+        assert_eq!(
+            walk(&["go vault"]).0,
+            ["No route to vault. Routes: market, back-room, bazaar"]
+        );
+    }
+
+    #[test]
+    fn go_needs_a_place() {
+        assert_eq!(
+            walk(&["go"]).0,
+            ["Usage: go <place>. Routes: market, back-room, bazaar"]
+        );
+    }
+
+    #[test]
+    fn back_returns_one_hop() {
+        let (shown, prompt) = walk(&["go market", "back"]);
+        assert_eq!(shown[0], "The Relay");
+        assert_eq!(prompt.as_deref(), Some("ghost@relay $ "));
+    }
+
+    #[test]
+    fn exit_and_cd_dot_dot_also_go_back() {
+        for line in ["exit", "cd .."] {
+            let (_, prompt) = walk(&["go market", line]);
+            assert_eq!(prompt.as_deref(), Some("ghost@relay $ "), "{line}");
+        }
+    }
+
+    #[test]
+    fn back_at_the_start_fails() {
+        assert_eq!(walk(&["back"]).0, ["There is no hop behind you."]);
+    }
+
+    #[test]
+    fn returning_to_an_earlier_hop_shortens_the_path() {
+        let (shown, _) = walk(&["go market", "go bazaar", "go relay", "back"]);
+        assert_eq!(shown, ["There is no hop behind you."]);
+    }
+
+    #[test]
+    fn go_takes_a_piped_route() {
+        let (shown, _) = walk(&["ls | grep baz | go"]);
+        assert_eq!(shown[0], "The Bazaar");
+    }
+
+    #[test]
+    fn go_needs_exactly_one_piped_route() {
+        assert_eq!(
+            walk(&["ls | grep ba | go"]).0,
+            ["go needs one route, but the input has 2."]
+        );
+        assert_eq!(
+            walk(&["ls | grep txt | go"]).0,
+            ["go needs one route, but the input has 0."]
+        );
+    }
+
+    #[test]
+    fn go_takes_a_place_or_a_pipe_but_not_both() {
+        assert_eq!(
+            walk(&["ls | grep baz | go market"]).0,
+            ["go takes a place or a pipe, not both."]
+        );
+    }
+
+    #[test]
+    fn movement_gives_no_output_to_a_pipe() {
+        assert_eq!(
+            walk(&["go market | ls"]).0,
+            ["go gives no output to a pipe."]
+        );
+    }
+}

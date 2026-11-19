@@ -1,3 +1,6 @@
+mod grep;
+mod movement;
+
 use std::collections::BTreeMap;
 
 use ttymud_text::{Kind, Message, Style};
@@ -40,6 +43,11 @@ pub struct World {
     start: HostId,
     players: BTreeMap<PlayerId, Player>,
     next_player: u64,
+}
+
+struct Step {
+    shown: Vec<Message>,
+    items: Vec<Item>,
 }
 
 impl World {
@@ -132,7 +140,7 @@ impl World {
     }
 
     fn execute(
-        &self,
+        &mut self,
         player: PlayerId,
         command: &Command,
         args: &[String],
@@ -155,7 +163,12 @@ impl World {
                     items,
                 })
             }
-            Verb::Grep => grep(args, input.unwrap_or_default()),
+            Verb::Go => self.go(player, args, input),
+            Verb::Back => {
+                no_args(command, args)?;
+                self.back(player)
+            }
+            Verb::Grep => grep::grep(args, input.unwrap_or_default()),
         }
     }
 
@@ -176,28 +189,27 @@ impl World {
         routes.chain(files).collect()
     }
 
+    fn route_names(&self, id: HostId) -> Vec<&str> {
+        self.hosts[id.0]
+            .routes
+            .iter()
+            .map(|route| self.hosts[route.0].id.as_str())
+            .collect()
+    }
+
     fn scene(&self, id: HostId) -> Vec<Message> {
         let host = &self.hosts[id.0];
         let mut scene = vec![
             Message::new(Kind::Game).span(Style::Title, &host.name),
             Message::game(&host.description),
+            listed(Message::game("Routes: "), Style::Host, self.route_names(id)),
         ];
-        let routes = host
-            .routes
-            .iter()
-            .map(|route| self.hosts[route.0].id.as_str());
-        scene.push(listed("Routes: ", Style::Host, routes));
         if !host.files.is_empty() {
             let files = host.files.iter().map(|file| file.name.as_str());
-            scene.push(listed("Files: ", Style::File, files));
+            scene.push(listed(Message::game("Files: "), Style::File, files));
         }
         scene
     }
-}
-
-struct Step {
-    shown: Vec<Message>,
-    items: Vec<Item>,
 }
 
 fn no_args(command: &Command, args: &[String]) -> Result<(), Message> {
@@ -209,25 +221,6 @@ fn no_args(command: &Command, args: &[String]) -> Result<(), Message> {
     }
 }
 
-fn grep(args: &[String], items: Vec<Item>) -> Result<Step, Message> {
-    let [pattern] = args else {
-        return Err(Message::error(
-            "Usage: grep <pattern>. Example: ls | grep txt",
-        ));
-    };
-    let needle = pattern.to_lowercase();
-    let items: Vec<Item> = items
-        .into_iter()
-        .filter(|item| item.name().to_lowercase().contains(&needle))
-        .collect();
-    let shown = if items.is_empty() {
-        vec![Message::game(format!("No match for {pattern}."))]
-    } else {
-        listing(&items)
-    };
-    Ok(Step { shown, items })
-}
-
 fn listing(items: &[Item]) -> Vec<Message> {
     items
         .iter()
@@ -236,6 +229,22 @@ fn listing(items: &[Item]) -> Vec<Message> {
             Item::File(file) => Message::new(Kind::Game).span(Style::File, &file.name),
         })
         .collect()
+}
+
+fn listed<'a>(
+    mut message: Message,
+    style: Style,
+    names: impl IntoIterator<Item = &'a str>,
+) -> Message {
+    let mut empty = true;
+    for name in names {
+        if !empty {
+            message = message.text(", ");
+        }
+        message = message.span(style, name);
+        empty = false;
+    }
+    if empty { message.text("none") } else { message }
 }
 
 fn unknown(name: &str) -> Message {
@@ -270,25 +279,12 @@ fn address(player: PlayerId, messages: Vec<Message>) -> Vec<Output> {
         .collect()
 }
 
-fn listed<'a>(label: &str, style: Style, names: impl Iterator<Item = &'a str>) -> Message {
-    let mut message = Message::game(label);
-    let mut empty = true;
-    for name in names {
-        if !empty {
-            message = message.text(", ");
-        }
-        message = message.span(style, name);
-        empty = false;
-    }
-    if empty { message.text("none") } else { message }
-}
-
 #[cfg(test)]
 mod tests {
     use ttymud_text::{Kind, Style};
 
     use super::PlayerId;
-    use crate::testing::{plain, world};
+    use crate::testing::{joined, plain, run, world};
 
     #[test]
     fn joining_shows_the_start_host() {
@@ -325,20 +321,13 @@ mod tests {
 
     #[test]
     fn prompt_shows_the_player_and_the_host() {
-        let mut world = world();
-        let (player, _) = world.join("ghost");
+        let (world, player) = joined();
         assert_eq!(world.prompt(player).as_deref(), Some("ghost@relay $ "));
     }
 
     #[test]
     fn unknown_players_have_no_prompt() {
         assert_eq!(world().prompt(PlayerId(99)), None);
-    }
-
-    fn run(line: &str) -> Vec<String> {
-        let mut world = world();
-        let (player, _) = world.join("ghost");
-        plain(&world.command(player, line))
     }
 
     #[test]
@@ -393,47 +382,6 @@ mod tests {
     }
 
     #[test]
-    fn grep_filters_piped_items() {
-        assert_eq!(run("ls | grep txt"), ["motd.txt", "rules.txt"]);
-    }
-
-    #[test]
-    fn grep_ignores_case() {
-        assert_eq!(run("ls | grep MARKET"), ["market/"]);
-    }
-
-    #[test]
-    fn look_pipes_the_same_items_as_ls() {
-        assert_eq!(run("look | grep ba"), ["back-room/", "bazaar/"]);
-    }
-
-    #[test]
-    fn grep_can_follow_grep() {
-        assert_eq!(run("ls | grep a | grep ba"), ["back-room/", "bazaar/"]);
-    }
-
-    #[test]
-    fn grep_without_a_match_says_so() {
-        assert_eq!(run("ls | grep zzz"), ["No match for zzz."]);
-    }
-
-    #[test]
-    fn grep_needs_input() {
-        assert_eq!(
-            run("grep txt"),
-            ["grep needs input from a pipe. Example: ls | grep txt"]
-        );
-    }
-
-    #[test]
-    fn grep_needs_one_pattern() {
-        assert_eq!(
-            run("ls | grep"),
-            ["Usage: grep <pattern>. Example: ls | grep txt"]
-        );
-    }
-
-    #[test]
     fn a_bad_stage_stops_the_pipeline_before_it_runs() {
         assert_eq!(run("look | xyzzy"), ["Unknown command: xyzzy."]);
     }
@@ -446,8 +394,7 @@ mod tests {
 
     #[test]
     fn errors_have_the_error_kind() {
-        let mut world = world();
-        let (player, _) = world.join("ghost");
+        let (mut world, player) = joined();
         let outputs = world.command(player, "xyzzy");
         assert_eq!(outputs[0].message.kind, Kind::Error);
     }
