@@ -3,7 +3,7 @@ use ttymud_text::{Kind, Message, Style};
 use super::{PlayerId, Step, World, hint, listed};
 use crate::commands::{self, COMMANDS, Command, Item, Verb};
 
-const TOPICS: &[&str] = &["pipes", "pipelines"];
+pub(super) const TOPICS: &[&str] = &["pipes", "pipelines"];
 const COLUMN: usize = 18;
 
 pub(super) fn help(args: &[String]) -> Result<Step, Message> {

@@ -1,4 +1,5 @@
 mod chat;
+mod complete;
 mod files;
 mod grep;
 mod help;
@@ -15,6 +16,7 @@ use crate::matching::{self, Found};
 use crate::parse::{self, ParseError, Stage};
 
 pub use chat::is_chat;
+pub use complete::Completion;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PlayerId(u64);

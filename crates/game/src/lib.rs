@@ -7,4 +7,4 @@ mod testing;
 mod world;
 
 pub use content::{Content, ContentError};
-pub use world::{Output, PlayerId, World, is_chat};
+pub use world::{Completion, Output, PlayerId, World, is_chat};

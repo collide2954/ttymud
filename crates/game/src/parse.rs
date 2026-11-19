@@ -10,7 +10,25 @@ pub(crate) enum ParseError {
     EmptyStage,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct Tail {
+    pub(crate) words: Vec<String>,
+    pub(crate) word: String,
+}
+
 pub(crate) fn pipeline(line: &str) -> Result<Vec<Stage>, ParseError> {
+    feed(line)?.finish()
+}
+
+pub(crate) fn tail(line: &str) -> Option<Tail> {
+    let builder = feed(line).ok().filter(|builder| !builder.quoted)?;
+    Some(Tail {
+        words: builder.words,
+        word: builder.word,
+    })
+}
+
+fn feed(line: &str) -> Result<Builder, ParseError> {
     let mut builder = Builder::default();
     for c in line.chars() {
         match c {
@@ -20,7 +38,7 @@ pub(crate) fn pipeline(line: &str) -> Result<Vec<Stage>, ParseError> {
             c => builder.push(c),
         }
     }
-    builder.finish()
+    Ok(builder)
 }
 
 #[derive(Default)]
@@ -76,13 +94,41 @@ impl Builder {
 
 #[cfg(test)]
 mod tests {
-    use super::{ParseError, Stage, pipeline};
+    use super::{ParseError, Stage, Tail, pipeline, tail};
 
     fn stage(name: &str, args: &[&str]) -> Stage {
         Stage {
             name: name.to_owned(),
             args: args.iter().map(|&arg| arg.to_owned()).collect(),
         }
+    }
+
+    fn open(words: &[&str], word: &str) -> Tail {
+        Tail {
+            words: words.iter().map(|&word| word.to_owned()).collect(),
+            word: word.to_owned(),
+        }
+    }
+
+    #[test]
+    fn tail_gives_the_words_of_the_last_stage_and_the_open_word() {
+        assert_eq!(tail("go ma"), Some(open(&["go"], "ma")));
+        assert_eq!(tail("read a.txt  b"), Some(open(&["read", "a.txt"], "b")));
+        assert_eq!(tail("go "), Some(open(&["go"], "")));
+        assert_eq!(tail(""), Some(open(&[], "")));
+    }
+
+    #[test]
+    fn tail_starts_again_after_a_pipe() {
+        assert_eq!(tail("ls | gr"), Some(open(&[], "gr")));
+        assert_eq!(tail("ls|"), Some(open(&[], "")));
+        assert_eq!(tail("grep \"a | b\" | re"), Some(open(&[], "re")));
+    }
+
+    #[test]
+    fn tail_gives_nothing_in_an_open_quote_or_after_an_empty_stage() {
+        assert_eq!(tail("grep \"a b"), None);
+        assert_eq!(tail("| gr"), None);
     }
 
     #[test]
