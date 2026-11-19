@@ -2,8 +2,10 @@ use ttymud_text::{Message, Style};
 
 use super::ice::{Ice, deploy};
 use super::{HostId, NetworkId, PlayerId, Step, World};
+use crate::ice::IceKind;
 
 const SHOCK: u32 = 20;
+const MAX_TRACE: u32 = 100;
 const CRASH: &str = "Your rig crashes, and you lose the loot of this run.";
 
 #[derive(Debug)]
@@ -54,6 +56,42 @@ impl World {
         }
         shown.extend(self.drop_link(player, crashed));
         Ok(Step::show(shown))
+    }
+
+    pub(super) fn noise(&mut self, player: PlayerId, noise: u32) -> Vec<Message> {
+        let here = self.here(player);
+        let Some(run) = self
+            .players
+            .get(&player)
+            .and_then(|state| state.run.as_ref())
+        else {
+            return Vec::new();
+        };
+        let watched = run
+            .ice
+            .iter()
+            .any(|ice| ice.host == here && ice.kind == IceKind::Sentry && !ice.broken());
+        self.raise_trace(player, if watched { noise * 2 } else { noise })
+    }
+
+    pub(super) fn raise_trace(&mut self, player: PlayerId, amount: u32) -> Vec<Message> {
+        let Some(run) = self
+            .players
+            .get_mut(&player)
+            .and_then(|state| state.run.as_mut())
+        else {
+            return Vec::new();
+        };
+        run.trace = (run.trace + amount).min(MAX_TRACE);
+        if run.trace < MAX_TRACE {
+            return Vec::new();
+        }
+        let name = &self.networks[run.network.0].name;
+        let mut shown = vec![Message::game(format!(
+            "{name} traces you. The link drops, and you lose the loot of this run."
+        ))];
+        shown.extend(self.drop_link(player, true));
+        shown
     }
 
     fn drop_link(&mut self, player: PlayerId, lose_loot: bool) -> Vec<Message> {
@@ -115,6 +153,83 @@ mod tests {
             state.rig.integrity = integrity;
         }
         (world, player)
+    }
+
+    fn prompt(lines: &[&str]) -> Option<String> {
+        walk(&[&["go back-room", "go gate"][..], lines].concat()).1
+    }
+
+    #[test]
+    fn noise_raises_the_trace() {
+        assert_eq!(
+            prompt(&["go core", "scan"]).as_deref(),
+            Some("[trace 2% integ 100] ghost@core $ ")
+        );
+    }
+
+    #[test]
+    fn a_working_sentry_doubles_the_trace_from_noise() {
+        assert_eq!(
+            prompt(&["scan"]).as_deref(),
+            Some("[trace 4% integ 100] ghost@gate $ ")
+        );
+    }
+
+    #[test]
+    fn a_pipeline_makes_less_noise_than_its_parts() {
+        assert_eq!(
+            prompt(&["scan | probe"]).as_deref(),
+            Some("[trace 6% integ 100] ghost@gate $ ")
+        );
+        assert_eq!(
+            prompt(&["scan", "~3", "probe sentry warden"]).as_deref(),
+            Some("[trace 8% integ 100] ghost@gate $ ")
+        );
+    }
+
+    #[test]
+    fn a_broken_sentry_stops_watching() {
+        let lines = [
+            "scan",
+            "~",
+            "crack sentry",
+            "~3",
+            "crack sentry",
+            "~2",
+            "scan",
+        ];
+        assert_eq!(
+            prompt(&lines).as_deref(),
+            Some("[trace 15% integ 100] ghost@gate $ ")
+        );
+    }
+
+    #[test]
+    fn a_full_trace_ends_the_run_and_loses_the_loot() {
+        let (mut world, player) = joined();
+        for line in LOOT {
+            world.command(player, line);
+        }
+        if let Some(run) = world
+            .players
+            .get_mut(&player)
+            .and_then(|state| state.run.as_mut())
+        {
+            run.trace = 98;
+        }
+        let shown = plain(&world.command(player, "scan"));
+        assert_eq!(
+            shown[..3],
+            [
+                "scan finds no ICE here.",
+                "Test Lab traces you. The link drops, and you lose the loot of this run.",
+                "The Back Room",
+            ]
+        );
+        assert_eq!(
+            plain(&world.command(player, "inventory")),
+            ["Your rig has no files."]
+        );
     }
 
     #[test]

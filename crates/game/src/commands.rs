@@ -21,22 +21,46 @@ pub(crate) enum Verb {
     Available,
 }
 
-pub(crate) const SETUP: u32 = 1;
+const SETUP: u32 = 1;
+const CONNECTION: u32 = 1;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Program {
     pub(crate) ram: u32,
     pub(crate) cycles: u32,
+    pub(crate) noise: u32,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Cost {
+    pub(crate) cycles: u32,
+    pub(crate) noise: u32,
 }
 
 impl Verb {
     pub(crate) fn program(self) -> Option<Program> {
-        match self {
-            Self::Scan | Self::Probe => Some(Program { ram: 1, cycles: 1 }),
-            Self::Crack => Some(Program { ram: 2, cycles: 2 }),
-            _ => None,
-        }
+        let (ram, cycles, noise) = match self {
+            Self::Scan | Self::Probe => (1, 1, 1),
+            Self::Crack => (2, 2, 2),
+            _ => return None,
+        };
+        Some(Program { ram, cycles, noise })
     }
+}
+
+pub(crate) fn cost(programs: impl IntoIterator<Item = Program>) -> Cost {
+    let mut programs = programs.into_iter().peekable();
+    if programs.peek().is_none() {
+        return Cost::default();
+    }
+    let start = Cost {
+        cycles: SETUP,
+        noise: CONNECTION,
+    };
+    programs.fold(start, |cost, program| Cost {
+        cycles: cost.cycles + program.cycles,
+        noise: cost.noise + program.noise,
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -247,19 +271,6 @@ pub(crate) fn programs() -> impl Iterator<Item = (&'static Command, Program)> {
     COMMANDS
         .iter()
         .filter_map(|command| command.verb.program().map(|program| (command, program)))
-}
-
-pub(crate) fn cost(commands: &[&Command]) -> u32 {
-    let cycles: Vec<u32> = commands
-        .iter()
-        .filter_map(|command| command.verb.program())
-        .map(|program| program.cycles)
-        .collect();
-    if cycles.is_empty() {
-        0
-    } else {
-        SETUP + cycles.iter().sum::<u32>()
-    }
 }
 
 pub(crate) fn find(name: &str) -> Option<&'static Command> {

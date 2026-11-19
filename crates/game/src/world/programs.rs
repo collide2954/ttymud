@@ -2,7 +2,7 @@ use ttymud_text::{Kind, Message, Style};
 
 use super::run::Run;
 use super::{PlayerId, Step, Thing, World, choose, usage};
-use crate::commands::{self, Command, Item};
+use crate::commands::{self, Command, Item, Program};
 
 const CRACK: u32 = 15;
 
@@ -21,7 +21,8 @@ impl World {
                 "{first} works only in a target network."
             )));
         }
-        let (cost, have) = (commands::cost(found), state.rig.cycles);
+        let cost = commands::cost(found.iter().filter_map(|command| command.verb.program()));
+        let (cost, have) = (cost.cycles, state.rig.cycles);
         if have >= cost {
             return Ok(());
         }
@@ -33,6 +34,12 @@ impl World {
         Err(Message::error(format!(
             "{what} needs {cost} cycles, but you have {have}. You get 1 cycle on each tick."
         )))
+    }
+
+    pub(super) fn charge(&mut self, player: PlayerId, ran: Vec<Program>) -> Vec<Message> {
+        let cost = commands::cost(ran);
+        self.spend(player, cost.cycles);
+        self.noise(player, cost.noise)
     }
 
     pub(super) fn scan(&mut self, player: PlayerId) -> Result<Step, Message> {
