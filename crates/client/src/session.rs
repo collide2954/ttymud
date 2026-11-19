@@ -22,7 +22,7 @@ pub enum Ending {
 pub(crate) enum Event {
     Line(String),
     Key(Key),
-    Resize(u16),
+    Resize(u16, u16),
     InputEnded,
     Server(ServerMessage),
     LinkEnded,
@@ -43,7 +43,7 @@ pub(crate) trait View {
         Ok(Typed::Nothing)
     }
 
-    fn resize(&mut self, _width: u16) -> io::Result<()> {
+    fn resize(&mut self, _width: u16, _height: u16) -> io::Result<()> {
         Ok(())
     }
 
@@ -133,8 +133,8 @@ fn play(
             }
             Event::Key(key) if !draining => view.press(key)?,
             Event::Key(_) => Typed::Nothing,
-            Event::Resize(width) => {
-                view.resize(width)?;
+            Event::Resize(width, height) => {
+                view.resize(width, height)?;
                 Typed::Nothing
             }
         };

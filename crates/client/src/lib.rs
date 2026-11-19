@@ -1,5 +1,7 @@
+mod canvas;
 mod config;
 mod editor;
+mod hud;
 mod known;
 mod line;
 mod link;
@@ -12,6 +14,7 @@ mod settings;
 mod terminal;
 #[cfg(test)]
 mod testing;
+mod wrap;
 
 pub use config::{Identity, config_dir, identity};
 pub use known::{DEFAULT_PORT, KnownServers, Trust, normalize};
@@ -20,4 +23,4 @@ pub use link::{ConnectError, Link, connect};
 pub use render::{Shown, render};
 pub use session::Ending;
 pub use settings::{Choices, Depth, Layer, Settings, read_settings};
-pub use terminal::{detect_terminal, edit_mode};
+pub use terminal::{detect_terminal, edit_mode, hud_mode};

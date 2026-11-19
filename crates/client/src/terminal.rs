@@ -5,6 +5,7 @@ use crossterm::event::{self, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use crossterm::terminal;
 
 use crate::editor::Key;
+use crate::hud::Hud;
 use crate::narrate::Narrated;
 use crate::screen::Screen;
 use crate::session::{Event, run};
@@ -25,6 +26,17 @@ pub fn edit_mode(link: Link, settings: Settings) -> io::Result<Ending> {
         run(link, read_keys, &mut Narrated::new(screen))
     } else {
         run(link, read_keys, &mut screen)
+    }
+}
+
+pub fn hud_mode(link: Link, settings: Settings) -> io::Result<Ending> {
+    let _raw = Raw::enable()?;
+    let (width, height) = terminal::size().unwrap_or((80, 24));
+    let mut hud = Hud::new(io::stdout(), settings, width, height)?;
+    if settings.verbose {
+        run(link, read_keys, &mut Narrated::new(hud))
+    } else {
+        run(link, read_keys, &mut hud)
     }
 }
 
@@ -60,7 +72,7 @@ fn read_keys(events: &mpsc::Sender<Event>) {
                 Some(key) => Event::Key(key),
                 None => continue,
             },
-            Ok(event::Event::Resize(width, _)) => Event::Resize(width),
+            Ok(event::Event::Resize(width, height)) => Event::Resize(width, height),
             Ok(_) => continue,
             Err(_) => Event::InputEnded,
         };

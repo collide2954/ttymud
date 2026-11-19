@@ -23,7 +23,7 @@ pub(crate) fn paint(message: &Message, depth: Depth) -> String {
     text
 }
 
-fn code(style: Style, kind: Kind) -> Option<&'static str> {
+pub(crate) fn code(style: Style, kind: Kind) -> Option<&'static str> {
     match style {
         Style::Plain => match kind {
             Kind::Error => Some("31"),

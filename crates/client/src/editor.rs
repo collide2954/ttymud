@@ -27,6 +27,13 @@ pub(crate) enum Action {
     Quit,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Completed {
+    Nothing,
+    Changed,
+    Show(String),
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct Editor {
     buffer: Vec<char>,
@@ -84,6 +91,22 @@ impl Editor {
     #[must_use]
     pub(crate) fn before(&self) -> String {
         self.buffer[..self.cursor].iter().collect()
+    }
+
+    pub(crate) fn complete(&mut self, asked: &str, word: &str, names: &[String]) -> Completed {
+        if asked != self.before() || !asked.ends_with(word) || names.is_empty() {
+            return Completed::Nothing;
+        }
+        let count = word.chars().count();
+        let common = common_start(names);
+        if let [name] = names {
+            self.replace_before(count, &format!("{name} "));
+        } else if common.chars().count() > count {
+            self.replace_before(count, &common);
+        } else {
+            return Completed::Show(names.join("  "));
+        }
+        Completed::Changed
     }
 
     pub(crate) fn replace_before(&mut self, count: usize, text: &str) {
@@ -182,6 +205,22 @@ impl Editor {
         self.cursor = buffer.len();
         self.buffer = buffer;
     }
+}
+
+fn common_start(names: &[String]) -> String {
+    let Some((first, rest)) = names.split_first() else {
+        return String::new();
+    };
+    let mut length = first.chars().count();
+    for name in rest {
+        length = first
+            .chars()
+            .zip(name.chars())
+            .take(length)
+            .take_while(|(a, b)| a == b)
+            .count();
+    }
+    first.chars().take(length).collect()
 }
 
 #[cfg(test)]

@@ -42,8 +42,8 @@ impl<V: View> View for Narrated<V> {
         self.view.press(key)
     }
 
-    fn resize(&mut self, width: u16) -> io::Result<()> {
-        self.view.resize(width)
+    fn resize(&mut self, width: u16, height: u16) -> io::Result<()> {
+        self.view.resize(width, height)
     }
 
     fn submitted(&mut self) {

@@ -121,8 +121,8 @@ fn connect(options: &Options) -> Result<Ending, String> {
         .or_else(ttymud::config_dir)
         .ok_or("cannot find a configuration directory, so use --config DIR")?;
     let place = dir.display();
-    let file = ttymud::read_settings(&dir)?;
-    let settings = options.choices.or(file).settle(ttymud::detect_terminal());
+    let chosen = options.choices.or(ttymud::read_settings(&dir)?);
+    let settings = chosen.settle(ttymud::detect_terminal());
     let identity = ttymud::identity(&dir)
         .map_err(|error| format!("cannot load your identity from {place}: {error}"))?;
     if identity.created {
@@ -149,6 +149,7 @@ fn connect(options: &Options) -> Result<Ending, String> {
             };
             ttymud::edit_mode(link, plain)
         }
+        Layer::Hud if chosen.layer == Some(Layer::Hud) => ttymud::hud_mode(link, settings),
         Layer::Color | Layer::Hud => ttymud::edit_mode(link, settings),
     };
     ending.map_err(|error| error.to_string())

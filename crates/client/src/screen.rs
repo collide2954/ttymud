@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 
 use crate::Shown;
-use crate::editor::{Action, Editor, Key};
+use crate::editor::{Action, Completed, Editor, Key};
 use crate::paint::paint;
 use crate::session::{Typed, View};
 use crate::settings::Depth;
@@ -37,19 +37,14 @@ impl<W: Write> Screen<W> {
         let Some(asked) = self.asked.take() else {
             return Ok(());
         };
-        if asked != self.editor.before() || !asked.ends_with(word) || names.is_empty() {
-            return Ok(());
+        match self.editor.complete(&asked, word, names) {
+            Completed::Nothing => Ok(()),
+            Completed::Changed => self.draw(),
+            Completed::Show(list) => {
+                self.above(&list)?;
+                self.draw()
+            }
         }
-        let count = word.chars().count();
-        let common = common_start(names);
-        if let [name] = names {
-            self.editor.replace_before(count, &format!("{name} "));
-        } else if common.chars().count() > count {
-            self.editor.replace_before(count, &common);
-        } else {
-            self.above(&names.join("  "))?;
-        }
-        self.draw()
     }
 
     fn draw(&mut self) -> io::Result<()> {
@@ -116,7 +111,7 @@ impl<W: Write> View for Screen<W> {
         Ok(typed)
     }
 
-    fn resize(&mut self, width: u16) -> io::Result<()> {
+    fn resize(&mut self, width: u16, _height: u16) -> io::Result<()> {
         self.width = usize::from(width);
         self.draw()
     }
@@ -125,22 +120,6 @@ impl<W: Write> View for Screen<W> {
         write!(self.output, "{CLEAR}")?;
         self.output.flush()
     }
-}
-
-fn common_start(names: &[String]) -> String {
-    let Some((first, rest)) = names.split_first() else {
-        return String::new();
-    };
-    let mut length = first.chars().count();
-    for name in rest {
-        length = first
-            .chars()
-            .zip(name.chars())
-            .take(length)
-            .take_while(|(a, b)| a == b)
-            .count();
-    }
-    first.chars().take(length).collect()
 }
 
 #[cfg(test)]
@@ -285,7 +264,7 @@ mod tests {
     #[test]
     fn a_new_width_draws_the_line_again() {
         let mut screen = typed("abcdefghij", 80);
-        screen.resize(10).unwrap();
+        screen.resize(10, 24).unwrap();
         assert_eq!(drawn(&mut screen), "\r\x1b[K$ efghij");
     }
 
