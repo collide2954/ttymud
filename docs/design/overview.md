@@ -68,6 +68,9 @@ This table records the main design decisions. When a decision changes, change th
 | Connection | A TTYmud client and a TTYmud server that use the Noise protocol. |
 | Interface | Adaptive layers: line mode for all terminals, and a HUD when the terminal can show it. |
 | Code | A Cargo workspace with two binaries: `ttymud` and `ttymud-server`. |
+| Text model | A small `ttymud-text` crate holds styles, spans, and messages. |
+| Look and list | `look` describes the host in words. `ls` gives a short list. `cd` works like `go`, and `cd ..` goes back. |
+| Offline mode | `ttymud-server play` lets one player walk Port Ostra without a network. |
 | Hosting | A public GitHub repository. The default branch is `main`. |
 | Documents | ASD-STE100 Simplified Technical English. A test checks the basic rules. |
 
