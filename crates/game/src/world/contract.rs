@@ -10,7 +10,7 @@ const FEE_PERCENT: u32 = 25;
 #[derive(Debug)]
 pub(super) struct Contract {
     pub(super) id: String,
-    pub(super) fixer: String,
+    pub(super) fixer: usize,
     pub(super) network: NetworkId,
     pub(super) goal: String,
     pub(super) offer: Vec<String>,
@@ -134,25 +134,23 @@ impl World {
         };
         let pay = contract.pay - fee;
         state.credits += pay;
-        let fixer = |rest: String| {
-            Message::game("")
-                .span(Style::Player, &contract.fixer)
-                .text(rest)
-        };
+        let (heat, fixer) = (state.heat, contract.fixer);
         let taken = match pay {
             0 => format!(" takes {}.", contract.goal),
             pay => format!(" takes {} and pays you {pay} cr.", contract.goal),
         };
+        let name = self.fixer_name(fixer);
+        let said = |rest: String| Message::game("").span(Style::Player, name).text(rest);
         let mut shown = vec![
-            fixer(": Clean work. The contract is complete.".to_owned()),
-            fixer(taken),
+            said(": Clean work. The contract is complete.".to_owned()),
+            said(taken),
         ];
         if fee > 0 {
-            let heat = state.heat;
-            shown.push(fixer(format!(
+            shown.push(said(format!(
                 " keeps {fee} cr of the pay because your heat is {heat}."
             )));
         }
+        shown.extend(self.gain_rep(player, fixer));
         shown
     }
 
@@ -162,7 +160,7 @@ impl World {
         };
         let mut shown = vec![
             Message::game("")
-                .span(Style::Player, &contract.fixer)
+                .span(Style::Player, self.fixer_name(contract.fixer))
                 .text(" sends you a job:"),
         ];
         shown.extend(contract.offer.iter().map(Message::game));
@@ -181,8 +179,9 @@ impl World {
         match args {
             [] => {
                 let network = &self.networks[contract.network.0].name;
+                let fixer = self.fixer_name(contract.fixer);
                 let mut shown = vec![
-                    Message::game("Contract from ").span(Style::Player, &contract.fixer),
+                    Message::game("Contract from ").span(Style::Player, fixer),
                     Message::game(format!("Target: {network}")),
                     Message::game("Goal: download ")
                         .span(Style::File, &contract.goal)
@@ -198,7 +197,7 @@ impl World {
             }
             [word] if word.eq_ignore_ascii_case("drop") => {
                 let message = Message::game("You drop the contract from ")
-                    .span(Style::Player, &contract.fixer)
+                    .span(Style::Player, self.fixer_name(contract.fixer))
                     .text(".");
                 if let Some(state) = self.players.get_mut(&player) {
                     state.end_contract();
@@ -322,11 +321,12 @@ mod tests {
             world.command(player, line);
         }
         assert_eq!(
-            plain(&world.command(player, "back"))[..4],
+            plain(&world.command(player, "back"))[..5],
             [
                 "You leave the network of Test Lab. Clean exit.",
                 "Pell: Clean work. The contract is complete.",
                 "Pell takes data.db and pays you 100 cr.",
+                "Your reputation with Pell: 1.",
                 "The Back Room",
             ]
         );

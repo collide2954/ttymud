@@ -128,8 +128,12 @@ A step teaches one command. The `contract` command shows the hint of the next st
     [file smile-gw/patients.db]
     line = 2,114 patient records.
 
+    [fixer pell]
+    name = Pell
+    host = relay
+
     [contract first-job]
-    fixer = Pell
+    fixer = pell
     network = smile-dental
     goal = patients.db
     offer = A client wants the patient files of a dentist.

@@ -4,7 +4,7 @@ pub(crate) const CITY: &str = include_str!("../tests/scenarios/city.ini");
 
 pub(crate) const JOB: &str = "\
 [contract lab-job]
-fixer = Pell
+fixer = pell
 network = lab
 goal = data.db
 pay = 100

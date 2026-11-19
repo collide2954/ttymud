@@ -178,7 +178,6 @@ fn bad_fixers_fail() {
             "line 41: fixer x is on a host in a network: b",
             "line 43: fixer x works against an unknown corp: nope",
             "line 44: bad max-heat: hot (use a number from 0 to 4)",
-            "line 45: fixer y has no corp",
             "line 47: fixer y is on an unknown host: z",
         ]
     );
@@ -208,18 +207,18 @@ fn bad_corps_and_templates_fail() {
 
 fn with_contract(contract: &str) -> String {
     let city = NET.replace("start = a", "start = a\ncontract = job");
-    format!("{city}[file c/x.db]\nline = X.\n{contract}")
+    format!("{city}[file c/x.db]\nline = X.\n{contract}[fixer pell]\nname = Pell\nhost = a\n")
 }
 
 #[test]
 fn the_city_offers_a_contract() {
     let text = with_contract(
-        "[contract job]\nfixer = Pell\nnetwork = n\ngoal = x.db\noffer = Get x.db.\noffer = Go.\n",
+        "[contract job]\nfixer = pell\nnetwork = n\ngoal = x.db\noffer = Get x.db.\noffer = Go.\n",
     );
     let content = Content::parse(&text).unwrap();
     let job = ContractDef {
         id: "job".to_owned(),
-        fixer: "Pell".to_owned(),
+        fixer: "pell".to_owned(),
         network: "n".to_owned(),
         goal: "x.db".to_owned(),
         offer: vec!["Get x.db.".to_owned(), "Go.".to_owned()],
@@ -231,9 +230,19 @@ fn the_city_offers_a_contract() {
 }
 
 #[test]
+fn a_contract_names_a_known_fixer() {
+    let text =
+        with_contract("[contract job]\nfixer = nobody\nnetwork = n\ngoal = x.db\noffer = Go.\n");
+    assert_eq!(
+        errors(&text),
+        ["line 23: contract job has an unknown fixer: nobody"]
+    );
+}
+
+#[test]
 fn a_contract_can_pay_credits() {
     let text = with_contract(
-        "[contract job]\nfixer = Pell\nnetwork = n\ngoal = x.db\noffer = Go.\npay = 250\n",
+        "[contract job]\nfixer = pell\nnetwork = n\ngoal = x.db\noffer = Go.\npay = 250\n",
     );
     assert_eq!(Content::parse(&text).unwrap().contracts[0].pay, 250);
     assert_eq!(
@@ -245,7 +254,7 @@ fn a_contract_can_pay_credits() {
 #[test]
 fn contract_steps_have_an_event_and_a_hint() {
     let text = with_contract(
-        "[contract job]\nfixer = Pell\nnetwork = n\ngoal = x.db\noffer = Go.\n\
+        "[contract job]\nfixer = pell\nnetwork = n\ngoal = x.db\noffer = Go.\n\
          step = enter: Connect to b.\nstep = exit: Leave.\n",
     );
     let content = Content::parse(&text).unwrap();
@@ -261,7 +270,7 @@ fn contract_steps_have_an_event_and_a_hint() {
 #[test]
 fn bad_steps_fail() {
     let text = with_contract(
-        "[contract job]\nfixer = Pell\nnetwork = n\ngoal = x.db\noffer = Go.\n\
+        "[contract job]\nfixer = pell\nnetwork = n\ngoal = x.db\noffer = Go.\n\
          step = dance: No.\nstep = scan\n",
     );
     assert_eq!(
@@ -276,8 +285,8 @@ fn bad_steps_fail() {
 #[test]
 fn bad_contracts_fail() {
     let text = with_contract(
-        "[contract job]\nfixer = Pell\nnetwork = n\ngoal = y.db\noffer = Get y.db.\n\
-         [contract far]\nfixer = Pell\nnetwork = z\ngoal = x.db\noffer = Go.\n[contract bare]\n",
+        "[contract job]\nfixer = pell\nnetwork = n\ngoal = y.db\noffer = Get y.db.\n\
+         [contract far]\nfixer = pell\nnetwork = z\ngoal = x.db\noffer = Go.\n[contract bare]\n",
     );
     assert_eq!(
         errors(&text),

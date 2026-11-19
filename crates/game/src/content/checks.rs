@@ -42,8 +42,12 @@ impl Reader {
 
     fn check_contracts(&mut self) {
         let mut problems = Vec::new();
-        for (def, network_line, goal_line) in &self.contracts {
+        for (def, [fixer_line, network_line, goal_line]) in &self.contracts {
             let (id, network, goal) = (&def.id, &def.network, &def.goal);
+            if !self.fixers.iter().any(|(fixer, _)| fixer.id == def.fixer) {
+                let message = format!("contract {id} has an unknown fixer: {}", def.fixer);
+                problems.push((*fixer_line, message));
+            }
             if !self.networks.iter().any(|(known, _)| &known.id == network) {
                 let message = format!("contract {id} is for an unknown network: {network}");
                 problems.push((*network_line, message));

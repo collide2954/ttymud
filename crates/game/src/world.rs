@@ -93,6 +93,7 @@ struct Player {
     cooled: u64,
     credits: u32,
     sold: Vec<String>,
+    rep: BTreeMap<String, u32>,
     stash: Vec<File>,
 }
 
@@ -105,6 +106,7 @@ impl Player {
             cooled: 0,
             credits: 0,
             sold: Vec::new(),
+            rep: BTreeMap::new(),
             stash: Vec::new(),
             rig: Rig::new(),
             know: commands::programs()
@@ -211,12 +213,16 @@ impl World {
             .contract
             .as_deref()
             .and_then(|id| content.contracts.iter().position(|def| def.id == id));
+        let fixers = jobs::fixers(content.fixers, &content.corps, find);
         let contracts = content
             .contracts
             .into_iter()
             .map(|def| Contract {
                 id: def.id,
-                fixer: def.fixer,
+                fixer: fixers
+                    .iter()
+                    .position(|fixer| fixer.id == def.fixer)
+                    .unwrap_or(0),
                 network: network(&def.network).unwrap_or(NetworkId(0)),
                 goal: def.goal,
                 offer: def.offer,
@@ -234,7 +240,6 @@ impl World {
             })
             .collect();
         let shops = shop::shops(content.shops, find);
-        let fixers = jobs::fixers(content.fixers, &content.corps, find);
         let mut world = Self {
             city: content.city,
             city_id: content.id,

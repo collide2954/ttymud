@@ -35,6 +35,7 @@ impl World {
         state.rig = Rig::new();
         state.heat = 0;
         state.credits = 0;
+        state.rep.clear();
         state.run = None;
         state.end_contract();
         state.kit = None;
@@ -208,17 +209,22 @@ mod tests {
     }
 
     #[test]
-    fn a_burn_takes_the_credits() {
+    fn a_burn_takes_the_credits_and_the_reputation() {
         let (mut world, player) = hot("ghost");
         if let Some(state) = world.players.get_mut(&player) {
             state.credits = 500;
+            state.rep.insert("pell".to_owned(), 3);
         }
-        for line in ["scan", "zer0", "breaker"] {
+        for line in ["scan", "zer0", "breaker", "go relay", "go bazaar"] {
             world.command(player, line);
         }
         assert_eq!(
             plain(&world.command(player, "status | grep credits")),
             ["Credits: 0 cr"]
+        );
+        assert_eq!(
+            plain(&world.command(player, "jobs | grep reputation:")),
+            ["Your reputation: Pell 0"]
         );
     }
 

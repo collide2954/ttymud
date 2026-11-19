@@ -1,4 +1,4 @@
-use ttymud_text::{Message, Style};
+use ttymud_text::{Kind, Message, Style};
 
 use super::contract::{Contract, Job};
 use super::{Host, HostId, Network, NetworkId, PlayerId, Step, World, lines, listed};
@@ -12,6 +12,7 @@ pub(super) const DAY: u64 = 86_400;
 
 #[derive(Debug)]
 pub(super) struct Fixer {
+    pub(super) id: String,
     pub(super) name: String,
     pub(super) host: HostId,
     pub(super) corps: Vec<usize>,
@@ -39,6 +40,7 @@ pub(super) fn fixers(
                 .iter()
                 .filter_map(|id| corps.iter().position(|corp| &corp.id == id))
                 .collect(),
+            id: def.id,
             name: def.name,
             host: find(&def.host),
         })
@@ -51,6 +53,15 @@ fn base_pay(budget: Security) -> u32 {
         Security::Medium => 700,
         Security::High => 1500,
         Security::Top => 3000,
+    }
+}
+
+fn needed(budget: Security) -> u32 {
+    match budget {
+        Security::Low => 0,
+        Security::Medium => 2,
+        Security::High => 5,
+        Security::Top => 9,
     }
 }
 
@@ -77,6 +88,38 @@ impl World {
 
     pub(super) fn has_fixer(&self, host: HostId) -> bool {
         self.fixers.iter().any(|fixer| fixer.host == host)
+    }
+
+    pub(super) fn fixer_name(&self, fixer: usize) -> &str {
+        self.fixers
+            .get(fixer)
+            .map_or("", |fixer| fixer.name.as_str())
+    }
+
+    fn rep_of(&self, player: PlayerId, fixer: usize) -> u32 {
+        let id = self.fixers.get(fixer).map(|fixer| &fixer.id);
+        let state = self.players.get(&player);
+        state
+            .zip(id)
+            .and_then(|(state, id)| state.rep.get(id).copied())
+            .unwrap_or(0)
+    }
+
+    pub(super) fn gain_rep(&mut self, player: PlayerId, fixer: usize) -> Option<Message> {
+        let def = self.fixers.get(fixer)?;
+        let rep = self
+            .players
+            .get_mut(&player)?
+            .rep
+            .entry(def.id.clone())
+            .or_default();
+        *rep += 1;
+        let rep = *rep;
+        Some(
+            Message::game("Your reputation with ")
+                .span(Style::Player, &def.name)
+                .text(format!(": {rep}.")),
+        )
     }
 
     fn posted(&self, fixer: usize, day: u64, slot: u64) -> Option<Offer> {
@@ -162,6 +205,19 @@ impl World {
                 .text(" to end it."));
         }
         let offer = offers.swap_remove(number - 1);
+        let need = needed(self.corps[offer.corp].budget);
+        let rep = self.rep_of(player, offer.fixer);
+        if rep < need {
+            let name = self.fixer_name(offer.fixer);
+            return Err(Message::new(Kind::Error)
+                .span(Style::Player, name)
+                .text(format!(
+                    " gives this job only to handles with {need} reputation. "
+                ))
+                .text("Your reputation with ")
+                .span(Style::Player, name)
+                .text(format!(": {rep}.")));
+        }
         let fixer = self.fixers[offer.fixer].name.clone();
         let corp = self.corps[offer.corp].name.clone();
         let goal = offer.target.goal.clone();
@@ -198,7 +254,7 @@ impl World {
         let goal = offer.target.goal;
         self.contracts.push(Contract {
             id: format!("job-{}-{}-{}", offer.day, offer.fixer, offer.slot),
-            fixer: self.fixers[offer.fixer].name.clone(),
+            fixer: offer.fixer,
             network,
             offer: vec![
                 format!("The target is {corp}."),
@@ -250,22 +306,43 @@ impl World {
             return Err(self.no_fixer());
         }
         let mut shown = Vec::new();
-        let mut last = None;
-        for (index, offer) in self.offers_at(here, self.now / DAY).iter().enumerate() {
-            let fixer = &self.fixers[offer.fixer];
-            if last != Some(offer.fixer) {
-                last = Some(offer.fixer);
-                let header = Message::game("").span(Style::Player, &fixer.name);
-                shown.push(header.text(" has these jobs today:"));
+        let mut number = 0;
+        let day = self.now / DAY;
+        for fixer in self.fixers_at(here) {
+            let name = Message::game("").span(Style::Player, self.fixer_name(fixer));
+            let offers: Vec<Offer> = (0..SLOTS)
+                .filter_map(|slot| self.posted(fixer, day, slot))
+                .collect();
+            if offers.is_empty() {
+                shown.push(name.text(" has no jobs today."));
+                continue;
             }
-            let corp = &self.corps[offer.corp].name;
-            let number = index + 1;
-            shown.push(
-                Message::game(format!("{number}. {corp}: get "))
+            shown.push(name.text(" has these jobs today:"));
+            let rep = self.rep_of(player, fixer);
+            for offer in offers {
+                number += 1;
+                let corp = &self.corps[offer.corp];
+                let mut line = Message::game(format!("{number}. {}: get ", corp.name))
                     .span(Style::File, &offer.target.goal)
-                    .text(format!(". Pay: {} cr.", offer.pay)),
-            );
+                    .text(format!(". Pay: {} cr.", offer.pay));
+                let need = needed(corp.budget);
+                if rep < need {
+                    line = line.text(format!(" Needs {need} reputation."));
+                }
+                shown.push(line);
+            }
         }
+        let standing: Vec<String> = self
+            .fixers_at(here)
+            .into_iter()
+            .map(|fixer| format!("{} {}", self.fixer_name(fixer), self.rep_of(player, fixer)))
+            .collect();
+        let standing = standing.iter().map(String::as_str);
+        shown.push(listed(
+            Message::game("Your reputation: "),
+            Style::Plain,
+            standing,
+        ));
         shown.push(
             Message::game("Type ")
                 .span(Style::Command, "accept <number>")
@@ -295,14 +372,50 @@ mod tests {
     #[test]
     fn jobs_lists_the_offers_of_each_fixer_for_the_day() {
         let shown = board(20_000);
-        assert_eq!(shown.len(), 5, "{shown:?}");
+        assert_eq!(shown.len(), 6, "{shown:?}");
         assert_eq!(shown[0], "Pell has these jobs today:");
         assert!(shown[1].starts_with("1. Acme Corp: get "), "{shown:?}");
         for (index, line) in shown[1..4].iter().enumerate() {
             assert!(line.starts_with(&format!("{}. ", index + 1)), "{line}");
             assert!(line.contains(". Pay: "), "{line}");
         }
-        assert_eq!(shown[4], "Type accept <number> to take a job.");
+        assert_eq!(shown[4], "Your reputation: Pell 0");
+        assert_eq!(shown[5], "Type accept <number> to take a job.");
+    }
+
+    fn globex() -> (World, PlayerId, String) {
+        for day in 20_000.. {
+            let mut world = world();
+            world.set_time(day * DAY + 100);
+            let (player, _) = world.join("ghost");
+            world.command(player, "go bazaar");
+            let shown = plain(&world.command(player, "jobs"));
+            if let Some(line) = shown.iter().find(|line| line.contains(" Globex: ")) {
+                let number = line.split('.').next().unwrap_or_default().to_owned();
+                assert!(line.ends_with(" cr. Needs 2 reputation."), "{line}");
+                return (world, player, number);
+            }
+        }
+        unreachable!()
+    }
+
+    #[test]
+    fn a_job_against_a_bigger_corp_needs_reputation() {
+        let (mut world, player, number) = globex();
+        assert_eq!(
+            plain(&world.command(player, &format!("accept {number}"))),
+            [
+                "Pell gives this job only to handles with 2 reputation. Your reputation with Pell: 0."
+            ]
+        );
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rep.insert("pell".to_owned(), 2);
+        }
+        let shown = plain(&world.command(player, &format!("accept {number}")));
+        assert!(
+            shown[0].starts_with("Pell: The target is Globex."),
+            "{shown:?}"
+        );
     }
 
     #[test]
@@ -411,11 +524,12 @@ mod tests {
         world.command(player, "back");
         let shown = plain(&world.command(player, "back"));
         assert_eq!(
-            shown[..3],
+            shown[..4],
             [
                 "You leave the network of Acme Corp. Clean exit.".to_owned(),
                 "Pell: Clean work. The contract is complete.".to_owned(),
                 format!("Pell takes {goal} and pays you {pay} cr."),
+                "Your reputation with Pell: 1.".to_owned(),
             ]
         );
     }

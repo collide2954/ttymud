@@ -24,7 +24,7 @@ pub(super) struct Reader {
     pub(super) home: Option<(String, usize)>,
     pub(super) burns: Option<(String, usize)>,
     pub(super) contract: Option<(String, usize)>,
-    pub(super) contracts: Vec<(ContractDef, usize, usize)>,
+    pub(super) contracts: Vec<(ContractDef, [usize; 3])>,
     pub(super) networks: Vec<(NetworkDef, usize)>,
     pub(super) hosts: Vec<(HostDef, usize)>,
     pub(super) members: Vec<(String, String, usize)>,
@@ -124,7 +124,7 @@ impl Reader {
             .into_iter()
             .filter_map(|(text, line)| self.step(&text, line))
             .collect();
-        if let (Some((fixer, _)), Some((network, at)), Some((goal, goal_at))) =
+        if let (Some((fixer, fixer_at)), Some((network, at)), Some((goal, goal_at))) =
             (fixer, network, goal)
         {
             let def = ContractDef {
@@ -136,7 +136,7 @@ impl Reader {
                 steps,
                 pay,
             };
-            self.contracts.push((def, at, goal_at));
+            self.contracts.push((def, [fixer_at, at, goal_at]));
         }
     }
 

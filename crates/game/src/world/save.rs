@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use super::account::{Account, Saved};
@@ -100,6 +101,9 @@ impl World {
             text.pair("cpu", &handle.cpu.to_string());
             for name in &handle.sold {
                 text.pair("sold", name);
+            }
+            for (fixer, rep) in &handle.rep {
+                text.pair("rep", &format!("{fixer} {rep}"));
             }
             for &verb in &handle.loads {
                 text.pair("load", commands::name_of(verb));
@@ -212,9 +216,11 @@ impl World {
         let (mut contract, mut step, mut loads) = (None, 0, Vec::new());
         let (mut credits, mut ram, mut cpu) = (0, RAM, CYCLES);
         let mut sold = Vec::new();
+        let mut rep = BTreeMap::new();
         for pair in &section.pairs {
             match pair.key {
                 "sold" => sold.push(pair.value.to_owned()),
+                "rep" => rep.extend(reputation(pair, errors)),
                 "credits" => credits = number(pair, errors).unwrap_or(0),
                 "ram" => ram = number(pair, errors).unwrap_or(RAM),
                 "cpu" => cpu = number(pair, errors).unwrap_or(CYCLES),
@@ -256,6 +262,7 @@ impl World {
             ram,
             cpu,
             sold,
+            rep,
             files: Vec::new(),
             loads,
             contract: contract.map(|index| Job::resume(index, step)),
@@ -374,6 +381,22 @@ fn program(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<Verb> {
     verb
 }
 
+fn reputation(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<(String, u32)> {
+    let words: Vec<&str> = pair.value.split_whitespace().collect();
+    let parsed = match words.as_slice() {
+        [fixer, rep] => rep.parse().ok().map(|rep| ((*fixer).to_owned(), rep)),
+        _ => None,
+    };
+    if parsed.is_none() {
+        let value = pair.value;
+        errors.push(problem(
+            pair.line,
+            format!("bad rep: {value} (use a fixer and a number)"),
+        ));
+    }
+    parsed
+}
+
 fn number<T: FromStr>(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<T> {
     let value = pair.value.parse().ok();
     if value.is_none() {
@@ -472,6 +495,7 @@ mod tests {
             state.credits = 120;
             state.rig.ram = 12;
             state.rig.cpu = 5;
+            state.rep.insert("pell".to_owned(), 4);
         }
         world.leave(player);
         let saves = world.saves();
@@ -494,6 +518,11 @@ mod tests {
             plain(&fresh.command(player, "status | grep cycles")),
             ["Cycles: 5/5"]
         );
+        assert_eq!(fresh.players.get(&player).map(|state| state.rep.clone()), {
+            let mut rep = std::collections::BTreeMap::new();
+            rep.insert("pell".to_owned(), 4);
+            Some(rep)
+        });
         assert_eq!(
             plain(&fresh.command(player, "stash")),
             ["Your stash: motd.txt"]

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use ttymud_text::{Kind, Message, Style};
 
 use super::contract::Job;
@@ -33,6 +35,7 @@ pub(super) struct Saved {
     pub(super) ram: u32,
     pub(super) cpu: u32,
     pub(super) sold: Vec<String>,
+    pub(super) rep: BTreeMap<String, u32>,
     pub(super) files: Vec<File>,
     pub(super) loads: Vec<Verb>,
     pub(super) contract: Option<Job>,
@@ -58,6 +61,7 @@ impl World {
         state.rig.cpu = saved.cpu;
         state.rig.cycles = saved.cpu;
         state.sold = saved.sold;
+        state.rep = saved.rep;
         state.rig.files = saved.files;
         state.rig.loads = saved.loads;
         state.contract = saved.contract;
@@ -200,6 +204,7 @@ impl World {
             ram: state.rig.ram,
             cpu: state.rig.cpu,
             sold: state.sold.clone(),
+            rep: state.rep.clone(),
             files: state.rig.files.clone(),
             loads: state.rig.loads.clone(),
             contract: state.contract,

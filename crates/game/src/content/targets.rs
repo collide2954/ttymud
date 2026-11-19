@@ -29,9 +29,6 @@ impl Reader {
             .iter()
             .filter(|pair| pair.key == "corp")
             .collect();
-        if corps.is_empty() {
-            self.error(section.line, format!("fixer {id} has no corp"));
-        }
         let max_heat = self.optional(section, "max-heat").and_then(|(word, line)| {
             let heat = word.parse().ok().filter(|&heat| heat < MAX_HEAT);
             if heat.is_none() {
