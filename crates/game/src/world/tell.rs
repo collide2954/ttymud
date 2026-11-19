@@ -1,7 +1,7 @@
 use ttymud_text::{Kind, Message, Style};
 
 use super::account::Phase;
-use super::{Output, PlayerId, Step, Thing, World, choose, lines, listed};
+use super::{Output, PlayerId, Step, Thing, World, choose, lines};
 
 const NEW_ACCOUNT: u64 = 600;
 const NOTE: &str = "Note: the operator of this server can read private messages.";
@@ -20,12 +20,17 @@ impl World {
     }
 
     pub(super) fn who(&self) -> Step {
-        let names = self.online().into_iter().map(|(_, name)| name);
-        lines(vec![listed(
-            Message::game("Online: "),
-            Style::Player,
-            names,
-        )])
+        let mut line = Message::game("Online: ");
+        for (index, (player, name)) in self.online().into_iter().enumerate() {
+            if index > 0 {
+                line = line.text(", ");
+            }
+            line = line.span(Style::Player, name);
+            if self.is_moderator(player) {
+                line = line.text(" (moderator)");
+            }
+        }
+        lines(vec![line])
     }
 
     fn new_account_wait(&self, player: PlayerId) -> Option<Message> {

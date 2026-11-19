@@ -12,6 +12,7 @@ mod help;
 mod ice;
 mod ignore;
 mod jobs;
+mod moderation;
 mod movement;
 mod presence;
 mod programs;
@@ -170,6 +171,7 @@ pub struct World {
     postings: BTreeMap<(u64, usize, u64), usize>,
     players: BTreeMap<PlayerId, Player>,
     accounts: BTreeMap<String, Account>,
+    moderators: BTreeSet<String>,
     dirty: BTreeSet<String>,
     burns: Vec<Burn>,
     burns_dirty: bool,
@@ -286,6 +288,7 @@ impl World {
             hosts,
             players: BTreeMap::new(),
             accounts: BTreeMap::new(),
+            moderators: BTreeSet::new(),
             dirty: BTreeSet::new(),
             burns: Vec::new(),
             burns_dirty: false,

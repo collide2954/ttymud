@@ -53,6 +53,9 @@ impl World {
     }
 
     pub fn restore(&mut self, path: &str, text: &str) -> Result<(), Vec<ContentError>> {
+        if path == super::moderation::MODERATORS {
+            return self.read_moderators(text);
+        }
         if path == WORLD {
             self.seed = self.parse_world(text)?;
             self.seed_dirty = false;
