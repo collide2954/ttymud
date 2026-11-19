@@ -73,3 +73,29 @@ fn the_first_job_can_be_done() {
     let done = "Pell: Clean work. The contract is complete.".to_owned();
     assert!(last.contains(&done), "{last:?}");
 }
+
+#[test]
+fn the_hosts_of_a_job_run_software_that_scan_shows() {
+    let mut world = port_ostra(0).unwrap();
+    world.set_time(20_000 * 86_400 + 12 * 3_600);
+    let (player, _) = world.join("guest");
+    let mut run = |line: &str| -> Vec<String> {
+        let outputs = world.command(player, line);
+        outputs.iter().map(|out| out.message.plain()).collect()
+    };
+    for line in ["contract drop", "go back-room", "accept 1", "go relay"] {
+        run(line);
+    }
+    run("go safehouse");
+    let routes = run("ls");
+    let entry = routes
+        .iter()
+        .rfind(|route| route.ends_with('/'))
+        .map_or_default(|route| route.trim_end_matches('/').to_owned());
+    run(&format!("go {entry}"));
+    let shown = run("scan");
+    assert!(
+        shown.iter().any(|line| line.starts_with("Software: ")),
+        "{shown:?}"
+    );
+}
