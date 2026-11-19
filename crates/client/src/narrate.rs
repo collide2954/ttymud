@@ -67,6 +67,9 @@ fn changes(last: &Status, next: &Status) -> Vec<String> {
             if before.access != after.access {
                 lines.push(format!("Access is now {}.", after.access));
             }
+            if before.alert != after.alert && !after.alert.is_empty() {
+                lines.push(format!("Alert is now {}.", after.alert));
+            }
         }
         (None, None) => {}
     }
@@ -75,6 +78,9 @@ fn changes(last: &Status, next: &Status) -> Vec<String> {
     }
     if last.heat != next.heat {
         lines.push(format!("Heat is now {} of {}.", next.heat, next.heat_max));
+    }
+    if last.headline != next.headline && !next.headline.is_empty() {
+        lines.push(format!("News: {}", next.headline));
     }
     lines
 }
@@ -117,6 +123,7 @@ mod tests {
                 network: "Test Lab".to_owned(),
                 access: "guest".to_owned(),
                 trace,
+                alert: String::new(),
             }),
             integrity,
             heat,
@@ -148,6 +155,27 @@ mod tests {
         }
         assert_eq!(told(user), ["Access is now user."]);
         assert_eq!(told(status(None, 80, 1)), ["You left Test Lab."]);
+    }
+
+    #[test]
+    fn verbose_tells_a_new_alert_and_a_new_headline() {
+        let mut narrated = Narrated::new(Record::default());
+        let mut told = |alert: &str, headline: &str| {
+            let mut next = status(Some(0), 100, 0);
+            next.headline = headline.to_owned();
+            if let Some(run) = next.run.as_mut() {
+                run.alert = alert.to_owned();
+            }
+            narrated.show(Shown::Status(next)).unwrap();
+            lines(&mut narrated)
+        };
+        told("green", "");
+        assert_eq!(told("green", ""), Vec::<String>::new());
+        assert_eq!(told("yellow", ""), ["Alert is now yellow."]);
+        assert_eq!(
+            told("yellow", "Acme Corp patches a hole in Gatekeep VPN."),
+            ["News: Acme Corp patches a hole in Gatekeep VPN."]
+        );
     }
 
     #[test]

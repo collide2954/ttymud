@@ -157,6 +157,9 @@ impl World {
             network: self.networks[run.network.0].name.clone(),
             access: self.access(player).word().to_owned(),
             trace: run.trace,
+            alert: self
+                .network_alert(run.network)
+                .map_or_default(|alert| alert.word().to_owned()),
         });
         let rig = &state.rig;
         Some(Status {
@@ -170,6 +173,7 @@ impl World {
             cycles: rig.cycles,
             cycles_max: rig.cpu,
             credits: state.credits,
+            headline: self.headline(),
         })
     }
 }
@@ -198,6 +202,7 @@ mod tests {
             cycles: 4,
             cycles_max: 4,
             credits: 0,
+            headline: String::new(),
         };
         assert_eq!(world.status_of(player), Some(expected));
         for line in ["go back-room", "go gate"] {
@@ -205,11 +210,24 @@ mod tests {
         }
         let run = world.status_of(player).and_then(|status| status.run);
         assert_eq!(
-            run.map(|run| (run.network, run.access)),
-            Some(("Test Lab".to_owned(), "guest".to_owned()))
+            run.map(|run| (run.network, run.access, run.alert)),
+            Some(("Test Lab".to_owned(), "guest".to_owned(), String::new()))
         );
         let (naming, _) = world.connect("a");
         assert_eq!(world.status_of(naming), None);
+    }
+
+    #[test]
+    fn status_of_gives_the_alert_of_the_corp_and_the_latest_headline() {
+        let (mut world, player) = crate::testing::hired_at(20_000 * 86_400 + 12 * 3_600);
+        crate::testing::enter_job(&mut world, player);
+        let corp = world.run_corp(player).unwrap_or_default();
+        world.raise_alert(corp, 60);
+        world.publish("Old news.".to_owned());
+        world.publish("New news.".to_owned());
+        let status = world.status_of(player).unwrap_or_default();
+        assert_eq!(status.run.map(|run| run.alert).as_deref(), Some("orange"));
+        assert_eq!(status.headline, "New news.");
     }
 
     #[test]

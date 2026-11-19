@@ -128,6 +128,7 @@ fn write_status(writer: &mut Writer, status: &Status) {
             writer.text(&run.network);
             writer.text(&run.access);
             writer.number(u64::from(run.trace));
+            writer.text(&run.alert);
         }
         None => writer.byte(0),
     }
@@ -144,6 +145,7 @@ fn write_status(writer: &mut Writer, status: &Status) {
     for number in numbers {
         writer.number(u64::from(number));
     }
+    writer.text(&status.headline);
 }
 
 fn read_status(reader: &mut Reader<'_>) -> Result<Status, DecodeError> {
@@ -154,6 +156,7 @@ fn read_status(reader: &mut Reader<'_>) -> Result<Status, DecodeError> {
             network: reader.text()?,
             access: reader.text()?,
             trace: small(reader)?,
+            alert: reader.text()?,
         }),
         _ => return Err(DecodeError::BadValue),
     };
@@ -168,6 +171,7 @@ fn read_status(reader: &mut Reader<'_>) -> Result<Status, DecodeError> {
         cycles: small(reader)?,
         cycles_max: small(reader)?,
         credits: small(reader)?,
+        headline: reader.text()?,
     })
 }
 
@@ -342,6 +346,7 @@ mod tests {
             cycles: 3,
             cycles_max: 4,
             credits: 1_250,
+            headline: "Arcadia Bank raises its alert to red.".to_owned(),
         }
     }
 
@@ -352,8 +357,10 @@ mod tests {
             network: "Arcadia Health".to_owned(),
             access: "user".to_owned(),
             trace: 31,
+            alert: "orange".to_owned(),
         };
         server_round_trip(&ServerMessage::Status(status(Some(run))));
+        server_round_trip(&ServerMessage::Status(Status::default()));
     }
 
     #[test]

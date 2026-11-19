@@ -55,8 +55,11 @@ A Status message has these fields, in this order:
 
 1. Text: the host.
 2. Byte: 1 during a run, or 0 at other times.
-3. Only during a run: Text: the network. Text: the access. Number: the trace.
+3. Only during a run: Text: the network. Text: the access. Number: the trace. Text: the alert level of the corporation.
 4. Numbers: the integrity, the heat, the maximum heat, the RAM in use, the RAM in total, the cycles, the maximum cycles, and the credits.
+5. Text: the latest headline of the news.
+
+The alert level is green, yellow, orange, or red. If no corporation owns the network, the alert level is an empty text. If there is no news, the headline is an empty text.
 
 A different run byte is not valid. Each number in a Status message must be smaller than 4294967296.
 

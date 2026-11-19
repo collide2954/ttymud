@@ -10,6 +10,7 @@ pub struct Status {
     pub cycles: u32,
     pub cycles_max: u32,
     pub credits: u32,
+    pub headline: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -17,4 +18,5 @@ pub struct RunStatus {
     pub network: String,
     pub access: String,
     pub trace: u32,
+    pub alert: String,
 }

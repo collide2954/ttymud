@@ -249,8 +249,12 @@ impl<W: Write> Hud<W> {
         if let Some(run) = &status.run {
             left.push(dot.clone());
             left.push((run.network.clone(), Ink::Plain));
-            left.push(dot);
+            left.push(dot.clone());
             left.push((run.access.clone(), Ink::Plain));
+            if let Some(level) = alert_level(&run.alert) {
+                left.push(dot);
+                left.push((format!("{} alert", run.alert), Ink::Level(level)));
+            }
             let percent = run.trace.min(100);
             let filled = (usize::try_from(percent).unwrap_or(100) + 5) / 10;
             let mut meter = glyphs.full.to_string().repeat(filled);
@@ -298,6 +302,13 @@ impl<W: Write> Hud<W> {
             (format!("{} cr ", status.credits), Ink::Plain),
         ];
         bar(canvas, layout, layout.height - 1, &parts, &[]);
+        if !status.headline.is_empty() {
+            let news = [
+                (" news: ".to_owned(), Ink::Dim),
+                (format!("{} ", status.headline), Ink::Plain),
+            ];
+            bar(canvas, layout, layout.height - 3, &news, &[]);
+        }
     }
 
     fn input(&mut self, canvas: &mut Canvas, layout: Layout) -> (usize, usize) {
@@ -462,6 +473,16 @@ fn pane<'a>(
     scroll
 }
 
+fn alert_level(alert: &str) -> Option<u32> {
+    match alert {
+        "green" => Some(0),
+        "yellow" => Some(50),
+        "orange" => Some(75),
+        "red" => Some(100),
+        _ => None,
+    }
+}
+
 fn symbols(on: char, off: char, count: u32, total: u32) -> String {
     let total = total.min(SYMBOLS);
     let count = count.min(total);
@@ -511,6 +532,7 @@ mod tests {
                 network: "Arcadia Health".to_owned(),
                 access: "user".to_owned(),
                 trace: 31,
+                alert: String::new(),
             }),
             integrity: 82,
             heat: 2,
@@ -520,7 +542,34 @@ mod tests {
             cycles: 3,
             cycles_max: 4,
             credits: 1250,
+            headline: String::new(),
         }
+    }
+
+    #[test]
+    fn the_top_bar_shows_the_alert_and_a_rule_shows_the_latest_headline() {
+        let mut hud = Hud::new(Vec::new(), settings(false, Depth::Basic), 80, 20).unwrap();
+        let mut status = run_status();
+        status.headline = "Acme Corp raises its alert to red.".to_owned();
+        if let Some(run) = status.run.as_mut() {
+            run.alert = "red".to_owned();
+        }
+        hud.show(Shown::Status(status)).unwrap();
+        let text = written(&mut hud);
+        assert!(text.contains("\x1b[91mred alert"), "{text:?}");
+        let rows = hud.rows();
+        let dashes = |count| "─".repeat(count);
+        assert_eq!(
+            rows[0],
+            format!(
+                "┌ arcadia-db · Arcadia Health · user · red alert {} trace ▓▓▓░░░░░░░ 31% ┐",
+                dashes(8)
+            )
+        );
+        assert_eq!(
+            rows[17],
+            format!("├ news: Acme Corp raises its alert to red. {}┤", dashes(36))
+        );
     }
 
     #[test]

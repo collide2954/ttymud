@@ -42,7 +42,9 @@ pub fn render(message: &ServerMessage) -> Shown {
                 network: clean(&run.network),
                 access: clean(&run.access),
                 trace: run.trace,
+                alert: clean(&run.alert),
             }),
+            headline: clean(&status.headline),
             ..status.clone()
         }),
     }
@@ -105,19 +107,22 @@ mod tests {
 
     #[test]
     fn a_status_is_cleaned() {
-        let run = |network: &str| RunStatus {
+        let run = |network: &str, alert: &str| RunStatus {
             network: network.to_owned(),
             access: "user".to_owned(),
             trace: 31,
+            alert: alert.to_owned(),
         };
         let status = Status {
             host: "arc\u{1b}adia".to_owned(),
-            run: Some(run("Arcadia\u{202e} Health")),
+            run: Some(run("Arcadia\u{202e} Health", "red\u{1b}[2J")),
+            headline: "Bad\u{1b}]52;c;x\u{7} news.".to_owned(),
             ..Status::default()
         };
         let clean = Status {
             host: "arcadia".to_owned(),
-            run: Some(run("Arcadia Health")),
+            run: Some(run("Arcadia Health", "red[2J")),
+            headline: "Bad]52;c;x news.".to_owned(),
             ..Status::default()
         };
         assert_eq!(render(&ServerMessage::Status(status)), Shown::Status(clean));

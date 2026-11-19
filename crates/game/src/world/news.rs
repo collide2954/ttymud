@@ -51,6 +51,11 @@ impl World {
         lines(self.latest())
     }
 
+    pub(super) fn headline(&self) -> String {
+        let last = self.news.headlines.last();
+        last.map_or_default(|headline| headline.text.clone())
+    }
+
     fn latest(&self) -> Vec<Message> {
         let latest: Vec<Message> = self
             .news
