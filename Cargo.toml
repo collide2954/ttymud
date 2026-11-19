@@ -9,6 +9,9 @@ rust-version = "1.100"
 license = "Apache-2.0"
 repository = "https://github.com/collide2954/ttymud"
 
+[workspace.dependencies]
+ttymud-text = { path = "crates/text" }
+
 [workspace.lints.rust]
 unsafe_code = "forbid"
 
