@@ -64,6 +64,18 @@ impl World {
                 .map(|ice| ice.name.as_str())
                 .collect(),
             (Verb::Contract, 1) => vec!["drop"],
+            (Verb::Load | Verb::Unload, 1) => {
+                let loads = self
+                    .players
+                    .get(&player)
+                    .map_or(&[][..], |state| state.rig.loads.as_slice());
+                let unload = command.verb == Verb::Unload;
+                self.known_programs(player)
+                    .into_iter()
+                    .filter(|(verb, _)| loads.contains(verb) == unload)
+                    .map(|(_, name)| name)
+                    .collect()
+            }
             _ => Vec::new(),
         }
     }
@@ -104,7 +116,7 @@ mod tests {
 
     #[test]
     fn the_first_word_completes_to_command_names() {
-        assert_eq!(names("lo"), ["look"]);
+        assert_eq!(names("lo"), ["look", "load"]);
         assert_eq!(names("c"), ["cd", "connect", "cat", "contract", "crack"]);
     }
 

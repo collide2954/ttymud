@@ -1,12 +1,12 @@
 use ttymud_text::{Message, Style};
 
 use super::{PlayerId, Step, World, lines, listed};
-use crate::commands;
+use crate::commands::{self, Verb};
 use crate::content::File;
 
 const MAX_INTEGRITY: u32 = 100;
 const MAX_CYCLES: u32 = 4;
-const RAM: u32 = 8;
+pub(super) const RAM: u32 = 8;
 const PATCH: u32 = 20;
 
 #[derive(Debug)]
@@ -14,6 +14,7 @@ pub(super) struct Rig {
     pub(super) integrity: u32,
     pub(super) cycles: u32,
     pub(super) files: Vec<File>,
+    pub(super) loads: Vec<Verb>,
 }
 
 impl Rig {
@@ -22,7 +23,24 @@ impl Rig {
             integrity: MAX_INTEGRITY,
             cycles: MAX_CYCLES,
             files: Vec::new(),
+            loads: commands::programs()
+                .map(|(command, _)| command.verb)
+                .collect(),
         }
+    }
+
+    pub(super) fn used(&self) -> u32 {
+        commands::programs()
+            .filter(|(command, _)| self.loads.contains(&command.verb))
+            .map(|(_, program)| program.ram)
+            .sum()
+    }
+
+    pub(super) fn loaded(&self) -> Vec<&'static str> {
+        commands::programs()
+            .filter(|(command, _)| self.loads.contains(&command.verb))
+            .map(|(command, _)| command.name())
+            .collect()
     }
 
     pub(super) fn tick(&mut self) {
@@ -53,14 +71,7 @@ impl World {
     }
 
     pub(super) fn repair(&mut self, player: PlayerId) -> Result<Step, Message> {
-        let Some(home) = self.home else {
-            return Err(Message::error("This city has no place to repair a rig."));
-        };
-        if self.here(player) != home {
-            return Err(Message::error("You can repair your rig only at ")
-                .span(Style::Host, &self.hosts[home.0].id)
-                .text("."));
-        }
+        self.at_home(player, "repair your rig")?;
         let Some(rig) = self.players.get_mut(&player).map(|state| &mut state.rig) else {
             return Ok(Step::default());
         };
@@ -92,10 +103,12 @@ impl World {
             "Cycles: {}/{MAX_CYCLES}",
             rig.cycles
         )));
-        let used: u32 = commands::programs().map(|(_, program)| program.ram).sum();
-        shown.push(Message::game(format!("RAM: {used}/{RAM} GB")));
-        let loaded = commands::programs().map(|(command, _)| command.name());
-        shown.push(listed(Message::game("Programs: "), Style::Command, loaded));
+        shown.push(Message::game(format!("RAM: {}/{RAM} GB", rig.used())));
+        shown.push(listed(
+            Message::game("Programs: "),
+            Style::Command,
+            rig.loaded(),
+        ));
         lines(shown)
     }
 }

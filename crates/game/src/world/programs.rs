@@ -17,6 +17,12 @@ impl World {
         let (Some(first), Some(state)) = (programs.first(), self.players.get(&player)) else {
             return Ok(());
         };
+        let missing = found.iter().find(|command| {
+            command.verb.program().is_some() && !state.rig.loads.contains(&command.verb)
+        });
+        if let Some(command) = missing {
+            return Err(self.not_loaded(command.name()));
+        }
         if state.run.is_none() {
             return Err(Message::error(format!(
                 "{first} works only in a target network."

@@ -8,6 +8,7 @@ mod ice;
 mod movement;
 mod presence;
 mod programs;
+mod ram;
 mod rig;
 mod run;
 mod topics;
@@ -65,6 +66,7 @@ struct Player {
     name: String,
     chain: Vec<HostId>,
     rig: Rig,
+    know: Vec<Verb>,
     run: Option<Run>,
     contract: Option<Job>,
 }
@@ -181,6 +183,9 @@ impl World {
                 name: name.to_owned(),
                 chain: vec![self.start],
                 rig: Rig::new(),
+                know: commands::programs()
+                    .map(|(command, _)| command.verb)
+                    .collect(),
                 run: None,
                 contract: self.offer.map(Job::new),
             },
@@ -341,6 +346,8 @@ impl World {
                 self.repair(player)
             }
             Verb::Contract => self.contract(player, args),
+            Verb::Load => self.load(player, args),
+            Verb::Unload => self.unload(player, args),
             Verb::Scan => {
                 no_args(command, args)?;
                 self.scan(player)
@@ -460,6 +467,7 @@ enum Thing {
     Route,
     File,
     Ice,
+    Program,
 }
 
 impl Thing {
@@ -468,6 +476,7 @@ impl Thing {
             Self::Route => Style::Host,
             Self::File => Style::File,
             Self::Ice => Style::Ice,
+            Self::Program => Style::Command,
         }
     }
 
@@ -476,6 +485,7 @@ impl Thing {
             Self::Route => format!("No route to {word}"),
             Self::File => format!("No file named {word}"),
             Self::Ice => format!("No ICE named {word}"),
+            Self::Program => format!("No program named {word}"),
         }
     }
 
@@ -484,6 +494,7 @@ impl Thing {
             Self::Route => "Routes",
             Self::File => "Files",
             Self::Ice => "ICE",
+            Self::Program => "Programs",
         }
     }
 }

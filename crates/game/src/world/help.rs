@@ -38,8 +38,10 @@ impl World {
                 Verb::Go => !host.routes.is_empty(),
                 Verb::Back => hops > 1,
                 Verb::Jackout => running,
-                verb if verb.program().is_some() => running,
-                Verb::Repair => self.home == Some(here),
+                verb if verb.program().is_some() => {
+                    running && state.is_some_and(|state| state.rig.loads.contains(&verb))
+                }
+                Verb::Repair | Verb::Load | Verb::Unload => self.home == Some(here),
                 Verb::Contract => hired,
                 Verb::Read => readable,
                 Verb::Download => !host.files.is_empty(),
@@ -187,7 +189,9 @@ mod tests {
     fn question_mark_adds_back_after_a_move() {
         assert_eq!(
             walk(&["go back-room", "?"]).0,
-            ["Here you can use: look, ls, go, back, inventory, status, repair, grep, say, help"]
+            [
+                "Here you can use: look, ls, go, back, inventory, status, repair, load, unload, grep, say, help"
+            ]
         );
     }
 }

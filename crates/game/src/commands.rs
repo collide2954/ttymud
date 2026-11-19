@@ -12,6 +12,8 @@ pub(crate) enum Verb {
     Status,
     Jackout,
     Repair,
+    Load,
+    Unload,
     Contract,
     Scan,
     Probe,
@@ -247,6 +249,24 @@ pub(crate) const COMMANDS: &[Command] = &[
         gives: Gives::Nothing,
     },
     Command {
+        verb: Verb::Load,
+        names: &["load"],
+        usage: "load <program>",
+        summary: "Put a program that you know into RAM. This works only at home.",
+        example: "load patch",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Unload,
+        names: &["unload"],
+        usage: "unload <program>",
+        summary: "Remove a program from RAM. This works only at home.",
+        example: "unload patch",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
         verb: Verb::Contract,
         names: &["contract", "job"],
         usage: "contract [drop]",
@@ -349,7 +369,6 @@ pub(crate) fn programs() -> impl Iterator<Item = (&'static Command, Program)> {
         .iter()
         .filter_map(|command| command.verb.program().map(|program| (command, program)))
 }
-
 pub(crate) fn find(name: &str) -> Option<&'static Command> {
     let name = name.to_lowercase();
     COMMANDS
