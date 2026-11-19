@@ -9,30 +9,49 @@ pub struct Issue {
     pub message: String,
 }
 
+const PARAGRAPH_LIMIT: usize = 6;
+
 #[must_use]
 pub fn check(markdown: &str) -> Vec<Issue> {
     let mut issues = Vec::new();
     for block in markdown::blocks(markdown) {
         if block.kind == Kind::Prose {
-            long_sentences(&block, &mut issues);
+            let sentences = sentence::sentences(&block.text);
+            long_sentences(&block, &sentences, &mut issues);
+            long_paragraph(&block, &sentences, &mut issues);
         }
     }
     issues
 }
 
-fn long_sentences(block: &Block, issues: &mut Vec<Issue>) {
-    for text in sentence::sentences(&block.text) {
+fn long_sentences(block: &Block, sentences: &[&str], issues: &mut Vec<Issue>) {
+    for text in sentences {
         let words = sentence::word_count(text);
         let limit = sentence::word_limit(text);
         if words > limit {
-            issues.push(Issue {
-                line: block.line,
-                message: format!(
-                    "sentence has {words} words (max {limit}): {}",
-                    sentence::opening(text)
-                ),
-            });
+            let opening = sentence::opening(text);
+            issues.push(issue(
+                block,
+                format!("sentence has {words} words (max {limit}): {opening}"),
+            ));
         }
+    }
+}
+
+fn long_paragraph(block: &Block, sentences: &[&str], issues: &mut Vec<Issue>) {
+    if sentences.len() > PARAGRAPH_LIMIT {
+        let count = sentences.len();
+        issues.push(issue(
+            block,
+            format!("paragraph has {count} sentences (max {PARAGRAPH_LIMIT})"),
+        ));
+    }
+}
+
+fn issue(block: &Block, message: String) -> Issue {
+    Issue {
+        line: block.line,
+        message,
     }
 }
 
@@ -89,6 +108,19 @@ mod tests {
             words(30),
             words(30)
         ));
+    }
+
+    #[test]
+    fn paragraph_of_6_sentences_passes() {
+        assert_clean(&"Short. ".repeat(6));
+    }
+
+    #[test]
+    fn paragraph_of_7_sentences_fails() {
+        assert_eq!(
+            messages(&"Short. ".repeat(7)),
+            ["paragraph has 7 sentences (max 6)"]
+        );
     }
 
     #[test]
