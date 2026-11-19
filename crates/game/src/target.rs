@@ -426,6 +426,16 @@ mod tests {
     }
 
     #[test]
+    fn goals_spread_over_the_data_of_the_corp() {
+        let mut counts = std::collections::BTreeMap::new();
+        for seed in 0..400 {
+            *counts.entry(target(seed).goal).or_insert(0) += 1;
+        }
+        assert_eq!(counts.len(), 4, "{counts:?}");
+        assert!(counts.values().all(|&count| count > 60), "{counts:?}");
+    }
+
+    #[test]
     fn data_needs_access_and_credentials_give_it() {
         for seed in 0..20 {
             let target = target(seed);
