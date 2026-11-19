@@ -4,6 +4,7 @@ mod complete;
 mod contract;
 mod files;
 mod grep;
+mod heat;
 mod help;
 mod ice;
 mod movement;
@@ -22,6 +23,7 @@ use ttymud_text::{Kind, Message, Style, sanitize};
 use crate::commands::{self, Command, Item, Verb};
 use crate::content::{Content, File, IceDef};
 use crate::contract::Event;
+use crate::heat::Security;
 use crate::kits::Kit;
 use crate::matching::{self, Found};
 use crate::parse::{self, ParseError, Stage};
@@ -52,6 +54,7 @@ struct NetworkId(usize);
 #[derive(Debug)]
 struct Network {
     name: String,
+    security: Security,
 }
 
 #[derive(Debug)]
@@ -76,6 +79,7 @@ struct Player {
     account: Option<String>,
     phase: Phase,
     kit: Option<&'static Kit>,
+    heat: u32,
 }
 
 impl Player {
@@ -83,6 +87,7 @@ impl Player {
         Self {
             name: name.to_owned(),
             chain: vec![at],
+            heat: 0,
             rig: Rig::new(),
             know: commands::programs()
                 .map(|(command, _)| command.verb)
@@ -183,7 +188,10 @@ impl World {
         let networks = content
             .networks
             .into_iter()
-            .map(|network| Network { name: network.name })
+            .map(|network| Network {
+                name: network.name,
+                security: network.security,
+            })
             .collect();
         Self {
             city: content.city,

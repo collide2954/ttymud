@@ -25,6 +25,7 @@ pub(super) struct Account {
 pub(super) struct Saved {
     pub(super) name: String,
     pub(super) kit: &'static Kit,
+    pub(super) heat: u32,
     pub(super) integrity: u32,
     pub(super) files: Vec<File>,
     pub(super) loads: Vec<Verb>,
@@ -41,6 +42,7 @@ impl World {
         let mut state = Player::new(&saved.name, home);
         state.account = Some(account.to_owned());
         state.kit = Some(saved.kit);
+        state.heat = saved.heat;
         state.rig.integrity = saved.integrity;
         state.rig.files = saved.files;
         state.rig.loads = saved.loads;
@@ -164,6 +166,7 @@ impl World {
         let saved = Saved {
             name: state.name.clone(),
             kit,
+            heat: state.heat,
             integrity: state.rig.integrity,
             files: state.rig.files.clone(),
             loads: state.rig.loads.clone(),

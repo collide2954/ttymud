@@ -25,6 +25,7 @@ crack breaks sentry through its weak point.
 warden blocks the route to vault.
 > status
 Trace: 8% in Test Lab
+Heat: 0/5
 Integrity: 100/100
 Cycles: 0/4
 RAM: 8/8 GB

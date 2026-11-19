@@ -41,7 +41,10 @@ impl Ice {
     }
 
     pub(super) fn compile(&mut self, action: Action) -> Message {
-        let ticks = action.ticks();
+        self.compile_in(action, action.ticks())
+    }
+
+    pub(super) fn compile_in(&mut self, action: Action, ticks: u32) -> Message {
         self.intent = Some(Intent { action, ticks });
         let unit = if ticks == 1 { "tick" } else { "ticks" };
         self.named()

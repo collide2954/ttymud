@@ -1,5 +1,6 @@
 use super::{ContentError, ContractDef, File, HostDef, IceDef, NetworkDef};
 use crate::contract::Event;
+use crate::heat::Security;
 use crate::ice::IceKind;
 
 struct Section<'a> {
@@ -191,12 +192,24 @@ impl Reader {
             );
             return;
         }
-        self.allow(section, &["name"]);
+        self.allow(section, &["name", "security"]);
         self.check_name(section.line, section.id, Name::Plain);
         let name = self.single(section, "name").unwrap_or_default().0;
+        let security = match self.optional(section, "security") {
+            None => Security::Low,
+            Some((word, line)) => Security::find(&word).unwrap_or_else(|| {
+                let levels = "low, medium, high, or top";
+                self.error(
+                    line,
+                    format!("unknown security level: {word} (use {levels})"),
+                );
+                Security::Low
+            }),
+        };
         let network = NetworkDef {
             id: section.id.to_owned(),
             name,
+            security,
         };
         self.networks.push((network, section.line));
     }

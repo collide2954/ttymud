@@ -1,11 +1,13 @@
 use ttymud_text::{Message, Style};
 
+use super::heat::FAST_HEAT;
 use super::ice::{Ice, deploy};
 use super::{HostId, NetworkId, PlayerId, Step, World};
 use crate::contract::Event;
 use crate::ice::{Action, IceKind};
 
 const SHOCK: u32 = 20;
+const LATE_TRACE: u32 = 75;
 pub(super) const MAX_TRACE: u32 = 100;
 const CRASH: &str = "Your rig crashes, and you lose the loot of this run.";
 
@@ -50,14 +52,18 @@ impl World {
             return Err(Message::error("You are not in a target network."));
         };
         let name = &self.networks[run.network.0].name;
-        let jack = Message::game(format!(
+        let late = run.trace >= LATE_TRACE;
+        let mut shown = vec![Message::game(format!(
             "You jack out of {name}. The shock costs your rig {SHOCK} integrity."
-        ));
-        let mut shown = self.damage(player, SHOCK);
+        ))];
+        if late {
+            let heat = self.add_heat(player, 1);
+            shown.push(Message::game("The trace was 75% or more. ").text(heat.plain()));
+        }
+        shown.extend(self.damage(player, SHOCK));
         if self.running(player) {
             shown.extend(self.drop_link(player, false));
         }
-        shown.insert(0, jack);
         Ok(Step::show(shown))
     }
 
@@ -81,7 +87,15 @@ impl World {
     }
 
     pub(super) fn noise(&mut self, player: PlayerId, noise: u32) -> Vec<Message> {
+        if noise == 0 {
+            return Vec::new();
+        }
         let here = self.here(player);
+        let alert = if self.heat_of(player) >= FAST_HEAT {
+            Action::Alert.ticks() - 1
+        } else {
+            Action::Alert.ticks()
+        };
         let Some(run) = self
             .players
             .get_mut(&player)
@@ -89,9 +103,6 @@ impl World {
         else {
             return Vec::new();
         };
-        if noise == 0 {
-            return Vec::new();
-        }
         let masked = run.mask > 0;
         let mut shown = Vec::new();
         let mut watched = false;
@@ -104,7 +115,7 @@ impl World {
                 IceKind::Sentry => {
                     watched = true;
                     if ice.intent.is_none() {
-                        shown.push(ice.compile(Action::Alert));
+                        shown.push(ice.compile_in(Action::Alert, alert));
                     }
                 }
                 IceKind::Scorch if !ice.awake => shown.push(ice.wake()),
@@ -132,10 +143,13 @@ impl World {
         if run.trace < MAX_TRACE {
             return Vec::new();
         }
-        let name = &self.networks[run.network.0].name;
+        let network = &self.networks[run.network.0];
+        let heat = network.security.heat();
+        let name = &network.name;
         let mut shown = vec![Message::game(format!(
             "{name} traces you. The link drops, and you lose the loot of this run."
         ))];
+        shown.push(self.add_heat(player, heat));
         shown.extend(self.drop_link(player, true));
         shown
     }
@@ -278,10 +292,11 @@ mod tests {
         }
         let shown = plain(&world.command(player, "scan"));
         assert_eq!(
-            shown[..3],
+            shown[..4],
             [
                 "scan finds no ICE here.",
                 "Test Lab traces you. The link drops, and you lose the loot of this run.",
+                "Your heat: 0 -> 2.",
                 "The Back Room",
             ]
         );
@@ -308,8 +323,13 @@ mod tests {
     fn jackout_keeps_the_loot_but_costs_integrity() {
         let lines = [&LOOT[..], &["jackout", "inventory"]].concat();
         assert_eq!(walk(&lines).0, ["data.db"]);
-        let lines = ["go back-room", "go gate", "jackout", "status"];
-        assert_eq!(walk(&lines).0[0], "Integrity: 80/100");
+        let lines = [
+            "go back-room",
+            "go gate",
+            "jackout",
+            "status | grep integrity",
+        ];
+        assert_eq!(walk(&lines).0, ["Integrity: 80/100"]);
     }
 
     #[test]
@@ -365,7 +385,7 @@ mod tests {
     fn status_shows_the_trace_during_a_run() {
         let (shown, _) = walk(&["go back-room", "go gate", "status"]);
         assert_eq!(shown[0], "Trace: 0% in Test Lab");
-        assert_eq!(walk(&["status"]).0[0], "Integrity: 100/100");
+        assert_eq!(walk(&["status"]).0[0], "Heat: 0/5");
     }
 
     #[test]

@@ -3,6 +3,7 @@ use ttymud_text::{Message, Style};
 use super::{PlayerId, Step, World, lines, listed};
 use crate::commands::{self, Verb};
 use crate::content::File;
+use crate::heat::MAX_HEAT;
 
 const MAX_INTEGRITY: u32 = 100;
 const MAX_CYCLES: u32 = 4;
@@ -99,6 +100,7 @@ impl World {
             let network = &self.networks[run.network.0].name;
             shown.push(Message::game(format!("Trace: {}% in {network}", run.trace)));
         }
+        shown.push(Message::game(format!("Heat: {}/{MAX_HEAT}", state.heat)));
         let rig = &state.rig;
         shown.push(Message::game(format!(
             "Integrity: {}/{MAX_INTEGRITY}",
@@ -148,8 +150,8 @@ mod tests {
             walk(&lines).0,
             ["You repair your rig. Integrity: 80 -> 100."]
         );
-        let lines = [&lines[..], &["status"]].concat();
-        assert_eq!(walk(&lines).0[0], "Integrity: 100/100");
+        let lines = [&lines[..], &["status | grep integrity"]].concat();
+        assert_eq!(walk(&lines).0, ["Integrity: 100/100"]);
     }
 
     #[test]
@@ -193,6 +195,7 @@ mod tests {
         assert_eq!(
             run("status"),
             [
+                "Heat: 0/5",
                 "Integrity: 100/100",
                 "Cycles: 4/4",
                 "RAM: 8/8 GB",

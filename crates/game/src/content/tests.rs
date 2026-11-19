@@ -1,5 +1,6 @@
 use super::{Content, ContractDef, File, IceDef, NetworkDef};
 use crate::contract::Event;
+use crate::heat::Security;
 use crate::ice::IceKind;
 
 const NET: &str = "\
@@ -22,6 +23,22 @@ name = C
 desc = C.
 network = n
 ";
+
+#[test]
+fn a_network_has_a_security_level() {
+    let text = NET.replace("name = N\n", "name = N\nsecurity = high\n");
+    let content = Content::parse(&text).unwrap();
+    assert_eq!(content.networks[0].security, Security::High);
+    assert_eq!(
+        Content::parse(NET).unwrap().networks[0].security,
+        Security::Low
+    );
+    let text = NET.replace("name = N\n", "name = N\nsecurity = extreme\n");
+    assert_eq!(
+        errors(&text),
+        ["line 9: unknown security level: extreme (use low, medium, high, or top)"]
+    );
+}
 
 fn with_contract(contract: &str) -> String {
     let city = NET.replace("start = a", "start = a\ncontract = job");
@@ -386,6 +403,7 @@ fn hosts_can_be_in_a_network() {
     let lab = NetworkDef {
         id: "lab".to_owned(),
         name: "The Lab".to_owned(),
+        security: Security::Low,
     };
     assert_eq!(content.networks, [lab]);
     assert_eq!(content.hosts[2].network.as_deref(), Some("lab"));

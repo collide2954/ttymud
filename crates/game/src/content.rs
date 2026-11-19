@@ -8,6 +8,7 @@ use std::fmt;
 use reader::Reader;
 
 use crate::contract::Event;
+use crate::heat::Security;
 use crate::ice::IceKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,6 +52,7 @@ pub(crate) struct ContractDef {
 pub(crate) struct NetworkDef {
     pub(crate) id: String,
     pub(crate) name: String,
+    pub(crate) security: Security,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
