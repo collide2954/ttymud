@@ -48,6 +48,7 @@ pub(crate) struct ContractDef {
     pub(crate) goal: String,
     pub(crate) offer: Vec<String>,
     pub(crate) steps: Vec<(Event, String)>,
+    pub(crate) pay: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

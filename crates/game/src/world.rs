@@ -202,6 +202,7 @@ impl World {
                 goal: def.goal,
                 offer: def.offer,
                 steps: def.steps,
+                pay: def.pay,
             })
             .collect();
         let networks = content

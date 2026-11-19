@@ -7,6 +7,7 @@ pub(crate) const JOB: &str = "\
 fixer = Pell
 network = lab
 goal = data.db
+pay = 100
 offer = The lab has data that a client wants.
 offer = Get data.db and leave clean.
 step = home: Go to back-room. Your rig is there.

@@ -88,9 +88,22 @@ fn the_city_offers_a_contract() {
         goal: "x.db".to_owned(),
         offer: vec!["Get x.db.".to_owned(), "Go.".to_owned()],
         steps: Vec::new(),
+        pay: 0,
     };
     assert_eq!(content.contracts, [job]);
     assert_eq!(content.contract.as_deref(), Some("job"));
+}
+
+#[test]
+fn a_contract_can_pay_credits() {
+    let text = with_contract(
+        "[contract job]\nfixer = Pell\nnetwork = n\ngoal = x.db\noffer = Go.\npay = 250\n",
+    );
+    assert_eq!(Content::parse(&text).unwrap().contracts[0].pay, 250);
+    assert_eq!(
+        errors(&text.replace("pay = 250", "pay = lots")),
+        ["line 27: bad pay: lots (use a number of credits)"]
+    );
 }
 
 #[test]

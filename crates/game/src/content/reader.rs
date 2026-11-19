@@ -86,11 +86,21 @@ impl Reader {
             );
             return;
         }
-        self.allow(section, &["fixer", "network", "goal", "offer", "step"]);
+        self.allow(
+            section,
+            &["fixer", "network", "goal", "offer", "step", "pay"],
+        );
         self.check_name(section.line, id, Name::Plain);
         let fixer = self.single(section, "fixer");
         let network = self.single(section, "network");
         let goal = self.single(section, "goal");
+        let pay = match self.optional(section, "pay") {
+            None => 0,
+            Some((word, line)) => word.parse().unwrap_or_else(|_| {
+                self.error(line, format!("bad pay: {word} (use a number of credits)"));
+                0
+            }),
+        };
         let offer: Vec<String> = values(section, "offer")
             .into_iter()
             .map(|(text, _)| text)
@@ -112,6 +122,7 @@ impl Reader {
                 goal,
                 offer,
                 steps,
+                pay,
             };
             self.contracts.push((def, at, goal_at));
         }

@@ -13,6 +13,7 @@ pub(super) struct Contract {
     pub(super) goal: String,
     pub(super) offer: Vec<String>,
     pub(super) steps: Vec<(Event, String)>,
+    pub(super) pay: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -104,26 +105,40 @@ impl World {
         Some(Message::game(format!("Hint: {hint}")))
     }
 
-    pub(super) fn finish_contract(
-        &mut self,
-        player: PlayerId,
-        network: NetworkId,
-    ) -> Option<Message> {
-        let state = self.players.get(&player)?;
-        let contract = self.contracts.get(state.contract?.contract)?;
-        let has_goal = state
+    pub(super) fn finish_contract(&mut self, player: PlayerId, network: NetworkId) -> Vec<Message> {
+        let Some(state) = self.players.get_mut(&player) else {
+            return Vec::new();
+        };
+        let Some(contract) = state
+            .contract
+            .and_then(|job| self.contracts.get(job.contract))
+        else {
+            return Vec::new();
+        };
+        let goal = state
             .rig
             .files
             .iter()
-            .any(|file| file.name == contract.goal);
-        if contract.network != network || !has_goal {
-            return None;
-        }
-        let message = Message::game("")
-            .span(Style::Player, &contract.fixer)
-            .text(": Clean work. The contract is complete.");
-        self.players.get_mut(&player)?.contract = None;
-        Some(message)
+            .position(|file| file.name == contract.goal);
+        let (true, Some(goal)) = (contract.network == network, goal) else {
+            return Vec::new();
+        };
+        state.rig.files.remove(goal);
+        state.contract = None;
+        state.credits += contract.pay;
+        let fixer = |rest: String| {
+            Message::game("")
+                .span(Style::Player, &contract.fixer)
+                .text(rest)
+        };
+        let taken = match contract.pay {
+            0 => format!(" takes {}.", contract.goal),
+            pay => format!(" takes {} and pays you {pay} cr.", contract.goal),
+        };
+        vec![
+            fixer(": Clean work. The contract is complete.".to_owned()),
+            fixer(taken),
+        ]
     }
 
     pub(super) fn offer(&self, player: PlayerId) -> Vec<Message> {
@@ -158,6 +173,9 @@ impl World {
                         .span(Style::File, &contract.goal)
                         .text(", then leave the network with a clean exit."),
                 ];
+                if contract.pay > 0 {
+                    shown.push(Message::game(format!("Pay: {} cr", contract.pay)));
+                }
                 if let Some(hint) = self.next_step(player) {
                     shown.push(Message::game(format!("Next: {hint}")));
                 }
@@ -205,6 +223,7 @@ mod tests {
                 "Contract from Pell",
                 "Target: Test Lab",
                 "Goal: download data.db, then leave the network with a clean exit.",
+                "Pay: 100 cr",
                 "Next: Go to back-room. Your rig is there.",
             ]
         );
@@ -288,16 +307,40 @@ mod tests {
             world.command(player, line);
         }
         assert_eq!(
-            plain(&world.command(player, "back"))[..3],
+            plain(&world.command(player, "back"))[..4],
             [
                 "You leave the network of Test Lab. Clean exit.",
                 "Pell: Clean work. The contract is complete.",
+                "Pell takes data.db and pays you 100 cr.",
                 "The Back Room",
             ]
         );
         assert_eq!(
             plain(&world.command(player, "contract")),
             ["You have no contract."]
+        );
+    }
+
+    #[test]
+    fn the_fixer_keeps_the_goal_and_the_pay_goes_to_the_rig() {
+        let (mut world, player) = hired();
+        for line in [
+            "go back-room",
+            "go gate",
+            "go core",
+            "get data.db",
+            "back",
+            "back",
+        ] {
+            world.command(player, line);
+        }
+        assert_eq!(
+            plain(&world.command(player, "inventory")),
+            ["Your rig has no files."]
+        );
+        assert_eq!(
+            plain(&world.command(player, "status | grep credits")),
+            ["Credits: 100 cr"]
         );
     }
 
