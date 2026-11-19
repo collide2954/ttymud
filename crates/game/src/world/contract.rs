@@ -126,7 +126,7 @@ impl World {
             return Vec::new();
         };
         state.rig.files.remove(goal);
-        state.contract = None;
+        state.end_contract();
         let fee = if state.heat >= FEE_HEAT {
             contract.pay * FEE_PERCENT / 100
         } else {
@@ -201,7 +201,7 @@ impl World {
                     .span(Style::Player, &contract.fixer)
                     .text(".");
                 if let Some(state) = self.players.get_mut(&player) {
-                    state.contract = None;
+                    state.end_contract();
                 }
                 Ok(Step::show(vec![message]))
             }

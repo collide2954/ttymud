@@ -98,6 +98,9 @@ impl World {
             text.pair("credits", &handle.credits.to_string());
             text.pair("ram", &handle.ram.to_string());
             text.pair("cpu", &handle.cpu.to_string());
+            for name in &handle.sold {
+                text.pair("sold", name);
+            }
             for &verb in &handle.loads {
                 text.pair("load", commands::name_of(verb));
             }
@@ -208,8 +211,10 @@ impl World {
             (None, None, None);
         let (mut contract, mut step, mut loads) = (None, 0, Vec::new());
         let (mut credits, mut ram, mut cpu) = (0, RAM, CYCLES);
+        let mut sold = Vec::new();
         for pair in &section.pairs {
             match pair.key {
+                "sold" => sold.push(pair.value.to_owned()),
                 "credits" => credits = number(pair, errors).unwrap_or(0),
                 "ram" => ram = number(pair, errors).unwrap_or(RAM),
                 "cpu" => cpu = number(pair, errors).unwrap_or(CYCLES),
@@ -250,6 +255,7 @@ impl World {
             credits,
             ram,
             cpu,
+            sold,
             files: Vec::new(),
             loads,
             contract: contract.map(|index| Job::resume(index, step)),
@@ -277,6 +283,9 @@ impl Text {
         self.section(kind, &file.name);
         for line in &file.lines {
             self.pair("line", line);
+        }
+        if file.value > 0 {
+            self.pair("value", &file.value.to_string());
         }
     }
 
@@ -316,7 +325,13 @@ fn parse_burns(text: &str) -> Result<Vec<Burn>, Vec<ContentError>> {
 }
 
 fn parse_file(section: &Section<'_>, errors: &mut Vec<ContentError>) -> File {
-    allow(section, &["line"], errors);
+    allow(section, &["line", "value"], errors);
+    let value = section
+        .pairs
+        .iter()
+        .find(|pair| pair.key == "value")
+        .and_then(|pair| number(pair, errors))
+        .unwrap_or(0);
     let lines: Vec<String> = section
         .pairs
         .iter()
@@ -327,7 +342,9 @@ fn parse_file(section: &Section<'_>, errors: &mut Vec<ContentError>) -> File {
         let (kind, name) = (section.kind, section.id);
         errors.push(problem(section.line, format!("{kind} {name} has no line")));
     }
-    File::new(section.id, lines)
+    let mut file = File::new(section.id, lines);
+    file.value = value;
+    file
 }
 
 fn allow(section: &Section<'_>, keys: &[&str], errors: &mut Vec<ContentError>) {
@@ -522,6 +539,41 @@ mod tests {
             fresh.restore(path, text).unwrap();
         }
         fresh
+    }
+
+    #[test]
+    fn stolen_data_and_sales_come_back_from_a_save() {
+        let mut world = hired_world();
+        let player = ready(&mut world, &["go market"]);
+        let mut file = crate::content::File::new("payroll.db", vec!["Pay.".to_owned()]);
+        file.value = 40;
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.files.push(file.clone());
+            let clients = vec!["Clients.".to_owned()];
+            state
+                .rig
+                .files
+                .push(crate::content::File::new("clients.db", clients));
+        }
+        world.command(player, "sell payroll.db");
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.files[0].value = 100;
+            state.rig.files.push(file);
+        }
+        world.leave(player);
+        let mut fresh = world_from(&world.saves());
+        let (player, _) = fresh.connect("a");
+        for line in ["go relay", "go market"] {
+            fresh.command(player, line);
+        }
+        assert_eq!(
+            plain(&fresh.command(player, "sell")),
+            ["Usage: sell <file>. The fence wants: clients.db (100 cr), payroll.db (40 cr)"]
+        );
+        assert_eq!(
+            plain(&fresh.command(player, "sell payroll.db")),
+            ["The fence already bought payroll.db from you in this job."]
+        );
     }
 
     #[test]

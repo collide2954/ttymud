@@ -88,6 +88,7 @@ struct Player {
     heat: u32,
     cooled: u64,
     credits: u32,
+    sold: Vec<String>,
     stash: Vec<File>,
 }
 
@@ -99,6 +100,7 @@ impl Player {
             heat: 0,
             cooled: 0,
             credits: 0,
+            sold: Vec::new(),
             stash: Vec::new(),
             rig: Rig::new(),
             know: commands::programs()
@@ -110,6 +112,11 @@ impl Player {
             phase: Phase::Playing,
             kit: None,
         }
+    }
+
+    fn end_contract(&mut self) {
+        self.contract = None;
+        self.sold.clear();
     }
 }
 

@@ -36,7 +36,7 @@ impl World {
         state.heat = 0;
         state.credits = 0;
         state.run = None;
-        state.contract = None;
+        state.end_contract();
         state.kit = None;
         state.chain = vec![start];
         let (know, stash) = (state.know.clone(), state.stash.clone());

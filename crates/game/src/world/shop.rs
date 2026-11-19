@@ -151,8 +151,15 @@ impl World {
                 shown.push(Message::game(format!("The fence does not want {name}.")));
                 continue;
             }
+            if state.sold.contains(&name) {
+                shown.push(Message::game(format!(
+                    "The fence already bought {name} from you in this job."
+                )));
+                continue;
+            }
             state.rig.files.remove(index);
             state.credits += value;
+            state.sold.push(name.clone());
             shown.push(
                 Message::game(format!("The fence pays you {value} cr for "))
                     .span(Style::File, &name)
@@ -247,7 +254,7 @@ fn wanted(files: &[File]) -> Message {
 #[cfg(test)]
 mod tests {
     use crate::content::File;
-    use crate::testing::{plain, run, world};
+    use crate::testing::{hired_world, plain, run, world};
     use crate::{PlayerId, World};
 
     fn shopper(kit: &str) -> (World, PlayerId) {
@@ -390,6 +397,27 @@ mod tests {
                 "The fence does not want memo.txt.",
                 "The fence pays you 100 cr for clients.db."
             ]
+        );
+    }
+
+    #[test]
+    fn the_fence_buys_a_file_one_time_in_each_job() {
+        let mut world = hired_world();
+        let (player, _) = world.connect("a");
+        for line in ["nyx", "ghost", "go market"] {
+            world.command(player, line);
+        }
+        carry(&mut world, player, "payroll.db", 40);
+        world.command(player, "sell payroll.db");
+        carry(&mut world, player, "payroll.db", 40);
+        assert_eq!(
+            plain(&world.command(player, "sell payroll.db")),
+            ["The fence already bought payroll.db from you in this job."]
+        );
+        world.command(player, "contract drop");
+        assert_eq!(
+            plain(&world.command(player, "sell payroll.db")),
+            ["The fence pays you 40 cr for payroll.db."]
         );
     }
 
