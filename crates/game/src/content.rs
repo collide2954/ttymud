@@ -20,6 +20,7 @@ impl fmt::Display for ContentError {
 pub struct Content {
     pub(crate) city: String,
     pub(crate) start: String,
+    pub(crate) home: Option<String>,
     pub(crate) networks: Vec<NetworkDef>,
     pub(crate) hosts: Vec<HostDef>,
 }
@@ -82,6 +83,7 @@ struct Reader {
     city: Option<usize>,
     city_name: Option<String>,
     start: Option<(String, usize)>,
+    home: Option<(String, usize)>,
     networks: Vec<(NetworkDef, usize)>,
     hosts: Vec<(HostDef, usize)>,
     members: Vec<(String, String, usize)>,
@@ -153,10 +155,11 @@ impl Reader {
             return;
         }
         self.city = Some(section.line);
-        self.allow(section, &["name", "start"]);
+        self.allow(section, &["name", "start", "home"]);
         self.check_name(section.line, section.id, Name::Plain);
         self.city_name = self.single(section, "name").map(|(name, _)| name);
         self.start = self.single(section, "start");
+        self.home = self.optional(section, "home");
     }
 
     fn network(&mut self, section: &Section<'_>) {
@@ -370,6 +373,13 @@ impl Reader {
                 self.error(line, format!("start is an unknown host: {start}"));
             }
         }
+        if let Some((home, line)) = self.home.clone() {
+            if !self.has_host(&home) {
+                self.error(line, format!("home is an unknown host: {home}"));
+            } else if self.network_of(&home).is_some() {
+                self.error(line, format!("home is in a network: {home}"));
+            }
+        }
         self.errors.sort_by_key(|error| error.line);
         if !self.errors.is_empty() {
             return Err(self.errors);
@@ -377,6 +387,7 @@ impl Reader {
         Ok(Content {
             city: self.city_name.unwrap_or_default(),
             start: self.start.unwrap_or_default().0,
+            home: self.home.map(|(home, _)| home),
             networks: self
                 .networks
                 .into_iter()
@@ -591,6 +602,27 @@ line = Two.
         let text = "[city t]\nname = T\nstart = a\n[host a]\nname = A\ndesc = A.\n\
                     [host b]\nname = B\ndesc = B.\nroute = a\n";
         assert_eq!(errors(text), Vec::<String>::new());
+    }
+
+    #[test]
+    fn the_city_can_have_a_home_host() {
+        let content = Content::parse(&CITY.replace("start = a", "start = a\nhome = b")).unwrap();
+        assert_eq!(content.home.as_deref(), Some("b"));
+        assert_eq!(Content::parse(CITY).unwrap().home, None);
+    }
+
+    #[test]
+    fn a_home_must_be_a_known_hub_host() {
+        let city = "[city t]\nname = T\nstart = a\nhome = HOME\n[host a]\nname = A\ndesc = A.\n\
+                    [network n]\nname = N\n[host b]\nname = B\ndesc = B.\nnetwork = n\nroute = a\n";
+        assert_eq!(
+            errors(&city.replace("HOME", "x")),
+            ["line 4: home is an unknown host: x"]
+        );
+        assert_eq!(
+            errors(&city.replace("HOME", "b")),
+            ["line 4: home is in a network: b"]
+        );
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use ttymud_text::Message;
+use ttymud_text::{Message, Style};
 
 use super::{HostId, NetworkId, PlayerId, Step, World};
 
@@ -19,12 +19,19 @@ impl World {
             return Ok(());
         };
         let entering = state.run.is_none() && self.hosts[target.0].network.is_some();
-        if entering && state.rig.integrity == 0 {
-            return Err(Message::error(
-                "Your rig has no integrity left. Repair it before you connect.",
-            ));
+        if !entering || state.rig.integrity > 0 {
+            return Ok(());
         }
-        Ok(())
+        let message = Message::error("Your rig has no integrity left.");
+        Err(match self.home {
+            Some(home) => message
+                .text(" Type ")
+                .span(Style::Command, "repair")
+                .text(" at ")
+                .span(Style::Host, &self.hosts[home.0].id)
+                .text("."),
+            None => message,
+        })
     }
 
     pub(super) fn jackout(&mut self, player: PlayerId) -> Result<Step, Message> {
@@ -44,10 +51,7 @@ impl World {
             shown.push(Message::game(CRASH));
         }
         shown.extend(self.drop_link(player, crashed));
-        Ok(Step {
-            shown,
-            items: Vec::new(),
-        })
+        Ok(Step::show(shown))
     }
 
     fn drop_link(&mut self, player: PlayerId, lose_loot: bool) -> Vec<Message> {
@@ -162,7 +166,7 @@ mod tests {
         world.command(player, "go back-room");
         assert_eq!(
             plain(&world.command(player, "go gate")),
-            ["Your rig has no integrity left. Repair it before you connect."]
+            ["Your rig has no integrity left. Type repair at back-room."]
         );
         assert_eq!(world.prompt(player).as_deref(), Some("ghost@back-room $ "));
     }

@@ -1,4 +1,4 @@
-use ttymud_text::Message;
+use ttymud_text::{Message, Style};
 
 use super::{PlayerId, Step, World, lines};
 use crate::content::File;
@@ -28,6 +28,28 @@ impl Rig {
 }
 
 impl World {
+    pub(super) fn repair(&mut self, player: PlayerId) -> Result<Step, Message> {
+        let Some(home) = self.home else {
+            return Err(Message::error("This city has no place to repair a rig."));
+        };
+        if self.here(player) != home {
+            return Err(Message::error("You can repair your rig only at ")
+                .span(Style::Host, &self.hosts[home.0].id)
+                .text("."));
+        }
+        let Some(rig) = self.players.get_mut(&player).map(|state| &mut state.rig) else {
+            return Ok(Step::default());
+        };
+        let before = rig.integrity;
+        if before == MAX_INTEGRITY {
+            return Ok(Step::show(vec![Message::game("Your rig needs no repair.")]));
+        }
+        rig.integrity = MAX_INTEGRITY;
+        Ok(Step::show(vec![Message::game(format!(
+            "You repair your rig. Integrity: {before} -> {MAX_INTEGRITY}."
+        ))]))
+    }
+
     pub(super) fn status(&self, player: PlayerId) -> Step {
         let Some(state) = self.players.get(&player) else {
             return Step::default();
@@ -52,7 +74,7 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::{joined, plain, run};
+    use crate::testing::{joined, plain, run, walk};
     use crate::{PlayerId, World};
 
     fn cycles(world: &mut World, player: PlayerId) -> Vec<String> {
@@ -71,6 +93,33 @@ mod tests {
         world.tick();
         world.tick();
         assert_eq!(cycles(&mut world, player), ["Cycles: 4/4"]);
+    }
+
+    #[test]
+    fn repair_at_home_restores_full_integrity() {
+        let lines = ["go back-room", "go gate", "jackout", "repair"];
+        assert_eq!(
+            walk(&lines).0,
+            ["You repair your rig. Integrity: 80 -> 100."]
+        );
+        let lines = [&lines[..], &["status"]].concat();
+        assert_eq!(walk(&lines).0[0], "Integrity: 100/100");
+    }
+
+    #[test]
+    fn repair_works_only_at_home() {
+        assert_eq!(
+            run("repair"),
+            ["You can repair your rig only at back-room."]
+        );
+    }
+
+    #[test]
+    fn a_rig_at_full_integrity_needs_no_repair() {
+        assert_eq!(
+            walk(&["go back-room", "repair"]).0,
+            ["Your rig needs no repair."]
+        );
     }
 
     #[test]

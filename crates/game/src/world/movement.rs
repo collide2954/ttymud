@@ -46,10 +46,7 @@ impl World {
         self.relocate(player, from, to);
         let mut shown: Vec<Message> = self.cross(player, from, to).into_iter().collect();
         shown.extend(self.scene(to, player));
-        Step {
-            shown,
-            items: Vec::new(),
-        }
+        Step::show(shown)
     }
 
     fn route(&self, player: PlayerId, place: &str) -> Result<HostId, Message> {

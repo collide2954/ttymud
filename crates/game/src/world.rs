@@ -66,6 +66,7 @@ pub struct World {
     networks: Vec<Network>,
     hosts: Vec<Host>,
     start: HostId,
+    home: Option<HostId>,
     players: BTreeMap<PlayerId, Player>,
     next_player: u64,
     outbox: Vec<Output>,
@@ -75,6 +76,15 @@ pub struct World {
 struct Step {
     shown: Vec<Message>,
     items: Vec<Item>,
+}
+
+impl Step {
+    fn show(shown: Vec<Message>) -> Self {
+        Self {
+            shown,
+            items: Vec::new(),
+        }
+    }
 }
 
 impl World {
@@ -122,6 +132,7 @@ impl World {
         Self {
             city: content.city,
             start: find(&content.start),
+            home: content.home.as_deref().map(find),
             networks,
             hosts,
             players: BTreeMap::new(),
@@ -271,6 +282,10 @@ impl World {
             Verb::Jackout => {
                 no_args(command, args)?;
                 self.jackout(player)
+            }
+            Verb::Repair => {
+                no_args(command, args)?;
+                self.repair(player)
             }
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Say => Err(Message::error("Usage: say <text>.")),

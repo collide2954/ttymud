@@ -25,7 +25,8 @@ pub(super) fn help(args: &[String]) -> Result<Step, Message> {
 
 impl World {
     pub(super) fn available(&self, player: PlayerId) -> Step {
-        let host = &self.hosts[self.here(player).0];
+        let here = self.here(player);
+        let host = &self.hosts[here.0];
         let state = self.players.get(&player);
         let hops = state.map_or(0, |state| state.chain.len());
         let running = state.is_some_and(|state| state.run.is_some());
@@ -36,6 +37,7 @@ impl World {
                 Verb::Go => !host.routes.is_empty(),
                 Verb::Back => hops > 1,
                 Verb::Jackout => running,
+                Verb::Repair => self.home == Some(here),
                 Verb::Read => readable,
                 Verb::Download => !host.files.is_empty(),
                 Verb::Available => false,
@@ -172,7 +174,7 @@ mod tests {
     fn question_mark_adds_back_after_a_move() {
         assert_eq!(
             walk(&["go back-room", "?"]).0,
-            ["Here you can use: look, ls, go, back, inventory, status, grep, say, help"]
+            ["Here you can use: look, ls, go, back, inventory, status, repair, grep, say, help"]
         );
     }
 }
