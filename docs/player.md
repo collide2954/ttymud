@@ -70,7 +70,7 @@ In a terminal, the client edits your input line itself. Text from the server sho
 | Ctrl+C | Clear the line. On an empty line, quit. |
 | Ctrl+D | Delete the character at the cursor. On an empty line, quit. |
 
-Tab completes the names of commands, routes, files, and help topics. If more than one name is possible, Tab adds the part that the names have in common. If there is no part to add, the client shows all the possible names.
+Tab completes the names of commands, routes, files, help topics, and the ICE that you know. If more than one name is possible, Tab adds the part that the names have in common. If there is no part to add, the client shows all the possible names.
 
 ## Line mode
 
@@ -87,3 +87,44 @@ Type `help` to see the commands. Type `?` to see the commands that you can use o
 Type `quit` to leave the game. The client waits for the answers to your last commands. Then it closes the connection.
 
 Your name is `anon-` and the first eight characters of your key in hexadecimal. Handles with names that you select come in M4. If you connect again with the same identity, the new connection replaces the old connection.
+
+## Your first run
+
+When you connect, the fixer Pell offers you a job. A dentist keeps patient files on an old box, and a client wants them. Type `contract` to see the job and the next step. If you make no progress for 30 seconds, the game gives you a hint.
+
+Do these steps:
+
+1. Go to your safehouse, where your rig is: `go safehouse`.
+2. Connect to the target: `go smile-gw`. The prompt now shows your trace and your integrity.
+3. Find the ICE on this host: `scan`.
+4. Find the weak point of the Sentry, and crack it in the same pipeline: `probe sentry | crack`.
+5. Find the host with the file `patients.db`. Then download the file: `download patients.db`.
+6. Lower your trace: `scrub`.
+7. Go back the way that you came in: `back`. Then the contract is complete.
+
+## Cycles and noise
+
+Programs cost cycles. Your rig has a maximum of 4 cycles, and it gets 1 cycle on each tick of two seconds. If a command needs more cycles than you have, it does not run. Type `status` to see your cycles.
+
+Programs also make noise, and noise raises your trace. A Sentry on the host doubles the trace from noise. A pipeline makes less noise than the same commands on different lines.
+
+## Telegraphs
+
+ICE acts on its own time. Before an ICE acts, it shows its next action in a telegraph:
+
+    hound starts to compile TRACE BURST (2 ticks).
+
+In this example, you have two ticks to answer. You can crack the ICE, leave the host, or scrub after the attack. Type `help ice` to see what each type of ICE does.
+
+## The end of a run
+
+A run ends in one of four ways:
+
+- **Clean exit.** You leave through the host where you came in. You keep the loot.
+- **Jack out.** You type `jackout`. You keep the loot, but the shock costs your rig 20 integrity.
+- **Traced.** The trace gets to 100%. You lose the loot of the run.
+- **Crash.** The integrity of your rig gets to 0. You lose the loot of the run.
+
+After a crash, your rig cannot connect to a target. Go to your safehouse and type `repair`.
+
+> CAUTION: Do not disconnect if you want to keep your files. In version 0.1, the server does not save your rig.
