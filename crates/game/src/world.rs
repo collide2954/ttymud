@@ -1,5 +1,6 @@
 mod access;
 mod account;
+mod bans;
 mod burns;
 mod channels;
 mod chat;
@@ -28,6 +29,7 @@ mod tell;
 mod topics;
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::net::IpAddr;
 
 use ttymud_text::{Kind, Message, Style, sanitize};
 
@@ -42,6 +44,7 @@ use crate::random::Random;
 use crate::target::Level;
 
 use account::{Account, Phase, Social};
+pub use bans::BANNED;
 use burns::Burn;
 use channels::Channel;
 pub use chat::is_chat;
@@ -109,6 +112,7 @@ struct Player {
     reply_to: Option<String>,
     last_chat: Option<(String, u64)>,
     social: Social,
+    address: Option<IpAddr>,
     stash: Vec<File>,
 }
 
@@ -127,6 +131,7 @@ impl Player {
             reply_to: None,
             last_chat: None,
             social: Social::default(),
+            address: None,
             stash: Vec::new(),
             rig: Rig::new(),
             know: commands::programs()
@@ -508,6 +513,9 @@ impl World {
             Verb::Mute => self.mute(player, args),
             Verb::Unmute => self.unmute(player, args),
             Verb::Kick => self.kick(player, args),
+            Verb::Ban => self.ban(player, args),
+            Verb::Unban => self.unban(player, args),
+            Verb::Bans => self.bans(player),
             Verb::Reports => self.reports(player, args),
             Verb::Resolve => self.resolve(player, args),
             Verb::Help => help::help(args, self.is_moderator(player)),

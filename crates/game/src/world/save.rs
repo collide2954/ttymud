@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use super::account::{Account, Saved};
+use super::bans::BANS;
 use super::burns::Burn;
 use super::contract::Job;
 use super::moderation::{AUDIT, MODERATORS};
@@ -53,6 +54,7 @@ impl World {
         }
         saves.extend(self.moderation.save_audit());
         saves.extend(self.moderation.reports.save());
+        saves.extend(self.moderation.bans.save());
         saves
     }
 
@@ -62,6 +64,9 @@ impl World {
         }
         if path == REPORTS {
             return self.moderation.reports.read(text);
+        }
+        if path == BANS {
+            return self.moderation.bans.read(text);
         }
         if path == AUDIT {
             self.moderation.read_audit(text);

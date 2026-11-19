@@ -48,6 +48,9 @@ pub(crate) enum Verb {
     Mute,
     Unmute,
     Kick,
+    Ban,
+    Unban,
+    Bans,
     Reports,
     Resolve,
     Help,
@@ -92,6 +95,7 @@ impl Verb {
                 | Self::Exploit
                 | Self::Channels
                 | Self::Who
+                | Self::Bans
                 | Self::Available
         )
     }
@@ -99,7 +103,14 @@ impl Verb {
     pub(crate) fn moderation(self) -> bool {
         matches!(
             self,
-            Self::Mute | Self::Unmute | Self::Kick | Self::Reports | Self::Resolve
+            Self::Mute
+                | Self::Unmute
+                | Self::Kick
+                | Self::Ban
+                | Self::Unban
+                | Self::Bans
+                | Self::Reports
+                | Self::Resolve
         )
     }
 
@@ -633,6 +644,33 @@ pub(crate) const COMMANDS: &[Command] = &[
         example: "kick zer0",
         takes: Takes::Nothing,
         gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Ban,
+        names: &["ban"],
+        usage: "ban <handle> [ip]",
+        summary: "Moderators: disconnect a handle and refuse its account. With ip, also refuse its IP address.",
+        example: "ban zer0",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Unban,
+        names: &["unban"],
+        usage: "unban <handle>",
+        summary: "Moderators: accept a banned account again.",
+        example: "unban zer0",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Bans,
+        names: &["bans"],
+        usage: "bans",
+        summary: "Moderators: show the banned handles.",
+        example: "bans",
+        takes: Takes::Nothing,
+        gives: Gives::Items(Kinds::LINES),
     },
     Command {
         verb: Verb::Reports,

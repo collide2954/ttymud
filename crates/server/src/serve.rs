@@ -38,7 +38,7 @@ pub fn serve(
             .name(format!("session-{connection}"))
             .spawn(move || {
                 let _admission = admission;
-                session::run(stream, connection, &keys, &events);
+                session::run(stream, connection, peer.ip(), &keys, &events);
             });
         if let Err(error) = spawned {
             eprintln!("ttymud-server: connection {connection}: {error}");

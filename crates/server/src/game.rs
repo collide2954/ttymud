@@ -1,8 +1,9 @@
 use std::collections::HashMap;
+use std::net::IpAddr;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::Instant;
 
-use ttymud_game::{Completion, Output, PlayerId, World};
+use ttymud_game::{BANNED, Completion, Output, PlayerId, World};
 use ttymud_net::PublicKey;
 use ttymud_wire::ServerMessage;
 
@@ -15,6 +16,7 @@ pub(crate) enum Event {
     Join {
         connection: u64,
         key: PublicKey,
+        address: IpAddr,
         outbox: mpsc::Sender<ServerMessage>,
     },
     Command {
@@ -80,8 +82,9 @@ impl Game {
             Event::Join {
                 connection,
                 key,
+                address,
                 outbox,
-            } => self.join(connection, key, outbox),
+            } => self.join(connection, key, address, outbox),
             Event::Command { connection, line } => self.command(connection, &line),
             Event::Complete { connection, text } => self.complete(connection, &text),
             Event::Leave { connection } => self.leave(connection),
@@ -109,12 +112,23 @@ impl Game {
         }
     }
 
-    fn join(&mut self, connection: u64, key: PublicKey, outbox: mpsc::Sender<ServerMessage>) {
+    fn join(
+        &mut self,
+        connection: u64,
+        key: PublicKey,
+        address: IpAddr,
+        outbox: mpsc::Sender<ServerMessage>,
+    ) {
+        if self.world.banned(&key.to_hex(), Some(address)) {
+            let _ = outbox.send(ServerMessage::Close(BANNED.to_owned()));
+            return;
+        }
         let earlier = self.links.iter().find(|(_, link)| link.key == key);
         if let Some(player) = earlier.map(|(&player, _)| player) {
             self.close(player, TAKEN_OVER.to_owned());
         }
         let (player, outputs) = self.world.connect(&key.to_hex());
+        self.world.set_address(player, address);
         let name = self
             .world
             .handle(player)
@@ -197,6 +211,7 @@ impl Game {
 
 #[cfg(test)]
 mod tests {
+    use std::net::IpAddr;
     use std::sync::mpsc;
 
     use ttymud_game::{Content, World};
@@ -223,10 +238,20 @@ mod tests {
     }
 
     fn join(game: &mut Game, connection: u64, key: PublicKey) -> mpsc::Receiver<ServerMessage> {
+        join_from(game, connection, key, IpAddr::from([127, 0, 0, 1]))
+    }
+
+    fn join_from(
+        game: &mut Game,
+        connection: u64,
+        key: PublicKey,
+        address: IpAddr,
+    ) -> mpsc::Receiver<ServerMessage> {
         let (outbox, mailbox) = mpsc::channel();
         game.handle(Event::Join {
             connection,
             key,
+            address,
             outbox,
         });
         mailbox
@@ -347,8 +372,7 @@ mod tests {
         assert_eq!(drain(&first), Vec::<ServerMessage>::new());
     }
 
-    #[test]
-    fn a_kick_closes_the_connection_of_the_handle() {
+    fn moderated() -> (Game, mpsc::Receiver<ServerMessage>) {
         let moderator = key();
         let mut world = port_ostra(0).unwrap();
         let file = format!("[moderator {}]\n", moderator.to_hex());
@@ -357,6 +381,33 @@ mod tests {
         let first = join(&mut game, 1, moderator);
         command(&mut game, 1, "ghost");
         command(&mut game, 1, "breaker");
+        (game, first)
+    }
+
+    #[test]
+    fn a_banned_account_or_address_cannot_join() {
+        let (mut game, first) = moderated();
+        let (banned, address) = (key(), IpAddr::from([203, 0, 113, 5]));
+        let second = join_from(&mut game, 2, banned, address);
+        command(&mut game, 2, "nyx");
+        command(&mut game, 2, "breaker");
+        drain(&first);
+        drain(&second);
+        command(&mut game, 1, "ban nyx ip");
+        let closed = ServerMessage::Close("You are banned from this server.".to_owned());
+        assert_eq!(drain(&second).last(), Some(&closed));
+        let local = IpAddr::from([127, 0, 0, 1]);
+        let refused = [closed];
+        assert_eq!(drain(&join_from(&mut game, 3, banned, local)), refused);
+        assert_eq!(drain(&join_from(&mut game, 4, key(), address)), refused);
+        command(&mut game, 1, "unban nyx");
+        let again = drain(&join_from(&mut game, 5, banned, address));
+        assert!(matches!(again[0], ServerMessage::Welcome { .. }));
+    }
+
+    #[test]
+    fn a_kick_closes_the_connection_of_the_handle() {
+        let (mut game, first) = moderated();
         let second = hacker(&mut game, 2, "nyx");
         drain(&first);
         command(&mut game, 1, "kick nyx");

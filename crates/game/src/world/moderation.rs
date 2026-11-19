@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use ttymud_text::Message;
 
+use super::bans::Bans;
 use super::reports::Reports;
 use super::save::Text;
 use super::{Output, PlayerId, Step, World, minute_word};
@@ -19,6 +20,7 @@ pub(super) struct Moderation {
     audit_dirty: bool,
     drops: Vec<(PlayerId, String)>,
     pub(super) reports: Reports,
+    pub(super) bans: Bans,
 }
 
 impl Moderation {
@@ -124,6 +126,22 @@ impl World {
         }
     }
 
+    pub(super) fn subject(&self, word: &str, verb: &str) -> Result<(String, String), Message> {
+        let (key, name) = self.find_person(word)?;
+        if self.moderation.moderators.contains(&key) {
+            return Err(Message::error(format!("You cannot {verb} a moderator.")));
+        }
+        Ok((key, name))
+    }
+
+    pub(super) fn disconnect(&mut self, key: &str, reason: &str) -> usize {
+        let online = self.players_of(key);
+        let count = online.len();
+        let drops = online.into_iter().map(|id| (id, reason.to_owned()));
+        self.moderation.drops.extend(drops);
+        count
+    }
+
     pub(super) fn mute(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
         self.moderator_only(player, "mute")?;
         let usage = || Message::error("Usage: mute <handle> <minutes>.");
@@ -132,10 +150,7 @@ impl World {
         };
         let count = count.parse::<u32>().ok().filter(|&count| count > 0);
         let count = u64::from(count.ok_or_else(usage)?);
-        let (key, name) = self.find_person(word)?;
-        if self.moderation.moderators.contains(&key) {
-            return Err(Message::error("You cannot mute a moderator."));
-        }
+        let (key, name) = self.subject(word, "mute")?;
         self.set_muted(&key, self.now + count * 60);
         let span = format!("{count} {}", minute_word(count));
         self.alert(&key, &format!("A moderator muted you for {span}."));
@@ -167,17 +182,10 @@ impl World {
         let [word] = args else {
             return Err(Message::error("Usage: kick <handle>."));
         };
-        let (key, name) = self.find_person(word)?;
-        if self.moderation.moderators.contains(&key) {
-            return Err(Message::error("You cannot kick a moderator."));
-        }
-        let online = self.players_of(&key);
-        if online.is_empty() {
+        let (key, name) = self.subject(word, "kick")?;
+        if self.disconnect(&key, "A moderator kicked you from the server.") == 0 {
             return Err(Message::error(format!("{name} is not online.")));
         }
-        let reason = "A moderator kicked you from the server.";
-        let drops = online.into_iter().map(|id| (id, reason.to_owned()));
-        self.moderation.drops.extend(drops);
         self.audit(player, &format!("kicks {name}."));
         Ok(Step::show(vec![Message::game(format!("You kick {name}."))]))
     }
@@ -218,7 +226,7 @@ impl World {
         }
     }
 
-    fn players_of(&self, key: &str) -> Vec<PlayerId> {
+    pub(super) fn players_of(&self, key: &str) -> Vec<PlayerId> {
         let online = self.players.iter().filter(|(_, state)| state.key() == key);
         online.map(|(&player, _)| player).collect()
     }

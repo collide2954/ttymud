@@ -1,4 +1,4 @@
-use std::net::{Shutdown, TcpStream};
+use std::net::{IpAddr, Shutdown, TcpStream};
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -14,8 +14,14 @@ const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 const LINGER: Duration = Duration::from_secs(5);
 
-pub(crate) fn run(stream: TcpStream, connection: u64, keys: &Keys, events: &mpsc::Sender<Event>) {
-    if let Err(error) = serve(stream, connection, keys, events) {
+pub(crate) fn run(
+    stream: TcpStream,
+    connection: u64,
+    address: IpAddr,
+    keys: &Keys,
+    events: &mpsc::Sender<Event>,
+) {
+    if let Err(error) = serve(stream, connection, address, keys, events) {
         eprintln!("ttymud-server: connection {connection}: {error}");
     }
 }
@@ -23,6 +29,7 @@ pub(crate) fn run(stream: TcpStream, connection: u64, keys: &Keys, events: &mpsc
 fn serve(
     mut stream: TcpStream,
     connection: u64,
+    address: IpAddr,
     keys: &Keys,
     events: &mpsc::Sender<Event>,
 ) -> Result<(), Error> {
@@ -41,6 +48,7 @@ fn serve(
     let joined = Event::Join {
         connection,
         key,
+        address,
         outbox,
     };
     if events.send(joined).is_ok() {

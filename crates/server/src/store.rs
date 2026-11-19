@@ -10,6 +10,7 @@ const WORLD: &str = "world.ini";
 pub(crate) const MODERATORS: &str = "moderators.ini";
 const AUDIT: &str = "audit.log";
 const REPORTS: &str = "reports.ini";
+const BANS: &str = "bans.ini";
 
 pub struct Store(mpsc::Sender<(String, String)>);
 
@@ -52,7 +53,7 @@ pub(crate) fn load_saves(dir: &Path) -> io::Result<Vec<(String, String)>> {
             saves.push((format!("{ACCOUNTS}/{name}"), text));
         }
     }
-    for name in [BURNS, MODERATORS, AUDIT, REPORTS] {
+    for name in [BURNS, MODERATORS, AUDIT, REPORTS, BANS] {
         load_file(dir, name, &mut saves)?;
     }
     Ok(saves)
@@ -86,7 +87,7 @@ pub(crate) fn write(dir: &Path, path: &str, text: &str) -> io::Result<()> {
 }
 
 fn target(dir: &Path, path: &str) -> Option<PathBuf> {
-    if [BURNS, WORLD, MODERATORS, AUDIT, REPORTS].contains(&path) {
+    if [BURNS, WORLD, MODERATORS, AUDIT, REPORTS, BANS].contains(&path) {
         return Some(dir.join(path));
     }
     let name = path.strip_prefix("accounts/")?.strip_suffix(".ini")?;
@@ -114,6 +115,7 @@ mod tests {
         write(&dir, "moderators.ini", "[moderator a1]\n").unwrap();
         write(&dir, "audit.log", "x mutes y.\n").unwrap();
         write(&dir, "reports.ini", "[report 1]\n").unwrap();
+        write(&dir, "bans.ini", "[ban a1]\n").unwrap();
         assert_eq!(
             load_saves(&dir).unwrap(),
             [
@@ -126,6 +128,7 @@ mod tests {
                 ("moderators.ini".to_owned(), "[moderator a1]\n".to_owned()),
                 ("audit.log".to_owned(), "x mutes y.\n".to_owned()),
                 ("reports.ini".to_owned(), "[report 1]\n".to_owned()),
+                ("bans.ini".to_owned(), "[ban a1]\n".to_owned()),
             ]
         );
         assert!(!dir.join("accounts/a1.ini.tmp").exists());
