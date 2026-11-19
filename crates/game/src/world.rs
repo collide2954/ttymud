@@ -428,105 +428,65 @@ impl World {
         args: &[String],
         input: Option<Vec<Item>>,
     ) -> Result<Step, Message> {
+        if !command.verb.takes_args() {
+            no_args(command, args)?;
+        }
         let here = self.here(player);
         match command.verb {
-            Verb::Look => {
-                no_args(command, args)?;
-                Ok(Step {
-                    shown: self.scene(here, player),
-                    items: self.items(here, player),
-                })
-            }
-            Verb::List => {
-                no_args(command, args)?;
-                let items = self.items(here, player);
-                let shown = listing(&items)
-                    .into_iter()
-                    .zip(&items)
-                    .map(|(line, item)| match item {
-                        Item::File(file) => match self.needs(player, file) {
-                            Some(label) => line.text(label),
-                            None => line,
-                        },
-                        Item::Route(_) | Item::Ice { .. } | Item::Line(_) => line,
-                    })
-                    .collect();
-                Ok(Step { shown, items })
-            }
+            Verb::Look => Ok(Step {
+                shown: self.scene(here, player),
+                items: self.items(here, player),
+            }),
+            Verb::List => Ok(self.list(player)),
             Verb::Go => self.go(player, args, input),
-            Verb::Back => {
-                no_args(command, args)?;
-                self.back(player)
-            }
+            Verb::Back => self.back(player),
             Verb::Read => self.read(player, args, input),
             Verb::Download => self.download(player, args, input),
-            Verb::Inventory => {
-                no_args(command, args)?;
-                Ok(self.inventory(player))
-            }
-            Verb::Status => {
-                no_args(command, args)?;
-                Ok(self.status(player))
-            }
-            Verb::Jackout => {
-                no_args(command, args)?;
-                self.jackout(player)
-            }
-            Verb::Repair => {
-                no_args(command, args)?;
-                self.repair(player)
-            }
+            Verb::Inventory => Ok(self.inventory(player)),
+            Verb::Status => Ok(self.status(player)),
+            Verb::Jackout => self.jackout(player),
+            Verb::Repair => self.repair(player),
             Verb::Contract => self.contract(player, args),
-            Verb::Shop => {
-                no_args(command, args)?;
-                self.shop(player)
-            }
-            Verb::Buy => self.buy(player, args),
-            Verb::Jobs => {
-                no_args(command, args)?;
-                self.jobs(player)
-            }
+            Verb::Jobs => self.jobs(player),
             Verb::Accept => self.accept(player, args),
+            Verb::Shop => self.shop(player),
+            Verb::Buy => self.buy(player, args),
             Verb::Sell => self.sell(player, args, input),
             Verb::Load => self.load(player, args),
             Verb::Unload => self.unload(player, args),
             Verb::Stash => self.stash(player, args),
             Verb::Unstash => self.unstash(player, args),
-            Verb::Scan => {
-                no_args(command, args)?;
-                self.scan(player)
-            }
+            Verb::Scan => self.scan(player),
             Verb::Probe => self.probe(player, args, input),
             Verb::Crack => self.crack(player, args, input),
-            Verb::Scrub => {
-                no_args(command, args)?;
-                self.scrub(player)
-            }
-            Verb::Patch => {
-                no_args(command, args)?;
-                self.patch(player)
-            }
-            Verb::Firewall => {
-                no_args(command, args)?;
-                self.firewall(player)
-            }
-            Verb::Mask => {
-                no_args(command, args)?;
-                Ok(self.mask(player))
-            }
-            Verb::Proxy => {
-                no_args(command, args)?;
-                self.proxy(player)
-            }
+            Verb::Scrub => self.scrub(player),
+            Verb::Patch => self.patch(player),
+            Verb::Firewall => self.firewall(player),
+            Verb::Mask => Ok(self.mask(player)),
+            Verb::Proxy => self.proxy(player),
             Verb::Pretext => self.pretext(player, args, input),
+            Verb::Exploit => self.exploit(player),
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Help => help::help(args),
-            Verb::Available => {
-                no_args(command, args)?;
-                Ok(self.available(player))
-            }
+            Verb::Available => Ok(self.available(player)),
         }
+    }
+
+    fn list(&self, player: PlayerId) -> Step {
+        let items = self.items(self.here(player), player);
+        let shown = listing(&items)
+            .into_iter()
+            .zip(&items)
+            .map(|(line, item)| match item {
+                Item::File(file) => match self.needs(player, file) {
+                    Some(label) => line.text(label),
+                    None => line,
+                },
+                Item::Route(_) | Item::Ice { .. } | Item::Line(_) => line,
+            })
+            .collect();
+        Step { shown, items }
     }
 
     fn here(&self, player: PlayerId) -> HostId {

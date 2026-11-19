@@ -31,6 +31,7 @@ pub(crate) enum Verb {
     Mask,
     Proxy,
     Pretext,
+    Exploit,
     Grep,
     Say,
     Help,
@@ -54,12 +55,36 @@ pub(crate) struct Cost {
 }
 
 impl Verb {
+    pub(crate) fn takes_args(self) -> bool {
+        !matches!(
+            self,
+            Self::Look
+                | Self::List
+                | Self::Back
+                | Self::Inventory
+                | Self::Status
+                | Self::Jackout
+                | Self::Repair
+                | Self::Jobs
+                | Self::Shop
+                | Self::Scan
+                | Self::Scrub
+                | Self::Patch
+                | Self::Firewall
+                | Self::Mask
+                | Self::Proxy
+                | Self::Exploit
+                | Self::Available
+        )
+    }
+
     pub(crate) fn program(self) -> Option<Program> {
         let (ram, cycles, noise) = match self {
             Self::Scan | Self::Probe => (1, 1, 1),
             Self::Crack | Self::Pretext => (2, 2, 2),
             Self::Scrub | Self::Patch | Self::Firewall | Self::Mask => (2, 2, 0),
             Self::Proxy => (2, 3, 1),
+            Self::Exploit => (2, 3, 3),
             _ => return None,
         };
         Some(Program { ram, cycles, noise })
@@ -429,6 +454,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Talk your way past a warden.",
         example: "pretext warden",
         takes: Takes::Optional(Kinds::ICE),
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Exploit,
+        names: &["exploit"],
+        usage: "exploit",
+        summary: "Raise your access on this host by one level. It makes much noise.",
+        example: "exploit",
+        takes: Takes::Nothing,
         gives: Gives::Nothing,
     },
     Command {

@@ -160,7 +160,7 @@ mod tests {
         }
         assert_eq!(
             world.complete(player, "load ").names,
-            ["patch", "firewall", "mask", "proxy", "pretext"]
+            ["patch", "firewall", "mask", "proxy", "pretext", "exploit"]
         );
         assert_eq!(world.complete(player, "unload s").names, ["scan", "scrub"]);
     }
@@ -175,7 +175,7 @@ mod tests {
             walk(&[HOME, "unload patch", "unload patch"]).0,
             ["patch is not in your RAM."]
         );
-        let known = "scan, probe, crack, scrub, patch, firewall, mask, proxy, pretext";
+        let known = "scan, probe, crack, scrub, patch, firewall, mask, proxy, pretext, exploit";
         assert_eq!(
             walk(&[HOME, "load nuke"]).0,
             [format!("No program named nuke. Programs: {known}")]
