@@ -84,6 +84,9 @@ fn runs() -> Vec<Message> {
         Message::game("Noise from your programs raises the trace. ")
             .span(Style::Command, "scrub")
             .text(" lowers it."),
+        Message::game("Some files need user or admin access. Read stolen credentials, or run ")
+            .span(Style::Command, "exploit")
+            .text("."),
         Message::game("A run ends in one of four ways:"),
         Message::game("Clean exit: leave the way that you came in. You keep the loot."),
         Message::game("Jack out: type ")

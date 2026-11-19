@@ -296,6 +296,7 @@ mod tests {
                 "The shop sells:",
                 "patch: 300 cr. Repair some integrity during a run.",
                 "firewall: 400 cr. Stop the next attack on your integrity.",
+                "exploit: 800 cr. Raise your access on this host by one level. It makes much noise.",
                 "ram: 900 cr. 12 GB of RAM, not 8 GB.",
                 "cpu: 1200 cr. 5 cycles, not 4.",
                 "The fence buys stolen data. Type sell <file>.",
@@ -309,6 +310,7 @@ mod tests {
         let (mut world, player) = shopper("breaker");
         if let Some(state) = world.players.get_mut(&player) {
             state.know.push(crate::commands::Verb::Mask);
+            state.know.push(crate::commands::Verb::Exploit);
             state.rig.ram = 16;
             state.rig.cpu = 5;
         }
@@ -463,7 +465,7 @@ mod tests {
     #[test]
     fn buy_names_what_the_shop_sells() {
         let (mut world, player) = rich("ghost", 0);
-        let wares = "patch, firewall, ram, cpu";
+        let wares = "patch, firewall, exploit, ram, cpu";
         assert_eq!(
             plain(&world.command(player, "buy nuke")),
             [format!("The shop does not sell nuke. For sale: {wares}")]

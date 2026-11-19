@@ -142,6 +142,14 @@ mod tests {
     }
 
     #[test]
+    fn help_explains_access() {
+        assert_eq!(
+            run("help runs | grep access"),
+            ["Some files need user or admin access. Read stolen credentials, or run exploit."]
+        );
+    }
+
+    #[test]
     fn help_explains_heat_and_burns() {
         let heat = run("help heat");
         assert_eq!(heat[0], "Heat");
