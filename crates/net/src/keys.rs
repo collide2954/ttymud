@@ -119,7 +119,7 @@ fn field(line: Option<&str>, name: &str) -> Result<Vec<u8>, Error> {
     decode_hex(value.trim()).ok_or(Error::BadKey)
 }
 
-fn encode_hex(bytes: &[u8]) -> String {
+pub(crate) fn encode_hex(bytes: &[u8]) -> String {
     let mut text = String::with_capacity(bytes.len() * 2);
     for byte in bytes {
         let _ = write!(text, "{byte:02x}");
