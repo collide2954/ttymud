@@ -22,6 +22,11 @@ pub(super) struct Account {
     pub(super) handle: Option<Saved>,
     pub(super) know: Vec<Verb>,
     pub(super) stash: Vec<File>,
+    pub(super) social: Social,
+}
+
+#[derive(Debug, Clone, Default)]
+pub(super) struct Social {
     pub(super) created: u64,
     pub(super) warned: bool,
     pub(super) ignores: Vec<String>,
@@ -59,10 +64,7 @@ impl World {
         let home = self.home.unwrap_or(self.start);
         let mut state = Player::new(&saved.name, home);
         state.account = Some(account.to_owned());
-        state.created = known.created;
-        state.warned = known.warned;
-        state.ignores = known.ignores;
-        state.blocks = known.blocks;
+        state.social = known.social;
         state.kit = Some(saved.kit);
         state.heat = saved.heat;
         state.cooled = saved.cooled;
@@ -113,13 +115,10 @@ impl World {
         if let Some(known) = self.accounts.get(account) {
             state.know.clone_from(&known.know);
             state.stash.clone_from(&known.stash);
-            state.created = known.created;
-            state.warned = known.warned;
-            state.ignores.clone_from(&known.ignores);
-            state.blocks.clone_from(&known.blocks);
+            state.social.clone_from(&known.social);
         } else {
             state.know.clear();
-            state.created = self.now;
+            state.social.created = self.now;
         }
         let player = self.add(state);
         let city = &self.city;
@@ -240,17 +239,16 @@ impl World {
             loads: state.rig.loads.clone(),
             contract: state.contract,
         };
-        let (know, stash) = (state.know.clone(), state.stash.clone());
-        let (created, warned) = (state.created, state.warned);
-        let (ignores, blocks) = (state.ignores.clone(), state.blocks.clone());
+        let (know, stash, social) = (
+            state.know.clone(),
+            state.stash.clone(),
+            state.social.clone(),
+        );
         let entry = self.accounts.entry(account.clone()).or_default();
         entry.handle = Some(saved);
         entry.know = know;
         entry.stash = stash;
-        entry.created = created;
-        entry.warned = warned;
-        entry.ignores = ignores;
-        entry.blocks = blocks;
+        entry.social = social;
     }
 
     #[must_use]

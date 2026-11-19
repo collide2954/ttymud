@@ -36,7 +36,7 @@ impl World {
     fn new_account_wait(&self, player: PlayerId) -> Option<Message> {
         let state = self.players.get(&player)?;
         state.account.as_ref()?;
-        let age = self.now.saturating_sub(state.created);
+        let age = self.now.saturating_sub(state.social.created);
         (age < NEW_ACCOUNT).then(|| {
             let left = (NEW_ACCOUNT - age).div_ceil(60);
             let unit = if left == 1 { "minute" } else { "minutes" };
@@ -95,7 +95,7 @@ impl World {
         }
         let mut shown = Vec::new();
         if let Some(state) = self.players.get_mut(&player)
-            && !std::mem::replace(&mut state.warned, true)
+            && !std::mem::replace(&mut state.social.warned, true)
         {
             shown.push(Message::game(NOTE));
         }

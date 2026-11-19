@@ -70,9 +70,9 @@ impl World {
                     return Vec::new();
                 };
                 let keys = if command.verb == Verb::Unblock {
-                    &state.blocks
+                    &state.social.blocks
                 } else {
-                    &state.ignores
+                    &state.social.ignores
                 };
                 keys.iter()
                     .filter_map(|key| self.person_label(key))

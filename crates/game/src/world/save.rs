@@ -90,14 +90,15 @@ impl World {
     fn account_text(&self, id: &str, account: &Account) -> String {
         let mut text = Text::new("# A TTYmud account. The server writes this file.");
         text.section("account", id);
-        text.pair("created", &account.created.to_string());
-        if account.warned {
+        let social = &account.social;
+        text.pair("created", &social.created.to_string());
+        if social.warned {
             text.pair("warned", "yes");
         }
-        for key in &account.ignores {
+        for key in &social.ignores {
             text.pair("ignore", key);
         }
-        for key in &account.blocks {
+        for key in &social.blocks {
             text.pair("block", key);
         }
         for &verb in &account.know {
@@ -436,13 +437,14 @@ fn read_account(section: &Section<'_>, account: &mut Account, errors: &mut Vec<C
     account.know = values("know")
         .filter_map(|pair| program(pair, errors))
         .collect();
-    account.created = values("created")
+    let social = &mut account.social;
+    social.created = values("created")
         .next()
         .and_then(|pair| number(pair, errors))
         .unwrap_or(0);
-    account.warned = values("warned").any(|pair| pair.value == "yes");
-    account.ignores = values("ignore").map(|pair| pair.value.to_owned()).collect();
-    account.blocks = values("block").map(|pair| pair.value.to_owned()).collect();
+    social.warned = values("warned").any(|pair| pair.value == "yes");
+    social.ignores = values("ignore").map(|pair| pair.value.to_owned()).collect();
+    social.blocks = values("block").map(|pair| pair.value.to_owned()).collect();
 }
 
 fn posting_of(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<(String, u64, u64)> {

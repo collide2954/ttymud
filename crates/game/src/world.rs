@@ -40,7 +40,7 @@ use crate::parse::{self, ParseError, Stage};
 use crate::random::Random;
 use crate::target::Level;
 
-use account::{Account, Phase};
+use account::{Account, Phase, Social};
 use burns::Burn;
 use channels::Channel;
 pub use chat::is_chat;
@@ -106,10 +106,7 @@ struct Player {
     channels: Vec<String>,
     reply_to: Option<String>,
     last_chat: Option<(String, u64)>,
-    warned: bool,
-    created: u64,
-    ignores: Vec<String>,
-    blocks: Vec<String>,
+    social: Social,
     stash: Vec<File>,
 }
 
@@ -127,10 +124,7 @@ impl Player {
             channels: Vec::new(),
             reply_to: None,
             last_chat: None,
-            warned: false,
-            created: 0,
-            ignores: Vec::new(),
-            blocks: Vec::new(),
+            social: Social::default(),
             stash: Vec::new(),
             rig: Rig::new(),
             know: commands::programs()

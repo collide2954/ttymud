@@ -24,14 +24,14 @@ impl World {
         let (Some(state), Some(key)) = (self.players.get(&listener), self.person(speaker)) else {
             return true;
         };
-        !state.ignores.contains(&key) && !state.blocks.contains(&key)
+        !state.social.ignores.contains(&key) && !state.social.blocks.contains(&key)
     }
 
     pub(super) fn blocks(&self, listener: PlayerId, speaker: PlayerId) -> bool {
         let (Some(state), Some(key)) = (self.players.get(&listener), self.person(speaker)) else {
             return false;
         };
-        state.blocks.contains(&key)
+        state.social.blocks.contains(&key)
     }
 
     fn find_person(&self, word: &str) -> Option<(String, String)> {
@@ -106,8 +106,8 @@ impl World {
             listed(message, Style::Player, names.iter().map(String::as_str))
         };
         lines(vec![
-            line("ignore", &state.ignores),
-            line("block", &state.blocks),
+            line("ignore", &state.social.ignores),
+            line("block", &state.social.blocks),
         ])
     }
 
@@ -137,8 +137,8 @@ impl World {
             return Ok(Step::default());
         };
         let keys = match list {
-            List::Ignore => &mut state.ignores,
-            List::Block => &mut state.blocks,
+            List::Ignore => &mut state.social.ignores,
+            List::Block => &mut state.social.blocks,
         };
         let (base, done) = match list {
             List::Ignore => ("ignore", "ignoring"),
