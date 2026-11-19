@@ -34,7 +34,7 @@ use std::net::IpAddr;
 use ttymud_text::{Kind, Message, Style, sanitize};
 
 use crate::commands::{self, Command, Item, Verb};
-use crate::content::{Content, CorpDef, File, IceDef, TemplateDef};
+use crate::content::{Content, CorpDef, File, IceDef, NetworkDef, TemplateDef};
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::kits::Kit;
@@ -77,6 +77,17 @@ struct Network {
     security: Security,
     entries: Vec<HostId>,
     keys: Vec<(String, Level)>,
+}
+
+impl From<NetworkDef> for Network {
+    fn from(def: NetworkDef) -> Self {
+        Self {
+            name: def.name,
+            security: def.security,
+            entries: Vec::new(),
+            keys: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -250,30 +261,9 @@ impl World {
         let contracts = content
             .contracts
             .into_iter()
-            .map(|def| Contract {
-                id: def.id,
-                fixer: fixers
-                    .iter()
-                    .position(|fixer| fixer.id == def.fixer)
-                    .unwrap_or(0),
-                network: network(&def.network).unwrap_or(NetworkId(0)),
-                goal: def.goal,
-                offer: def.offer,
-                steps: def.steps,
-                pay: def.pay,
-                posting: None,
-            })
+            .map(|def| Contract::hand_made(def, &fixers, network))
             .collect();
-        let networks = content
-            .networks
-            .into_iter()
-            .map(|network| Network {
-                name: network.name,
-                security: network.security,
-                entries: Vec::new(),
-                keys: Vec::new(),
-            })
-            .collect();
+        let networks = content.networks.into_iter().map(Network::from).collect();
         let shops = shop::shops(content.shops, find);
         let mut world = Self {
             city: content.city,

@@ -1,7 +1,8 @@
 use ttymud_text::{Message, Style};
 
-use super::jobs::DAY;
+use super::jobs::{DAY, Fixer};
 use super::{NetworkId, PlayerId, Step, World, lines};
+use crate::content::ContractDef;
 use crate::contract::Event;
 
 const HINT_TICKS: u32 = 15;
@@ -18,6 +19,28 @@ pub(super) struct Contract {
     pub(super) steps: Vec<(Event, String)>,
     pub(super) pay: u32,
     pub(super) posting: Option<(u64, usize, u64)>,
+}
+
+impl Contract {
+    pub(super) fn hand_made(
+        def: ContractDef,
+        fixers: &[Fixer],
+        network: impl Fn(&str) -> Option<NetworkId>,
+    ) -> Self {
+        Self {
+            id: def.id,
+            fixer: fixers
+                .iter()
+                .position(|fixer| fixer.id == def.fixer)
+                .unwrap_or(0),
+            network: network(&def.network).unwrap_or(NetworkId(0)),
+            goal: def.goal,
+            offer: def.offer,
+            steps: def.steps,
+            pay: def.pay,
+            posting: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
