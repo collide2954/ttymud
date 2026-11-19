@@ -101,6 +101,7 @@ mod tests {
         }
         if let Some(state) = world.players.get_mut(&player) {
             state.heat = 4;
+            state.cooled = 1_700_000_000;
             if let Some(run) = state.run.as_mut() {
                 run.trace = 98;
             }

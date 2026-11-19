@@ -27,6 +27,7 @@ pub(super) struct Saved {
     pub(super) name: String,
     pub(super) kit: &'static Kit,
     pub(super) heat: u32,
+    pub(super) cooled: u64,
     pub(super) integrity: u32,
     pub(super) files: Vec<File>,
     pub(super) loads: Vec<Verb>,
@@ -46,6 +47,7 @@ impl World {
         state.account = Some(account.to_owned());
         state.kit = Some(saved.kit);
         state.heat = saved.heat;
+        state.cooled = saved.cooled;
         state.rig.integrity = saved.integrity;
         state.rig.files = saved.files;
         state.rig.loads = saved.loads;
@@ -60,6 +62,11 @@ impl World {
                 .span(Style::Player, name)
                 .text("."),
         ];
+        if let Some((before, after)) = self.cool(player) {
+            shown.push(Message::game(format!(
+                "Your heat cooled down while you were away: {before} -> {after}."
+            )));
+        }
         shown.extend(self.scene(home, player));
         (player, self.deliver(player, shown))
     }
@@ -178,6 +185,7 @@ impl World {
             name: state.name.clone(),
             kit,
             heat: state.heat,
+            cooled: state.cooled,
             integrity: state.rig.integrity,
             files: state.rig.files.clone(),
             loads: state.rig.loads.clone(),

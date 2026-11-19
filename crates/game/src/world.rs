@@ -83,6 +83,7 @@ struct Player {
     phase: Phase,
     kit: Option<&'static Kit>,
     heat: u32,
+    cooled: u64,
     stash: Vec<File>,
 }
 
@@ -92,6 +93,7 @@ impl Player {
             name: name.to_owned(),
             chain: vec![at],
             heat: 0,
+            cooled: 0,
             stash: Vec::new(),
             rig: Rig::new(),
             know: commands::programs()
@@ -267,6 +269,11 @@ impl World {
             }
             let mut shown = self.tick_ice(player);
             shown.extend(self.hint(player));
+            if let Some((before, after)) = self.cool(player) {
+                shown.push(Message::game(format!(
+                    "Your heat cools down: {before} -> {after}."
+                )));
+            }
             outputs.extend(address(player, shown));
         }
         outputs.append(&mut self.outbox);
