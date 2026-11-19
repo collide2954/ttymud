@@ -27,13 +27,17 @@ pub(crate) fn closest<'a>(
     word: &str,
     candidates: impl IntoIterator<Item = &'a str>,
 ) -> Option<&'a str> {
-    let limit = if word.chars().count() <= 4 { 1 } else { 2 };
+    let length = word.chars().count();
+    let limit = if length <= 4 { 1 } else { 2 };
     candidates
         .into_iter()
-        .map(|candidate| (distance(word, candidate), candidate))
-        .filter(|&(edits, _)| edits <= limit)
-        .min_by_key(|&(edits, _)| edits)
-        .map(|(_, candidate)| candidate)
+        .map(|candidate| {
+            let edits = distance(word, candidate);
+            (edits, candidate.chars().count().abs_diff(length), candidate)
+        })
+        .filter(|&(edits, _, _)| edits <= limit)
+        .min_by_key(|&(edits, difference, _)| (edits, difference))
+        .map(|(_, _, candidate)| candidate)
 }
 
 #[cfg(test)]
@@ -71,6 +75,11 @@ mod tests {
     fn short_words_allow_one_edit() {
         assert_eq!(closest("lx", ["ls"]), Some("ls"));
         assert_eq!(closest("xyz", ["ls"]), None);
+    }
+
+    #[test]
+    fn equal_edits_prefer_the_same_length() {
+        assert_eq!(closest("lx", ["l", "ls"]), Some("ls"));
     }
 
     #[test]
