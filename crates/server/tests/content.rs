@@ -15,6 +15,25 @@ fn port_ostra_starts_at_the_relay() {
 }
 
 #[test]
+fn port_ostra_has_three_channels_and_starts_players_in_two() {
+    let mut world = port_ostra(0).unwrap();
+    let (player, _) = world.join("guest");
+    let shown: Vec<String> = world
+        .command(player, "channels")
+        .iter()
+        .map(|out| out.message.plain())
+        .collect();
+    assert_eq!(
+        shown[..3],
+        [
+            "#ostra: All of Port Ostra. Talk about anything. You are in this channel.",
+            "#help: Ask questions about the game. Other players answer. You are in this channel.",
+            "#market: Buy, sell, and trade.",
+        ]
+    );
+}
+
+#[test]
 fn pell_offers_the_first_job() {
     let (_, outputs) = port_ostra(0).unwrap().join("guest");
     let shown: Vec<String> = outputs.iter().map(|out| out.message.plain()).collect();
