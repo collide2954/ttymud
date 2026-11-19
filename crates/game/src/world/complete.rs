@@ -64,6 +64,15 @@ impl World {
                 .map(|ice| ice.name.as_str())
                 .collect(),
             (Verb::Contract, 1) => vec!["drop"],
+            (Verb::Buy, 1) => self.ware_names(player),
+            (Verb::Sell, _) => self
+                .players
+                .get(&player)
+                .into_iter()
+                .flat_map(|state| &state.rig.files)
+                .filter(|file| file.value > 0)
+                .map(|file| file.name.as_str())
+                .collect(),
             (Verb::Stash | Verb::Unstash, 1) => {
                 let Some(state) = self.players.get(&player) else {
                     return Vec::new();
@@ -184,6 +193,24 @@ mod tests {
         ];
         assert_eq!(complete(&lines, "stash ").names, ["motd.txt"]);
         assert_eq!(complete(&lines, "unstash ").names, ["rules.txt"]);
+    }
+
+    #[test]
+    fn buy_completes_the_wares_and_sell_the_stolen_data() {
+        let (mut world, player) = joined();
+        world.command(player, "go market");
+        let mut payroll = crate::content::File::new("payroll.db", vec!["Pay.".to_owned()]);
+        payroll.value = 40;
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.files.push(crate::content::File::new(
+                "memo.txt",
+                vec!["Hi.".to_owned()],
+            ));
+            state.rig.files.push(payroll);
+        }
+        assert_eq!(world.complete(player, "buy ").names, ["ram", "cpu"]);
+        assert_eq!(world.complete(player, "sell ").names, ["payroll.db"]);
+        assert_eq!(complete(&[], "buy ").names, Vec::<String>::new());
     }
 
     #[test]

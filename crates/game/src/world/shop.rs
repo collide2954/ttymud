@@ -63,6 +63,16 @@ impl World {
         self.shops.iter().any(|shop| shop.host == host)
     }
 
+    pub(super) fn ware_names(&self, player: PlayerId) -> Vec<&'static str> {
+        let (Ok(shop), Some(state)) = (self.shop_here(player), self.players.get(&player)) else {
+            return Vec::new();
+        };
+        shop.wares(state)
+            .into_iter()
+            .map(|(ware, _)| ware.name())
+            .collect()
+    }
+
     fn shop_here(&self, player: PlayerId) -> Result<&Shop, Message> {
         let here = self.here(player);
         if let Some(shop) = self.shops.iter().find(|shop| shop.host == here) {
