@@ -46,6 +46,27 @@ pub(crate) fn send(sender: &mut Sender<TcpStream>, message: &ServerMessage) {
     let _ = sender.send(&message.encode());
 }
 
+pub(crate) fn ticker(mut receiver: Receiver<TcpStream>, mut sender: Sender<TcpStream>) {
+    let welcome = ServerMessage::Welcome {
+        city: "Test City".to_owned(),
+        name: "anon-test".to_owned(),
+    };
+    send(&mut sender, &welcome);
+    send(&mut sender, &ServerMessage::Prompt("$ ".to_owned()));
+    while let Ok(bytes) = receiver.receive() {
+        let Ok(ClientMessage::Command(line)) = ClientMessage::decode(&bytes) else {
+            return;
+        };
+        send(&mut sender, &ServerMessage::Text(Message::game("tick")));
+        send(&mut sender, &ServerMessage::Refresh("% ".to_owned()));
+        send(
+            &mut sender,
+            &ServerMessage::Text(Message::game(format!("echo {line}"))),
+        );
+        send(&mut sender, &ServerMessage::Prompt("$ ".to_owned()));
+    }
+}
+
 pub(crate) fn echo(mut receiver: Receiver<TcpStream>, mut sender: Sender<TcpStream>) {
     let welcome = ServerMessage::Welcome {
         city: "Test City".to_owned(),

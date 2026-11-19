@@ -48,6 +48,7 @@ A count or a length cannot be larger than the number of bytes that remain in the
 | 3 | Prompt | Text: the prompt. | The prompt for the next input line. |
 | 4 | Close | Text: the reason. | The last message before the server closes the connection. |
 | 5 | Candidates | Text: the word. List: the names, as texts. | The answer to a Complete message. |
+| 6 | Refresh | Text: the prompt. | A new prompt after text that is not an answer to a command. |
 
 A span has two fields: a byte for the style, and a text.
 
@@ -77,6 +78,7 @@ A kind byte or a style byte with a different value is not valid.
 
 - After the Welcome message, the server sends the scene of the start host and a Prompt message.
 - After the answer to each Command message, the server sends a Prompt message. The client can count the prompts to know when all answers are in.
+- Some text comes without a command, for example the actions of ICE on a tick or the chat of other players. After this text, the server sends a Refresh message. A client shows a Refresh message as a prompt, but it does not count it as an answer.
 - The server does not send a Prompt message after a Candidates message.
 - The word in a Candidates message is the end of the input that a name can replace. Each name starts with the word. This comparison ignores case.
 - If a message is not valid, the receiver closes the connection.

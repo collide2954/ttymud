@@ -17,7 +17,9 @@ pub fn render(message: &ServerMessage) -> Shown {
             Shown::Line(format!("Connected to {city} as {name}."))
         }
         ServerMessage::Text(text) => Shown::Line(clean(&text.plain())),
-        ServerMessage::Prompt(prompt) => Shown::Prompt(clean(prompt)),
+        ServerMessage::Prompt(prompt) | ServerMessage::Refresh(prompt) => {
+            Shown::Prompt(clean(prompt))
+        }
         ServerMessage::Close(reason) => Shown::Closed(clean(reason)),
         ServerMessage::Candidates { word, names } => Shown::Candidates {
             word: clean(word),
@@ -57,6 +59,12 @@ mod tests {
         assert_eq!(render(&prompt), Shown::Prompt("ghost@relay $ ".to_owned()));
         let close = ServerMessage::Close("Bye.".to_owned());
         assert_eq!(render(&close), Shown::Closed("Bye.".to_owned()));
+    }
+
+    #[test]
+    fn a_refresh_shows_as_a_prompt() {
+        let refresh = ServerMessage::Refresh("[trace 4%] $ \u{1b}".to_owned());
+        assert_eq!(render(&refresh), Shown::Prompt("[trace 4%] $ ".to_owned()));
     }
 
     #[test]

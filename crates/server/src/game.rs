@@ -105,7 +105,7 @@ impl Game {
                 outbox,
             },
         );
-        self.deliver(outputs);
+        self.deliver(outputs, Some(player));
         self.prompt(player);
     }
 
@@ -114,7 +114,7 @@ impl Game {
             return;
         };
         let outputs = self.world.command(player, line);
-        self.deliver(outputs);
+        self.deliver(outputs, Some(player));
         self.prompt(player);
     }
 
@@ -128,7 +128,7 @@ impl Game {
 
     fn tick(&mut self) {
         let outputs = self.world.tick();
-        self.deliver(outputs);
+        self.deliver(outputs, None);
     }
 
     fn leave(&mut self, connection: u64) {
@@ -137,12 +137,21 @@ impl Game {
         };
         self.links.remove(&player);
         let outputs = self.world.leave(player);
-        self.deliver(outputs);
+        self.deliver(outputs, None);
     }
 
-    fn deliver(&self, outputs: Vec<Output>) {
+    fn deliver(&self, outputs: Vec<Output>, answered: Option<PlayerId>) {
+        let mut told = Vec::new();
         for output in outputs {
+            if Some(output.player) != answered && !told.contains(&output.player) {
+                told.push(output.player);
+            }
             self.send(output.player, ServerMessage::Text(output.message));
+        }
+        for player in told {
+            if let Some(prompt) = self.world.prompt(player) {
+                self.send(player, ServerMessage::Refresh(prompt));
+            }
         }
     }
 
@@ -163,10 +172,44 @@ impl Game {
 mod tests {
     use std::sync::mpsc;
 
+    use ttymud_game::{Content, World};
     use ttymud_net::{Keys, PublicKey};
     use ttymud_wire::ServerMessage;
 
     use super::{Event, Game};
+
+    const LAB: &str = "[city lab]\nname = Lab\nstart = hub\n[host hub]\nname = Hub\ndesc = A hub.\n\
+                       [network net]\nname = Net\n[host gate]\nname = Gate\ndesc = A gate.\n\
+                       network = net\nroute = hub\n[ice gate/sentry]\ntype = sentry\n";
+
+    #[test]
+    fn a_tick_with_news_sends_the_text_and_a_refresh() {
+        let mut game = Game::new(World::new(Content::parse(LAB).unwrap(), 0));
+        let key = key();
+        let mailbox = join(&mut game, 1, key);
+        command(&mut game, 1, "go gate");
+        command(&mut game, 1, "scan");
+        drain(&mailbox);
+        for _ in 0..3 {
+            game.tick();
+        }
+        let messages = drain(&mailbox);
+        assert_eq!(
+            texts(&messages),
+            ["sentry sends an ALERT. Trace: 4% -> 14%."]
+        );
+        let prompt = format!("[trace 14% integ 100] {}@gate $ ", name(key));
+        assert_eq!(messages.last(), Some(&ServerMessage::Refresh(prompt)));
+    }
+
+    #[test]
+    fn a_quiet_tick_sends_nothing() {
+        let mut game = game();
+        let mailbox = join(&mut game, 1, key());
+        drain(&mailbox);
+        game.tick();
+        assert_eq!(drain(&mailbox), Vec::<ServerMessage>::new());
+    }
     use crate::port_ostra;
 
     fn game() -> Game {
@@ -252,7 +295,10 @@ mod tests {
         );
         drain(&second);
         command(&mut game, 2, "say hi");
-        assert_eq!(texts(&drain(&first)), [format!("<{}> hi", name(nyx))]);
+        let heard = drain(&first);
+        assert_eq!(texts(&heard), [format!("<{}> hi", name(nyx))]);
+        let prompt = format!("{}@relay $ ", name(ghost));
+        assert_eq!(heard.last(), Some(&ServerMessage::Refresh(prompt)));
     }
 
     #[test]

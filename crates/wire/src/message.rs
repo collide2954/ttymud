@@ -10,6 +10,7 @@ const TEXT: u8 = 2;
 const PROMPT: u8 = 3;
 const CLOSE: u8 = 4;
 const CANDIDATES: u8 = 5;
+const REFRESH: u8 = 6;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ClientMessage {
@@ -24,6 +25,7 @@ pub enum ServerMessage {
     Prompt(String),
     Close(String),
     Candidates { word: String, names: Vec<String> },
+    Refresh(String),
 }
 
 impl ClientMessage {
@@ -69,6 +71,10 @@ impl ServerMessage {
                 writer.byte(PROMPT);
                 writer.text(prompt);
             }
+            Self::Refresh(prompt) => {
+                writer.byte(REFRESH);
+                writer.text(prompt);
+            }
             Self::Close(reason) => {
                 writer.byte(CLOSE);
                 writer.text(reason);
@@ -94,6 +100,7 @@ impl ServerMessage {
             },
             TEXT => Self::Text(read_message(&mut reader)?),
             PROMPT => Self::Prompt(reader.text()?),
+            REFRESH => Self::Refresh(reader.text()?),
             CLOSE => Self::Close(reader.text()?),
             CANDIDATES => Self::Candidates {
                 word: reader.text()?,
@@ -255,6 +262,9 @@ mod tests {
         ));
         server_round_trip(&ServerMessage::Text(Message::new(Kind::Chat)));
         server_round_trip(&ServerMessage::Prompt("ghost@relay $ ".to_owned()));
+        server_round_trip(&ServerMessage::Refresh(
+            "[trace 4% integ 100] $ ".to_owned(),
+        ));
         server_round_trip(&ServerMessage::Close("The server stops.".to_owned()));
     }
 

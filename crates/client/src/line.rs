@@ -43,13 +43,23 @@ mod tests {
 
     use super::line_mode;
     use crate::Ending;
-    use crate::testing::{echo, link};
+    use crate::testing::{echo, link, ticker};
 
     fn session(input: &str) -> (Ending, String) {
         let input = Cursor::new(input.as_bytes().to_vec());
         let mut screen = Vec::new();
         let ending = line_mode(link(echo), input, &mut screen).unwrap();
         (ending, String::from_utf8_lossy(&screen).into_owned())
+    }
+
+    #[test]
+    fn a_refresh_shows_the_prompt_but_is_not_an_answer() {
+        let input = Cursor::new(b"look\nquit\n".to_vec());
+        let mut screen = Vec::new();
+        line_mode(link(ticker), input, &mut screen).unwrap();
+        let text = String::from_utf8_lossy(&screen);
+        assert!(text.contains("tick\n% "), "{text}");
+        assert!(text.contains("echo look\n"), "{text}");
     }
 
     #[test]

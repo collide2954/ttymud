@@ -57,9 +57,12 @@ impl Client {
     }
 
     fn text(&mut self) -> String {
-        match self.next() {
-            ServerMessage::Text(text) => text.plain(),
-            other => panic!("expected text, got {other:?}"),
+        loop {
+            match self.next() {
+                ServerMessage::Text(text) => return text.plain(),
+                ServerMessage::Refresh(_) => {}
+                other => panic!("expected text, got {other:?}"),
+            }
         }
     }
 
@@ -81,6 +84,7 @@ impl Client {
             match self.next() {
                 ServerMessage::Text(text) => texts.push(text.plain()),
                 ServerMessage::Prompt(_) => return texts,
+                ServerMessage::Refresh(_) => {}
                 other => panic!("unexpected {other:?}"),
             }
         }
