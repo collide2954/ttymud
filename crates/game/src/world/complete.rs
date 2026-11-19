@@ -64,6 +64,17 @@ impl World {
                 .map(|ice| ice.name.as_str())
                 .collect(),
             (Verb::Contract, 1) => vec!["drop"],
+            (Verb::Stash | Verb::Unstash, 1) => {
+                let Some(state) = self.players.get(&player) else {
+                    return Vec::new();
+                };
+                let files = if command.verb == Verb::Stash {
+                    &state.rig.files
+                } else {
+                    &state.stash
+                };
+                files.iter().map(|file| file.name.as_str()).collect()
+            }
             (Verb::Load | Verb::Unload, 1) => {
                 let loads = self
                     .players
@@ -161,6 +172,18 @@ mod tests {
             complete(&scanned, "scan | probe ").names,
             ["sentry", "warden"]
         );
+    }
+
+    #[test]
+    fn stash_completes_rig_files_and_unstash_completes_stash_files() {
+        let lines = [
+            "get motd.txt",
+            "get rules.txt",
+            "go back-room",
+            "stash rules.txt",
+        ];
+        assert_eq!(complete(&lines, "stash ").names, ["motd.txt"]);
+        assert_eq!(complete(&lines, "unstash ").names, ["rules.txt"]);
     }
 
     #[test]
