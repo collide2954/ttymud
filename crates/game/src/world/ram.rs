@@ -2,7 +2,6 @@ use ttymud_text::{Kind, Message, Style};
 
 use super::{PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::{self, Verb};
-use crate::kits::RAM;
 
 impl World {
     pub(super) fn at_home(&self, player: PlayerId, action: &str) -> Result<(), Message> {
@@ -27,7 +26,7 @@ impl World {
             return Err(named_error(name, " is already in your RAM."));
         }
         let need = verb.program().map_or(0, |program| program.ram);
-        let free = RAM.saturating_sub(rig.used());
+        let free = rig.ram.saturating_sub(rig.used());
         if need > free {
             return Err(named_error(
                 name,
@@ -38,7 +37,7 @@ impl World {
         Ok(Step::show(vec![
             Message::game("You load ")
                 .span(Style::Command, name)
-                .text(format!(". RAM: {}/{RAM} GB.", rig.used())),
+                .text(format!(". {}.", rig.ram_line())),
         ]))
     }
 
@@ -55,7 +54,7 @@ impl World {
         Ok(Step::show(vec![
             Message::game("You unload ")
                 .span(Style::Command, name)
-                .text(format!(". RAM: {}/{RAM} GB.", rig.used())),
+                .text(format!(". {}.", rig.ram_line())),
         ]))
     }
 
@@ -109,7 +108,7 @@ fn named_error(name: &str, rest: &str) -> Message {
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::{joined, run, walk};
+    use crate::testing::{joined, plain, run, walk};
 
     const HOME: &str = "go back-room";
 
@@ -184,6 +183,19 @@ mod tests {
         assert_eq!(
             walk(&[HOME, "unload"]).0,
             [format!("Usage: unload <program>. Programs: {known}")]
+        );
+    }
+
+    #[test]
+    fn more_ram_holds_more_programs() {
+        let (mut world, player) = joined();
+        world.command(player, HOME);
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.ram = 12;
+        }
+        assert_eq!(
+            plain(&world.command(player, "load mask")),
+            ["You load mask. RAM: 10/12 GB."]
         );
     }
 

@@ -30,6 +30,8 @@ pub(super) struct Saved {
     pub(super) cooled: u64,
     pub(super) integrity: u32,
     pub(super) credits: u32,
+    pub(super) ram: u32,
+    pub(super) cpu: u32,
     pub(super) files: Vec<File>,
     pub(super) loads: Vec<Verb>,
     pub(super) contract: Option<Job>,
@@ -51,6 +53,9 @@ impl World {
         state.cooled = saved.cooled;
         state.rig.integrity = saved.integrity;
         state.credits = saved.credits;
+        state.rig.ram = saved.ram;
+        state.rig.cpu = saved.cpu;
+        state.rig.cycles = saved.cpu;
         state.rig.files = saved.files;
         state.rig.loads = saved.loads;
         state.contract = saved.contract;
@@ -190,6 +195,8 @@ impl World {
             cooled: state.cooled,
             integrity: state.rig.integrity,
             credits: state.credits,
+            ram: state.rig.ram,
+            cpu: state.rig.cpu,
             files: state.rig.files.clone(),
             loads: state.rig.loads.clone(),
             contract: state.contract,

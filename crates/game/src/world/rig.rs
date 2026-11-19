@@ -24,6 +24,8 @@ pub(super) struct Rig {
     pub(super) cycles: u32,
     pub(super) files: Vec<File>,
     pub(super) loads: Vec<Verb>,
+    pub(super) ram: u32,
+    pub(super) cpu: u32,
 }
 
 impl Rig {
@@ -33,7 +35,13 @@ impl Rig {
             cycles: CYCLES,
             files: Vec::new(),
             loads: LOADS.to_vec(),
+            ram: RAM,
+            cpu: CYCLES,
         }
+    }
+
+    pub(super) fn ram_line(&self) -> String {
+        format!("RAM: {}/{} GB", self.used(), self.ram)
     }
 
     pub(super) fn used(&self) -> u32 {
@@ -51,7 +59,7 @@ impl Rig {
     }
 
     pub(super) fn tick(&mut self) {
-        self.cycles = (self.cycles + 1).min(CYCLES);
+        self.cycles = (self.cycles + 1).min(self.cpu);
     }
 }
 
@@ -126,8 +134,8 @@ impl World {
             "Integrity: {}/{MAX_INTEGRITY}",
             rig.integrity
         )));
-        shown.push(Message::game(format!("Cycles: {}/{CYCLES}", rig.cycles)));
-        shown.push(Message::game(format!("RAM: {}/{RAM} GB", rig.used())));
+        shown.push(Message::game(format!("Cycles: {}/{}", rig.cycles, rig.cpu)));
+        shown.push(Message::game(rig.ram_line()));
         shown.push(listed(
             Message::game("Programs: "),
             Style::Command,
@@ -265,6 +273,19 @@ mod tests {
                 "Programs: scan, probe, crack, scrub, patch"
             ]
         );
+    }
+
+    #[test]
+    fn a_faster_cpu_holds_more_cycles() {
+        let (mut world, player) = joined();
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.cpu = 6;
+            state.rig.cycles = 0;
+        }
+        for _ in 0..7 {
+            world.tick();
+        }
+        assert_eq!(cycles(&mut world, player), ["Cycles: 6/6"]);
     }
 
     #[test]

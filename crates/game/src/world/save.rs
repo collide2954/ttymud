@@ -9,7 +9,7 @@ use crate::commands::{self, Verb};
 use crate::content::{ContentError, File};
 use crate::heat::MAX_HEAT;
 use crate::ini::{self, Pair, Section};
-use crate::kits::KITS;
+use crate::kits::{CYCLES, KITS, RAM};
 
 const ACCOUNTS: &str = "accounts/";
 const BURNS: &str = "burns.ini";
@@ -96,6 +96,8 @@ impl World {
             text.pair("cooled", &handle.cooled.to_string());
             text.pair("integrity", &handle.integrity.to_string());
             text.pair("credits", &handle.credits.to_string());
+            text.pair("ram", &handle.ram.to_string());
+            text.pair("cpu", &handle.cpu.to_string());
             for &verb in &handle.loads {
                 text.pair("load", commands::name_of(verb));
             }
@@ -205,10 +207,12 @@ impl World {
         let (mut heat, mut cooled, mut integrity): (Option<u32>, Option<u64>, Option<u32>) =
             (None, None, None);
         let (mut contract, mut step, mut loads) = (None, 0, Vec::new());
-        let mut credits = 0;
+        let (mut credits, mut ram, mut cpu) = (0, RAM, CYCLES);
         for pair in &section.pairs {
             match pair.key {
                 "credits" => credits = number(pair, errors).unwrap_or(0),
+                "ram" => ram = number(pair, errors).unwrap_or(RAM),
+                "cpu" => cpu = number(pair, errors).unwrap_or(CYCLES),
                 "kit" => {
                     kit = KITS.iter().find(|kit| kit.id == pair.value);
                     if kit.is_none() {
@@ -244,6 +248,8 @@ impl World {
             cooled: cooled?,
             integrity: integrity?.min(MAX_INTEGRITY),
             credits,
+            ram,
+            cpu,
             files: Vec::new(),
             loads,
             contract: contract.map(|index| Job::resume(index, step)),
@@ -421,6 +427,8 @@ mod tests {
             "cooled = 0",
             "integrity = 100",
             "credits = 0",
+            "ram = 8",
+            "cpu = 4",
             "load = scan",
             "load = probe",
             "load = crack",
@@ -448,6 +456,8 @@ mod tests {
             state.cooled = 7;
             state.rig.integrity = 61;
             state.credits = 120;
+            state.rig.ram = 12;
+            state.rig.cpu = 5;
         }
         world.leave(player);
         let saves = world.saves();
@@ -461,6 +471,14 @@ mod tests {
         assert_eq!(
             status[..3],
             ["Heat: 2/5", "Credits: 120 cr", "Integrity: 61/100"]
+        );
+        assert_eq!(
+            plain(&fresh.command(player, "status | grep gb")),
+            ["RAM: 8/12 GB"]
+        );
+        assert_eq!(
+            plain(&fresh.command(player, "status | grep cycles")),
+            ["Cycles: 5/5"]
         );
         assert_eq!(
             plain(&fresh.command(player, "stash")),
