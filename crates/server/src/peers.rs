@@ -15,7 +15,7 @@ pub struct Peer {
     pub key: PublicKey,
 }
 
-pub fn load_peers(dir: &Path, own: PublicKey) -> io::Result<Vec<Peer>> {
+pub(crate) fn load_peers(dir: &Path, own: PublicKey) -> io::Result<Vec<Peer>> {
     let path = dir.join(LINKS);
     if !path.is_file() {
         return Ok(Vec::new());

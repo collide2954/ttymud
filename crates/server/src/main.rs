@@ -13,6 +13,7 @@ Usage: ttymud-server [OPTION]
        ttymud-server mod <DIR> [add|remove <HANDLE>]
        ttymud-server delete <DIR> <HANDLE>
        ttymud-server city <DIR>
+       ttymud-server check <DIR>
        ttymud-server play [NAME]
 
 Commands:
@@ -23,6 +24,7 @@ Commands:
   delete <DIR> <HANDLE>
                  Delete an account and its data. Stop the server first.
   city <DIR>     Write a copy of Port Ostra to DIR/city.ini, to start your own city.
+  check <DIR>    Read the data directory as run does, and show all errors.
   play [NAME]    Walk Port Ostra alone, offline.
 
 Options:
@@ -55,6 +57,7 @@ enum Cli {
         handle: String,
     },
     City(PathBuf),
+    Check(PathBuf),
     Play(Option<String>),
 }
 
@@ -85,9 +88,10 @@ fn parse(args: &[OsString]) -> Result<Cli, String> {
         }),
         ["delete", _] => Err("delete needs a handle".to_owned()),
         ["city", _] => Ok(Cli::City(dir())),
+        ["check", _] => Ok(Cli::Check(dir())),
         ["play"] => Ok(Cli::Play(None)),
         ["play", name] => Ok(Cli::Play(Some((*name).to_owned()))),
-        [command @ ("init" | "run" | "mod" | "delete" | "city")] => {
+        [command @ ("init" | "run" | "mod" | "delete" | "city" | "check")] => {
             Err(format!("{command} needs a data directory"))
         }
         [word] => Err(format!("unknown argument '{word}'")),
@@ -142,6 +146,7 @@ fn main() -> ExitCode {
                 dir.display()
             );
         }),
+        Cli::Check(dir) => ttymud_server::check(&dir).map(|done| println!("{done}")),
         Cli::Play(name) => ttymud_server::play(
             name.as_deref(),
             io::BufReader::new(io::stdin()),
@@ -176,10 +181,12 @@ fn run(dir: &Path, listen: &str, ssh: Option<&str>) -> io::Result<()> {
     if ssh.is_some() {
         return Err(io::Error::other(NO_SSH));
     }
-    let keys = ttymud_server::load_keys(dir).map_err(|error| missing_key(dir, error))?;
-    let peers = ttymud_server::load_peers(dir, keys.public())?;
-    let world = ttymud_server::load_world(dir)?;
-    let identity = ttymud_server::load_identity(dir)?;
+    let ttymud_server::Data {
+        keys,
+        peers,
+        world,
+        identity,
+    } = ttymud_server::load_data(dir)?;
     let store = ttymud_server::Store::start(dir)?;
     let listener = TcpListener::bind(listen)?;
     println!("{} is open on {}.", world.city(), listener.local_addr()?);
@@ -206,15 +213,6 @@ fn run(dir: &Path, listen: &str, ssh: Option<&str>) -> io::Result<()> {
         );
     }
     ttymud_server::serve(&listener, keys, world, identity, Some(store), peers)
-}
-
-fn missing_key(dir: &Path, error: io::Error) -> io::Error {
-    if error.kind() != io::ErrorKind::NotFound {
-        return error;
-    }
-    let place = dir.display();
-    let message = format!("{place} has no server key. Run: ttymud-server init {place}");
-    io::Error::new(error.kind(), message)
 }
 
 #[cfg(test)]
@@ -364,14 +362,22 @@ mod tests {
     }
 
     #[test]
-    fn city_takes_a_data_directory() {
+    fn city_and_check_take_a_data_directory() {
         assert_eq!(
             parse(&args(&["city", "data"])),
             Ok(Cli::City("data".into()))
         );
         assert_eq!(
+            parse(&args(&["check", "data"])),
+            Ok(Cli::Check("data".into()))
+        );
+        assert_eq!(
             parse(&args(&["city"])),
             Err("city needs a data directory".to_owned())
+        );
+        assert_eq!(
+            parse(&args(&["check"])),
+            Err("check needs a data directory".to_owned())
         );
     }
 

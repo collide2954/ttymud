@@ -160,7 +160,7 @@ impl Identity {
     }
 }
 
-pub fn load_identity(dir: &Path) -> io::Result<Identity> {
+pub(crate) fn load_identity(dir: &Path) -> io::Result<Identity> {
     let path = dir.join(KEYS);
     if !path.is_file() {
         return Ok(Identity::default());

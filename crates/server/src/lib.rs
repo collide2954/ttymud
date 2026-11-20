@@ -17,11 +17,11 @@ mod store;
 mod testing;
 mod ticker;
 
-pub use city::{load_world, port_ostra, write_city};
-pub use data::{init, load_keys};
-pub use identity::{Identity, load_identity};
+pub use city::{port_ostra, write_city};
+pub use data::{Data, check, init, load_data, load_keys};
+pub use identity::Identity;
 pub use moderate::{Moderation, delete, moderate};
-pub use peers::{Peer, load_peers};
+pub use peers::Peer;
 pub use play::play;
 pub use serve::serve;
 #[cfg(feature = "ssh")]

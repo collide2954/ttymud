@@ -9,13 +9,13 @@ use crate::store::load_saves;
 
 const PORT_OSTRA: &str = include_str!("../content/port-ostra.ini");
 const BUILT_IN: &str = "port-ostra.ini";
-const CITY: &str = "city.ini";
+pub(crate) const CITY: &str = "city.ini";
 
 pub fn port_ostra(seed: u64) -> io::Result<World> {
     Ok(World::new(parse(BUILT_IN, PORT_OSTRA)?, seed))
 }
 
-pub fn load_world(dir: &Path) -> io::Result<World> {
+pub(crate) fn load_world(dir: &Path) -> io::Result<World> {
     let mut world = World::new(city(dir)?, seed());
     let mut problems = Vec::new();
     for (path, text) in load_saves(dir)? {
