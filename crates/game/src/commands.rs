@@ -360,7 +360,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         verb: Verb::Upload,
         names: &["upload"],
         usage: "upload <file>",
-        summary: "Move a file from your rig to this host in a target network.",
+        summary: "Copy a file from your rig to this host in a target network.",
         example: "upload evidence.log",
         takes: Takes::Optional(Kinds::FILES),
         gives: Gives::Nothing,

@@ -19,7 +19,7 @@ Example: ls | grep txt | read
 > help | grep rig
 read <file>       Show the text of a file here or on your rig.
 download <file>   Copy a file from this host to your rig.
-upload <file>     Move a file from your rig to this host in a target network.
+upload <file>     Copy a file from your rig to this host in a target network.
 inventory         Show the files on your rig.
 buy <item>        Buy a program or a rig upgrade at a shop.
 lots              Show the lots of the police auction: the data, hardware, and programs from the rigs of burned handles.

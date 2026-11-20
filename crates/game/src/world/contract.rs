@@ -160,14 +160,17 @@ impl World {
         if contract.network != network {
             return Vec::new();
         }
-        if contract.task == Task::Steal {
-            let files = &mut state.rig.files;
-            let Some(goal) = files.iter().position(|file| file.name == contract.goal) else {
-                return Vec::new();
-            };
-            files.remove(goal);
-        } else if !done {
+        let files = &mut state.rig.files;
+        let carried = files.iter().position(|file| file.name == contract.goal);
+        let complete = match contract.task {
+            Task::Steal => carried.is_some(),
+            Task::Wipe | Task::Plant(_) => done,
+        };
+        if !complete {
             return Vec::new();
+        }
+        if let Some(goal) = carried {
+            files.remove(goal);
         }
         state.end_contract();
         let fee = if state.heat >= FEE_HEAT {
@@ -192,11 +195,11 @@ impl World {
             contract.goal.clone(),
             contract.task,
         );
-        let taken = match (task, pay) {
-            (Task::Steal, 0) => format!(" takes {loot}."),
-            (Task::Steal, pay) => format!(" takes {loot} and pays you {pay} cr."),
-            (_, 0) => " is happy with your work.".to_owned(),
-            (_, pay) => format!(" pays you {pay} cr."),
+        let taken = match (carried.is_some(), pay) {
+            (true, 0) => format!(" takes {loot}."),
+            (true, pay) => format!(" takes {loot} and pays you {pay} cr."),
+            (false, 0) => " is happy with your work.".to_owned(),
+            (false, pay) => format!(" pays you {pay} cr."),
         };
         let name = self.fixer_name(fixer);
         let said = |rest: String| Message::game("").span(Style::Player, name).text(rest);

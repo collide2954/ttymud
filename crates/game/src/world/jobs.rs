@@ -782,6 +782,13 @@ mod tests {
         }
     }
 
+    fn carries(world: &World, player: PlayerId, name: &str) -> bool {
+        world
+            .players
+            .get(&player)
+            .is_some_and(|state| state.rig.files.iter().any(|file| file.name == name))
+    }
+
     fn corp_of(world: &World) -> String {
         let corp = world.networks.last().and_then(|network| network.corp);
         corp.map_or_default(|corp| world.corps[corp].name.clone())
@@ -824,11 +831,16 @@ mod tests {
         let done = "Pell: Clean work. The contract is complete.".to_owned();
         assert!(!shown.contains(&done), "{shown:?}");
         inside(&mut world, player, holder);
+        world.command(player, &format!("get {goal}"));
         world.command(player, &format!("rm {goal}"));
         world.command(player, "back");
         let pay = world.contracts.last().map_or(0, |job| job.pay);
         let shown = plain(&world.command(player, "back"));
-        assert_eq!(shown[2], format!("Pell pays you {pay} cr."));
+        assert_eq!(
+            shown[2],
+            format!("Pell takes {goal} and pays you {pay} cr.")
+        );
+        assert!(!carries(&world, player, &goal));
         assert_eq!(
             world.headline(),
             format!("{corp} loses {goal}, and it has no copy.")
@@ -870,15 +882,20 @@ mod tests {
         world.command(player, "back");
         world.command(player, "back");
         assert!(plain(&world.command(player, "contract"))[2].starts_with("Goal: upload "));
-        if let Some(state) = world.players.get_mut(&player) {
-            let file = crate::content::File::new(goal.clone(), vec!["x".to_owned()]);
-            state.rig.files.push(file);
-        }
+        assert!(carries(&world, player, &goal));
         inside(&mut world, player, host);
         world.command(player, &format!("upload {goal}"));
         world.command(player, "back");
+        let pay = world.contracts.last().map_or(0, |job| job.pay);
         let shown = plain(&world.command(player, "back"));
-        assert_eq!(shown[1], "Pell: Clean work. The contract is complete.");
+        assert_eq!(
+            shown[1..3],
+            [
+                "Pell: Clean work. The contract is complete.".to_owned(),
+                format!("Pell takes {goal} and pays you {pay} cr."),
+            ]
+        );
+        assert!(!carries(&world, player, &goal));
         assert_eq!(
             world.headline(),
             format!("Investigators find {goal} on a server of {corp}.")

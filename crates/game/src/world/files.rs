@@ -246,9 +246,6 @@ impl World {
                 )));
                 continue;
             }
-            if let Some(state) = self.players.get_mut(&player) {
-                state.rig.files.retain(|known| known.name != file.name);
-            }
             shown.push(
                 Message::game("Uploaded ")
                     .span(Style::File, &file.name)
