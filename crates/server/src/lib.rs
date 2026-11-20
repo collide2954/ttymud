@@ -2,6 +2,7 @@ mod city;
 mod data;
 mod game;
 mod identity;
+mod key;
 mod limits;
 mod moderate;
 mod play;

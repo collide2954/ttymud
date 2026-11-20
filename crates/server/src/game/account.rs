@@ -1,8 +1,9 @@
-use ttymud_net::{PublicKey, digest, random_code};
+use ttymud_net::{digest, random_code};
 use ttymud_text::{Message, Style, sanitize};
 
 use super::{Game, PlayerId};
 use crate::city::now;
+use crate::key::{AccountKey, fingerprint};
 
 const RECOVERY_BYTES: usize = 16;
 const LINK_BYTES: usize = 8;
@@ -39,7 +40,7 @@ impl Game {
         Some(player)
     }
 
-    fn account(&self, player: PlayerId) -> Option<(String, PublicKey)> {
+    fn account(&self, player: PlayerId) -> Option<(String, AccountKey)> {
         let link = self.links.get(&player)?;
         Some((link.account.clone(), link.key))
     }
@@ -79,7 +80,7 @@ impl Game {
         };
         let found = digest(code)
             .ok()
-            .and_then(|hash| self.identity.recover(&hash, &key.to_hex()));
+            .and_then(|hash| self.identity.recover(&hash, &key.id()));
         let Some(account) = found else {
             let refusal = Message::error("That recovery code does not work.");
             self.show(player, vec![refusal]);
@@ -121,7 +122,7 @@ impl Game {
         };
         let found = digest(code)
             .ok()
-            .and_then(|hash| self.identity.accept(&hash, &key.to_hex(), now()));
+            .and_then(|hash| self.identity.accept(&hash, &key.id(), now()));
         let Some(account) = found else {
             let refusal = Message::error(
                 "That link code does not work. Type link on your other device to make a new code.",
@@ -150,7 +151,7 @@ impl Game {
         let Some((account, key)) = self.account(player) else {
             return;
         };
-        let current = key.to_hex();
+        let current = key.id();
         let mut shown = vec![Message::game("Keys of your account:")];
         for (index, known) in self.identity.keys(&account).iter().enumerate() {
             let mark = if *known == current {
@@ -180,7 +181,7 @@ impl Game {
             self.show(player, vec![Message::error(refusal)]);
             return;
         };
-        if *revoked == key.to_hex() {
+        if *revoked == key.id() {
             let refusal = Message::error("You cannot revoke the key of this device.");
             self.show(player, vec![refusal]);
             return;
@@ -196,8 +197,4 @@ fn code_and_digest(bytes: usize) -> Result<(String, String), ttymud_net::Error> 
     let code = random_code(bytes)?;
     let hash = digest(&code)?;
     Ok((code, hash))
-}
-
-fn fingerprint(hex: &str) -> String {
-    PublicKey::from_hex(hex).map_or_else(|| hex.to_owned(), |key| key.fingerprint())
 }

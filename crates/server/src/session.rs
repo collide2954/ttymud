@@ -47,7 +47,7 @@ fn serve(
         .spawn(move || write_loop(sender, &mailbox, &control))?;
     let joined = Event::Join {
         connection,
-        key,
+        key: key.into(),
         address,
         outbox,
     };

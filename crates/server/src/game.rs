@@ -6,12 +6,12 @@ use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::Instant;
 
 use ttymud_game::{BANNED, Completion, Output, PlayerId, World};
-use ttymud_net::PublicKey;
 use ttymud_text::{Message, Status};
 use ttymud_wire::ServerMessage;
 
 use crate::city::now;
 use crate::identity::Identity;
+use crate::key::AccountKey;
 use crate::ticker::{TICK, Ticker};
 
 const TAKEN_OVER: &str = "You connected from another place.";
@@ -22,7 +22,7 @@ const LINK_HINT: &str =
 pub(crate) enum Event {
     Join {
         connection: u64,
-        key: PublicKey,
+        key: AccountKey,
         address: IpAddr,
         outbox: mpsc::Sender<ServerMessage>,
     },
@@ -51,7 +51,7 @@ pub(crate) struct Game {
 
 struct Link {
     connection: u64,
-    key: PublicKey,
+    key: AccountKey,
     account: String,
     address: IpAddr,
     outbox: mpsc::Sender<ServerMessage>,
@@ -76,10 +76,6 @@ pub(crate) fn run(
             game.tick();
         }
     }
-}
-
-pub(crate) fn name_for(key: PublicKey) -> String {
-    format!("anon-{}", &key.to_hex()[..8])
 }
 
 impl Game {
@@ -133,11 +129,11 @@ impl Game {
     fn join(
         &mut self,
         connection: u64,
-        key: PublicKey,
+        key: AccountKey,
         address: IpAddr,
         outbox: mpsc::Sender<ServerMessage>,
     ) {
-        let Some(account) = self.identity.account_of(&key.to_hex()) else {
+        let Some(account) = self.identity.account_of(&key.id()) else {
             let _ = outbox.send(ServerMessage::Close(REVOKED.to_owned()));
             return;
         };
@@ -169,7 +165,7 @@ impl Game {
         let name = self
             .world
             .handle(player)
-            .map_or_else(|| name_for(link.key), str::to_owned);
+            .map_or_else(|| link.key.anon(), str::to_owned);
         let city = self.world.city().to_owned();
         let _ = link.outbox.send(ServerMessage::Welcome { city, name });
         self.connections.insert(link.connection, player);
@@ -288,6 +284,7 @@ mod tests {
 
     use super::{Event, Game};
     use crate::identity::Identity;
+    use crate::key::AccountKey;
     use crate::port_ostra;
 
     const LAB: &str = "[city lab]\nname = Lab\nstart = hub\n[host hub]\nname = Hub\ndesc = A hub.\n\
@@ -464,24 +461,85 @@ mod tests {
         format!("anon-{}", &key.to_hex()[..8])
     }
 
-    fn join(game: &mut Game, connection: u64, key: PublicKey) -> mpsc::Receiver<ServerMessage> {
+    fn join(
+        game: &mut Game,
+        connection: u64,
+        key: impl Into<AccountKey>,
+    ) -> mpsc::Receiver<ServerMessage> {
         join_from(game, connection, key, IpAddr::from([127, 0, 0, 1]))
     }
 
     fn join_from(
         game: &mut Game,
         connection: u64,
-        key: PublicKey,
+        key: impl Into<AccountKey>,
         address: IpAddr,
     ) -> mpsc::Receiver<ServerMessage> {
         let (outbox, mailbox) = mpsc::channel();
         game.handle(Event::Join {
             connection,
-            key,
+            key: key.into(),
             address,
             outbox,
         });
         mailbox
+    }
+
+    const SSH: AccountKey = AccountKey::Ssh([7; 32]);
+
+    fn ssh_print() -> String {
+        format!("SHA256:{}Bwc", "BwcH".repeat(10))
+    }
+
+    #[test]
+    fn an_ssh_key_makes_its_own_account_and_shows_its_sha256_fingerprint() {
+        let mut game = game();
+        let mailbox = join(&mut game, 1, SSH);
+        assert_eq!(drain(&mailbox)[0], welcome("anon-07070707"));
+        command(&mut game, 1, "ghost");
+        command(&mut game, 1, "breaker");
+        drain(&mailbox);
+        command(&mut game, 1, "keys");
+        assert_eq!(
+            texts(&drain(&mailbox)),
+            [
+                "Keys of your account:".to_owned(),
+                format!("1. {} (this device)", ssh_print()),
+                "Type revoke <number> to remove a key.".to_owned(),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_link_code_adds_an_ssh_key_to_an_account_of_the_client() {
+        let mut game = game();
+        let client = key();
+        let first = join(&mut game, 1, client);
+        command(&mut game, 1, "ghost");
+        command(&mut game, 1, "breaker");
+        drain(&first);
+        command(&mut game, 1, "link");
+        let code = found(&drain(&first), "Your link code: ").unwrap_or_default();
+        let second = join(&mut game, 2, SSH);
+        drain(&second);
+        command(&mut game, 2, &format!("link {code}"));
+        assert!(drain(&second).contains(&welcome("ghost")));
+        command(&mut game, 2, "keys");
+        assert_eq!(
+            texts(&drain(&second))[1..3],
+            [
+                format!("1. {}", client.fingerprint()),
+                format!("2. {} (this device)", ssh_print()),
+            ]
+        );
+        command(&mut game, 2, "revoke 1");
+        assert_eq!(
+            texts(&drain(&second)),
+            [format!(
+                "You revoke key 1, {}. That device cannot connect now.",
+                client.fingerprint()
+            )]
+        );
     }
 
     fn hacker(game: &mut Game, connection: u64, name: &str) -> mpsc::Receiver<ServerMessage> {

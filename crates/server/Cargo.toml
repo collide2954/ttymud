@@ -6,6 +6,9 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+ssh = []
+
 [dependencies]
 ttymud-game.workspace = true
 ttymud-net.workspace = true
