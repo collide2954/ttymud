@@ -66,8 +66,11 @@ fn scripts() -> Vec<Message> {
             "&& runs the next command only if the last command worked. || runs it only if the last command failed.",
         ),
         Message::game(
-            "A failed line stops the script. grep fails when nothing matches. A crash, a trace, or a burn also stops the script.",
+            "If the last command of a line fails, the script stops. A crash, a trace, or a burn also stops it.",
         ),
+        Message::game("grep fails when nothing matches. ")
+            .span(Style::Command, "scan | grep sentry && crack sentry")
+            .text(" cracks the sentry only if it is there."),
         command("wait 3").text(" lets 3 ticks go by. A line that starts with # is a note."),
         Message::game("A script cannot chat, send a challenge, or start a script."),
         Message::game("Example: ").span(Style::Command, "echo 'crack $1 || jackout' >> sweep.sh"),

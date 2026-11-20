@@ -58,6 +58,13 @@ impl Process {
     fn ran(&mut self, worked: bool) {
         self.failed = !worked;
         self.link += 1;
+        let last = matches!(
+            self.lines.get(self.line),
+            Some(Line::Run { links, .. }) if self.link == links.len()
+        );
+        if last && !worked {
+            return;
+        }
         self.settle();
     }
 
@@ -85,7 +92,6 @@ impl Process {
             match runs {
                 Some(true) => return,
                 Some(false) => self.link += 1,
-                None if self.failed => return,
                 None => self.next_line(),
             }
         }
@@ -599,12 +605,25 @@ mod tests {
     }
 
     #[test]
-    fn a_line_that_ends_in_a_failure_stops_the_script() {
+    fn the_script_stops_when_the_last_command_of_a_line_fails() {
         let (mut world, player) = started(&["ls | grep motd && read zzz", "look"], "sh x.sh");
         tick(&mut world, player);
         let shown = tick(&mut world, player);
         assert_eq!(shown[0], "x.sh: read zzz");
         assert_eq!(shown[2], "x.sh stops at line 1.");
+    }
+
+    #[test]
+    fn a_failed_test_before_and_skips_the_command_and_the_script_goes_on() {
+        let (mut world, player) = started(&["ls | grep zzz && look", "ls | grep rules"], "sh x.sh");
+        assert_eq!(
+            tick(&mut world, player),
+            ["x.sh: ls | grep zzz", "No match for zzz."]
+        );
+        assert_eq!(
+            tick(&mut world, player),
+            ["x.sh: ls | grep rules", "rules.txt", "x.sh ends."]
+        );
     }
 
     #[test]
