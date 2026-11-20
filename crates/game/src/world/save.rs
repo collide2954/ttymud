@@ -174,6 +174,9 @@ impl World {
         text.pair("kit", handle.kit.id);
         text.pair("heat", &handle.heat.to_string());
         text.pair("cooled", &handle.cooled.to_string());
+        if let Some(tipped) = handle.tipped {
+            text.pair("tipped", &tipped.to_string());
+        }
         text.pair("integrity", &handle.integrity.to_string());
         text.pair("credits", &handle.credits.to_string());
         text.pair("ram", &handle.ram.to_string());
@@ -349,9 +352,10 @@ impl World {
         let (mut credits, mut ram, mut cpu) = (0, RAM, CYCLES);
         let (mut sold, mut rep, mut done, mut posting) =
             (Vec::new(), BTreeMap::new(), Vec::new(), None);
-        let (mut channels, mut builds) = (None, Vec::new());
+        let (mut channels, mut builds, mut tipped) = (None, Vec::new(), None);
         for pair in &section.pairs {
             match pair.key {
+                "tipped" => tipped = number(pair, errors),
                 "sold" => sold.push(pair.value.to_owned()),
                 "version" => {
                     if let Some((verb, version)) = program_version(pair, errors) {
@@ -412,6 +416,7 @@ impl World {
             kit: kit?,
             heat: heat?.min(MAX_HEAT),
             cooled: cooled?,
+            tipped,
             integrity: integrity?.min(MAX_INTEGRITY),
             credits,
             ram,

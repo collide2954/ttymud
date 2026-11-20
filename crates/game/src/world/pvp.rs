@@ -4,7 +4,7 @@ use super::instance::{tell, witnesses};
 use super::presence::named;
 use super::programs::Target;
 use super::rig::MAX_INTEGRITY;
-use super::{Output, PlayerId, Step, Thing, World, address, choose, listed, usage};
+use super::{HostId, Output, PlayerId, Step, Thing, World, address, choose, listed, usage};
 use crate::commands::{Item, Verb};
 use crate::content::Zone;
 
@@ -12,28 +12,34 @@ const CREWMATE: &str = " is in your crew. Crewmates cannot attack each other.";
 
 impl World {
     pub(super) fn pvp(&self, player: PlayerId) -> bool {
-        let run = self
-            .players
-            .get(&player)
-            .and_then(|state| state.run.as_ref());
-        run.is_some_and(|run| self.zone(run.network) == Zone::Darknet)
+        self.run_zone(player) == Some(Zone::Darknet)
     }
 
-    pub(super) fn rivals(&self, player: PlayerId) -> Vec<(PlayerId, &str)> {
-        let Some(copy) = self.instance_id(player).filter(|_| self.pvp(player)) else {
+    pub(super) fn strangers(&self, player: PlayerId) -> Vec<(PlayerId, HostId, &str)> {
+        let Some(copy) = self.instance_id(player) else {
             return Vec::new();
         };
-        let here = self.here(player);
         let crew = self.handle(player).and_then(|name| self.crews.of(name));
         self.players
             .iter()
             .filter(|&(&other, state)| {
                 other != player
-                    && state.chain.last() == Some(&here)
                     && state.run.as_ref().is_some_and(|run| run.instance == copy)
                     && !crew.is_some_and(|crew| crew.has(&state.name))
             })
-            .map(|(&other, state)| (other, state.name.as_str()))
+            .filter_map(|(&other, state)| Some((other, *state.chain.last()?, state.name.as_str())))
+            .collect()
+    }
+
+    pub(super) fn rivals(&self, player: PlayerId) -> Vec<(PlayerId, &str)> {
+        if !self.pvp(player) {
+            return Vec::new();
+        }
+        let here = self.here(player);
+        self.strangers(player)
+            .into_iter()
+            .filter(|&(_, host, _)| host == here)
+            .map(|(other, _, name)| (other, name))
             .collect()
     }
 
@@ -76,7 +82,7 @@ impl World {
             .collect()
     }
 
-    fn spare_crew(&self, player: PlayerId, word: &str) -> Result<(), Message> {
+    pub(super) fn spare_crew(&self, player: PlayerId, word: &str) -> Result<(), Message> {
         let Some(me) = self.handle(player) else {
             return Ok(());
         };
@@ -125,6 +131,7 @@ impl World {
         let Some(rival) = self.rival(player, name) else {
             return Step::default();
         };
+        self.touch(rival);
         let me = self.handle(player).unwrap_or_default().to_owned();
         let shield = self
             .players

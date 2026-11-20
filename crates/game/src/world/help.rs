@@ -36,6 +36,7 @@ impl World {
                 Verb::Go => !self.routes(here, player).is_empty(),
                 Verb::Back => hops > 1,
                 Verb::Jackout => running,
+                Verb::Tip => self.in_darknet(player),
                 verb if verb.program().is_some() => {
                     running && state.is_some_and(|state| state.rig.loads.contains(&verb))
                 }

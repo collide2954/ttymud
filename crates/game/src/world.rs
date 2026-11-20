@@ -39,6 +39,7 @@ mod soc;
 mod software;
 mod stash;
 mod tell;
+mod tips;
 mod topics;
 mod vault;
 
@@ -154,6 +155,7 @@ struct Player {
     address: Option<IpAddr>,
     stash: Vec<File>,
     consent: Option<(HostId, u64)>,
+    tipped: Option<u64>,
 }
 
 impl Player {
@@ -162,6 +164,7 @@ impl Player {
             name: name.to_owned(),
             chain: vec![at],
             consent: None,
+            tipped: None,
             heat: 0,
             cooled: 0,
             credits: 0,
@@ -564,6 +567,7 @@ impl World {
             Verb::Proxy => self.proxy(player),
             Verb::Pretext => self.pretext(player, args, input),
             Verb::Exploit => self.exploit(player),
+            Verb::Tip => self.tip(player, args),
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Tell => Err(Message::error("Usage: tell <handle> <text>.")),

@@ -62,32 +62,18 @@ impl World {
             (Verb::Contract, 1) => vec!["drop"],
             (Verb::Crew, 1) => ACTIONS.to_vec(),
             (Verb::Scrub, 1) => self.mates_here(player),
+            (Verb::Tip, 1) => self
+                .tip_targets(player)
+                .into_iter()
+                .map(|(_, name)| name)
+                .collect(),
             (Verb::Crew, 2) => self.crew_choices(player, &words[1]),
             (Verb::Tell | Verb::Ignore | Verb::Block | Verb::Report, 1) => self.online_names(),
             (Verb::Unignore | Verb::Unblock, 1) => {
-                let Some(state) = self.players.get(&player) else {
-                    return Vec::new();
-                };
-                let keys = if command.verb == Verb::Unblock {
-                    &state.social.blocks
-                } else {
-                    &state.social.ignores
-                };
-                keys.iter()
-                    .filter_map(|key| self.person_label(key))
-                    .collect()
+                self.listed_people(player, command.verb == Verb::Unblock)
             }
             (Verb::Join | Verb::Leave, 1) => {
-                let joined = self
-                    .players
-                    .get(&player)
-                    .map_or(&[][..], |state| state.channels.as_slice());
-                let leaving = command.verb == Verb::Leave;
-                self.channels
-                    .iter()
-                    .filter(|channel| joined.contains(&channel.id) == leaving)
-                    .map(|channel| channel.id.as_str())
-                    .collect()
+                self.channel_choices(player, command.verb == Verb::Leave)
             }
             (Verb::Buy, 1) => self.ware_names(player),
             (Verb::Sell, _) => self
@@ -149,6 +135,32 @@ impl World {
             names.extend(self.rivals(player).into_iter().map(|(_, name)| name));
         }
         names
+    }
+
+    fn listed_people(&self, player: PlayerId, blocked: bool) -> Vec<&str> {
+        let Some(state) = self.players.get(&player) else {
+            return Vec::new();
+        };
+        let keys = if blocked {
+            &state.social.blocks
+        } else {
+            &state.social.ignores
+        };
+        keys.iter()
+            .filter_map(|key| self.person_label(key))
+            .collect()
+    }
+
+    fn channel_choices(&self, player: PlayerId, leaving: bool) -> Vec<&str> {
+        let joined = self
+            .players
+            .get(&player)
+            .map_or(&[][..], |state| state.channels.as_slice());
+        self.channels
+            .iter()
+            .filter(|channel| joined.contains(&channel.id) == leaving)
+            .map(|channel| channel.id.as_str())
+            .collect()
     }
 }
 

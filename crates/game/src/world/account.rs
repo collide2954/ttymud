@@ -42,6 +42,7 @@ pub(super) struct Saved {
     pub(super) kit: &'static Kit,
     pub(super) heat: u32,
     pub(super) cooled: u64,
+    pub(super) tipped: Option<u64>,
     pub(super) integrity: u32,
     pub(super) credits: u32,
     pub(super) ram: u32,
@@ -72,6 +73,7 @@ impl World {
         state.kit = Some(saved.kit);
         state.heat = saved.heat;
         state.cooled = saved.cooled;
+        state.tipped = saved.tipped;
         state.rig.integrity = saved.integrity;
         state.credits = saved.credits;
         state.rig.ram = saved.ram;
@@ -227,6 +229,7 @@ impl World {
             kit,
             heat: state.heat,
             cooled: state.cooled,
+            tipped: state.tipped,
             integrity: state.rig.integrity,
             credits: state.credits,
             ram: state.rig.ram,

@@ -13,6 +13,11 @@ impl World {
         self.networks[network.0].zone
     }
 
+    pub(super) fn run_zone(&self, player: PlayerId) -> Option<Zone> {
+        let run = self.players.get(&player)?.run.as_ref()?;
+        Some(self.zone(run.network))
+    }
+
     pub(super) fn consent(&mut self, player: PlayerId, target: HostId) -> Result<(), Message> {
         let Some(network) = self.hosts[target.0].network else {
             return Ok(());

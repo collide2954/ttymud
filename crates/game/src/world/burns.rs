@@ -34,6 +34,7 @@ impl World {
         state.phase = Phase::Naming;
         let rig = std::mem::replace(&mut state.rig, Rig::new());
         state.heat = 0;
+        state.tipped = None;
         state.credits = 0;
         state.rep.clear();
         let closed = state.run.take().map(|run| run.instance);
