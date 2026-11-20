@@ -370,10 +370,7 @@ mod tests {
     use crate::identity::Identity;
     use crate::key::AccountKey;
     use crate::port_ostra;
-
-    const LAB: &str = "[city lab]\nname = Lab\nstart = hub\n[host hub]\nname = Hub\ndesc = A hub.\n\
-                       [network net]\nname = Net\n[host gate]\nname = Gate\ndesc = A gate.\n\
-                       network = net\nroute = hub\n[ice gate/sentry]\ntype = sentry\n";
+    use crate::testing::LAB;
 
     fn game() -> Game {
         with_world(port_ostra(0).unwrap())
