@@ -32,3 +32,5 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
+      - run: cargo clippy -p ttymud-server --features ssh --all-targets --locked -- -D warnings
+      - run: cargo test -p ttymud-server --features ssh --locked
