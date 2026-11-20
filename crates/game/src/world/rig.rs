@@ -1,5 +1,6 @@
 use ttymud_text::{Message, RunStatus, Status, Style};
 
+use super::builds::Build;
 use super::{PlayerId, Step, World, lines, listed};
 use crate::commands::{self, Verb};
 use crate::content::File;
@@ -26,6 +27,7 @@ pub(super) struct Rig {
     pub(super) loads: Vec<Verb>,
     pub(super) ram: u32,
     pub(super) cpu: u32,
+    pub(super) builds: Vec<(Verb, Build)>,
 }
 
 impl Rig {
@@ -37,6 +39,7 @@ impl Rig {
             loads: LOADS.to_vec(),
             ram: RAM,
             cpu: CYCLES,
+            builds: Vec::new(),
         }
     }
 
@@ -51,10 +54,10 @@ impl Rig {
             .sum()
     }
 
-    pub(super) fn loaded(&self) -> Vec<&'static str> {
+    pub(super) fn loaded(&self) -> Vec<String> {
         commands::programs()
             .filter(|(command, _)| self.loads.contains(&command.verb))
-            .map(|(command, _)| command.name())
+            .map(|(command, _)| self.label(command.verb))
             .collect()
     }
 
@@ -78,7 +81,7 @@ impl World {
         if before == MAX_INTEGRITY {
             return Err(Message::error("Your rig needs no patch."));
         }
-        rig.integrity = (before + PATCH).min(MAX_INTEGRITY);
+        rig.integrity = (before + rig.boosted(Verb::Patch, PATCH)).min(MAX_INTEGRITY);
         let after = rig.integrity;
         Ok(Step::show(vec![Message::game(format!(
             "patch repairs your rig. Integrity: {before} -> {after}."
@@ -141,10 +144,11 @@ impl World {
         )));
         shown.push(Message::game(format!("Cycles: {}/{}", rig.cycles, rig.cpu)));
         shown.push(Message::game(rig.ram_line()));
+        let loaded = rig.loaded();
         shown.push(listed(
             Message::game("Programs: "),
             Style::Command,
-            rig.loaded(),
+            loaded.iter().map(String::as_str),
         ));
         lines(shown)
     }

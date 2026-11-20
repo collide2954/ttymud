@@ -3,7 +3,7 @@ use ttymud_text::{Kind, Message, Style};
 use super::instance::InstanceId;
 use super::presence::named;
 use super::{HostId, Output, PlayerId, Step, Thing, World, choose, usage};
-use crate::commands::{self, Command, Item, Program};
+use crate::commands::{self, Command, Item, Program, Verb};
 
 const CRACK: u32 = 15;
 const SCRUB: u32 = 15;
@@ -29,7 +29,11 @@ impl World {
                 "{first} works only in a target network."
             )));
         }
-        let cost = commands::cost(found.iter().filter_map(|command| command.verb.program()));
+        let cost = commands::cost(
+            found
+                .iter()
+                .filter_map(|command| state.rig.program(command.verb)),
+        );
         let (cost, have) = (cost.cycles, state.rig.cycles);
         if have >= cost {
             return Ok(());
@@ -109,7 +113,8 @@ impl World {
             _ => return Err(Message::error("Usage: scrub [handle].")),
         };
         let whom = mate.as_ref().map_or(player, |&(mate, _)| mate);
-        let Some((before, after)) = self.wipe(id, here, whom) else {
+        let scrub = self.boost(player, Verb::Scrub, SCRUB);
+        let Some((before, after)) = self.wipe(id, (here, whom), scrub) else {
             return Err(Message::error(match &mate {
                 None => "There is no trace to scrub.".to_owned(),
                 Some((_, name)) => format!("{name} has no trace to scrub."),
@@ -133,13 +138,18 @@ impl World {
         ]))
     }
 
-    fn wipe(&mut self, id: InstanceId, here: HostId, whom: PlayerId) -> Option<(u32, u32)> {
+    fn wipe(
+        &mut self,
+        id: InstanceId,
+        (here, whom): (HostId, PlayerId),
+        scrub: u32,
+    ) -> Option<(u32, u32)> {
         let run = self.players.get_mut(&whom)?.run.as_mut()?;
         if run.trace == 0 {
             return None;
         }
         let before = run.trace;
-        run.trace = before.saturating_sub(SCRUB);
+        run.trace = before.saturating_sub(scrub);
         let after = run.trace;
         if let Some(instance) = self.instances.get_mut(&id) {
             instance
@@ -159,10 +169,11 @@ impl World {
         let [(name, weak)] = targets.as_slice() else {
             return Err(Message::error("crack takes one ICE at a time."));
         };
+        let crack = self.boost(player, Verb::Crack, CRACK);
         let (strength, point) = if *weak {
-            (CRACK * 2, (" in its weak point", " through its weak point"))
+            (crack * 2, (" in its weak point", " through its weak point"))
         } else {
-            (CRACK, ("", ""))
+            (crack, ("", ""))
         };
         let here = self.here(player);
         let ice = self.instance_id(player).and_then(|id| {

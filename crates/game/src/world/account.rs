@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use ttymud_text::{Kind, Message, Style};
 
+use super::builds::Build;
 use super::contract::Job;
 use super::{Output, Player, PlayerId, World, address, listed, presence};
 use crate::commands::{self, Verb};
@@ -51,6 +52,7 @@ pub(super) struct Saved {
     pub(super) channels: Option<Vec<String>>,
     pub(super) files: Vec<File>,
     pub(super) loads: Vec<Verb>,
+    pub(super) builds: Vec<(Verb, Build)>,
     pub(super) contract: Option<Job>,
 }
 
@@ -86,6 +88,7 @@ impl World {
         };
         state.rig.files = saved.files;
         state.rig.loads = saved.loads;
+        state.rig.builds = saved.builds;
         state.contract = saved.contract.or_else(|| {
             let (fixer, day, slot) = saved.posting.as_ref()?;
             self.resume_posting(fixer, *day, *slot).map(Job::new)
@@ -232,6 +235,7 @@ impl World {
             channels: Some(state.channels.clone()),
             files: state.rig.files.clone(),
             loads: state.rig.loads.clone(),
+            builds: state.rig.builds.clone(),
             contract: state.contract,
         };
         let (know, stash, social) = (

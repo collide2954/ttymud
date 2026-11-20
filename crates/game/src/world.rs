@@ -2,6 +2,7 @@ mod access;
 mod account;
 mod alert;
 mod bans;
+mod builds;
 mod burns;
 mod channels;
 mod chat;
@@ -469,7 +470,8 @@ impl World {
         for (command, stage) in found.iter().zip(stages) {
             match self.execute(player, command, &stage.args, input.take()) {
                 Ok(step) => {
-                    ran.extend(command.verb.program());
+                    let rig = self.players.get(&player).map(|state| &state.rig);
+                    ran.extend(rig.and_then(|rig| rig.program(command.verb)));
                     if let Some(event) = Event::of(command.verb) {
                         self.advance(player, event);
                     }

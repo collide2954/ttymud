@@ -4,7 +4,7 @@ use super::instance::{name_of, tell, witnesses};
 use super::presence::named;
 use super::run::Run;
 use super::{PlayerId, Step, World};
-use crate::commands::Item;
+use crate::commands::{Item, Verb};
 use crate::ice::IceKind;
 
 const MASK_TICKS: u32 = 5;
@@ -16,25 +16,31 @@ impl World {
     }
 
     pub(super) fn firewall(&mut self, player: PlayerId) -> Result<Step, Message> {
+        let charges = self.boost(player, Verb::Firewall, 1);
         let Some(run) = self.run_mut(player) else {
             return Ok(Step::default());
         };
-        if run.firewall {
+        if run.firewall > 0 {
             return Err(Message::error("Your firewall is already up."));
         }
-        run.firewall = true;
-        Ok(Step::show(vec![Message::game(
-            "firewall is up. It stops the next attack on your integrity.",
-        )]))
+        run.firewall = charges;
+        let attacks = match charges {
+            1 => "attack".to_owned(),
+            count => format!("{count} attacks"),
+        };
+        Ok(Step::show(vec![Message::game(format!(
+            "firewall is up. It stops the next {attacks} on your integrity."
+        ))]))
     }
 
     pub(super) fn mask(&mut self, player: PlayerId) -> Step {
+        let ticks = self.boost(player, Verb::Mask, MASK_TICKS);
         let Some(run) = self.run_mut(player) else {
             return Step::default();
         };
-        run.mask = MASK_TICKS;
+        run.mask = ticks;
         Step::show(vec![Message::game(format!(
-            "mask hides your noise for {MASK_TICKS} ticks."
+            "mask hides your noise for {ticks} ticks."
         ))])
     }
 
@@ -43,8 +49,9 @@ impl World {
         let Some(id) = self.instance_id(player) else {
             return Step::default();
         };
+        let ticks = self.boost(player, Verb::Decoy, DECOY_TICKS);
         if let Some(run) = self.run_mut(player) {
-            run.decoy = DECOY_TICKS;
+            run.decoy = ticks;
         }
         let members = self.members(id);
         let name = name_of(&members, player).to_owned();
@@ -63,7 +70,7 @@ impl World {
             .text(".");
         self.outbox.extend(tell(&others, &turns));
         Step::show(vec![Message::game(format!(
-            "decoy draws the ICE on this host to you for {DECOY_TICKS} ticks."
+            "decoy draws the ICE on this host to you for {ticks} ticks."
         ))])
     }
 

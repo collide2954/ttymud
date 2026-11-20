@@ -276,11 +276,15 @@ impl World {
                 fired(format!(" at {name}.")),
             ),
             Effect::Damage(amount) => {
-                let stopped = self
+                let shield = self
                     .players
                     .get_mut(&player)
                     .and_then(|state| state.run.as_mut())
-                    .is_some_and(|run| std::mem::take(&mut run.firewall));
+                    .filter(|run| run.firewall > 0);
+                let stopped = shield.is_some();
+                if let Some(run) = shield {
+                    run.firewall -= 1;
+                }
                 let shown = if stopped {
                     vec![fired(". Your firewall stops it.".to_owned())]
                 } else {

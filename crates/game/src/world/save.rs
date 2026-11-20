@@ -4,6 +4,7 @@ use std::str::FromStr;
 use super::account::{Account, Saved};
 use super::alert::CorpState;
 use super::bans::BANS;
+use super::builds::{Build, TOP_VERSION, step};
 use super::burns::Burn;
 use super::contract::Job;
 use super::crews::CREWS;
@@ -175,6 +176,15 @@ impl World {
         for &verb in &handle.loads {
             text.pair("load", commands::name_of(verb));
         }
+        for &(verb, build) in &handle.builds {
+            let name = commands::name_of(verb);
+            if build.version > 1 {
+                text.pair("version", &format!("{name} {}", build.version));
+            }
+            if build.quiet {
+                text.pair("quiet", name);
+            }
+        }
         let contract = handle
             .contract
             .and_then(|job| Some((job, self.contracts.get(job.contract())?)));
@@ -320,10 +330,20 @@ impl World {
         let (mut credits, mut ram, mut cpu) = (0, RAM, CYCLES);
         let (mut sold, mut rep, mut done, mut posting) =
             (Vec::new(), BTreeMap::new(), Vec::new(), None);
-        let mut channels = None;
+        let (mut channels, mut builds) = (None, Vec::new());
         for pair in &section.pairs {
             match pair.key {
                 "sold" => sold.push(pair.value.to_owned()),
+                "version" => {
+                    if let Some((verb, version)) = program_version(pair, errors) {
+                        build_of(&mut builds, verb).version = version;
+                    }
+                }
+                "quiet" => {
+                    if let Some(verb) = program(pair, errors) {
+                        build_of(&mut builds, verb).quiet = true;
+                    }
+                }
                 "channels" => {
                     let names = pair.value.split(',').map(str::trim);
                     channels = Some(
@@ -384,9 +404,39 @@ impl World {
             channels,
             files: Vec::new(),
             loads,
+            builds,
             contract: contract.map(|index| Job::resume(index, step)),
         })
     }
+}
+
+fn build_of(builds: &mut Vec<(Verb, Build)>, verb: Verb) -> &mut Build {
+    let found = builds.iter().position(|&(known, _)| known == verb);
+    let index = found.unwrap_or_else(|| {
+        builds.push((verb, Build::default()));
+        builds.len() - 1
+    });
+    &mut builds[index].1
+}
+
+fn program_version(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<(Verb, u32)> {
+    let parsed = pair.value.split_once(' ').and_then(|(name, version)| {
+        let verb = commands::find(name)
+            .map(|command| command.verb)
+            .filter(|&verb| step(verb) > 0)?;
+        let version = version.trim().parse().ok()?;
+        (2..=TOP_VERSION)
+            .contains(&version)
+            .then_some((verb, version))
+    });
+    if parsed.is_none() {
+        let value = pair.value;
+        errors.push(problem(
+            pair.line,
+            format!("bad version: {value} (use a program and 2 or 3)"),
+        ));
+    }
+    parsed
 }
 
 pub(super) struct Text(Vec<String>);
