@@ -12,14 +12,17 @@ Usage: ttymud-server [OPTION]
        ttymud-server run <DIR> [--listen ADDRESS] [--ssh ADDRESS]
        ttymud-server mod <DIR> [add|remove <HANDLE>]
        ttymud-server delete <DIR> <HANDLE>
+       ttymud-server city <DIR>
        ttymud-server play [NAME]
 
 Commands:
   init <DIR>     Make a data directory with a new server key.
   run <DIR>      Open the city to players. The default address is 0.0.0.0:7331.
+                 The city is DIR/city.ini, or Port Ostra if that file is not there.
   mod <DIR>      Show the moderators, or add or remove a moderator by handle.
   delete <DIR> <HANDLE>
                  Delete an account and its data. Stop the server first.
+  city <DIR>     Write a copy of Port Ostra to DIR/city.ini, to start your own city.
   play [NAME]    Walk Port Ostra alone, offline.
 
 Options:
@@ -51,6 +54,7 @@ enum Cli {
         dir: PathBuf,
         handle: String,
     },
+    City(PathBuf),
     Play(Option<String>),
 }
 
@@ -80,9 +84,10 @@ fn parse(args: &[OsString]) -> Result<Cli, String> {
             handle: (*handle).to_owned(),
         }),
         ["delete", _] => Err("delete needs a handle".to_owned()),
+        ["city", _] => Ok(Cli::City(dir())),
         ["play"] => Ok(Cli::Play(None)),
         ["play", name] => Ok(Cli::Play(Some((*name).to_owned()))),
-        [command @ ("init" | "run" | "mod" | "delete")] => {
+        [command @ ("init" | "run" | "mod" | "delete" | "city")] => {
             Err(format!("{command} needs a data directory"))
         }
         [word] => Err(format!("unknown argument '{word}'")),
@@ -130,6 +135,13 @@ fn main() -> ExitCode {
         Cli::Delete { dir, handle } => {
             ttymud_server::delete(&dir, &handle).map(|done| println!("{done}"))
         }
+        Cli::City(dir) => ttymud_server::write_city(&dir).map(|path| {
+            println!("Wrote a copy of Port Ostra to {}.", path.display());
+            println!(
+                "Change it to make your own city. Then run: ttymud-server check {}",
+                dir.display()
+            );
+        }),
         Cli::Play(name) => ttymud_server::play(
             name.as_deref(),
             io::BufReader::new(io::stdin()),
@@ -348,6 +360,18 @@ mod tests {
         assert_eq!(
             parse(&args(&["delete"])),
             Err("delete needs a data directory".to_owned())
+        );
+    }
+
+    #[test]
+    fn city_takes_a_data_directory() {
+        assert_eq!(
+            parse(&args(&["city", "data"])),
+            Ok(Cli::City("data".into()))
+        );
+        assert_eq!(
+            parse(&args(&["city"])),
+            Err("city needs a data directory".to_owned())
         );
     }
 

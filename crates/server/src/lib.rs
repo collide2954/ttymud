@@ -17,7 +17,7 @@ mod store;
 mod testing;
 mod ticker;
 
-pub use city::{load_world, port_ostra};
+pub use city::{load_world, port_ostra, write_city};
 pub use data::{init, load_keys};
 pub use identity::{Identity, load_identity};
 pub use moderate::{Moderation, delete, moderate};

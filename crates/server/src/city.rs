@@ -1,6 +1,6 @@
 use std::fs;
-use std::io;
-use std::path::Path;
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ttymud_game::{Content, World};
@@ -28,6 +28,27 @@ pub fn load_world(dir: &Path) -> io::Result<World> {
     } else {
         Err(io::Error::other(problems.join("\n")))
     }
+}
+
+pub fn write_city(dir: &Path) -> io::Result<PathBuf> {
+    fs::create_dir_all(dir)?;
+    let path = dir.join(CITY);
+    let opened = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path);
+    let mut file = opened.map_err(|error| {
+        if error.kind() != io::ErrorKind::AlreadyExists {
+            return error;
+        }
+        let message = format!(
+            "{} already exists. The command does not change it.",
+            path.display()
+        );
+        io::Error::new(error.kind(), message)
+    })?;
+    file.write_all(PORT_OSTRA.as_bytes())?;
+    Ok(path)
 }
 
 fn city(dir: &Path) -> io::Result<Content> {
@@ -67,7 +88,7 @@ mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
 
-    use super::{load_world, now};
+    use super::{PORT_OSTRA, load_world, now, write_city};
     use crate::testing::{LAB, scratch};
 
     fn data(name: &str, files: &[(&str, &str)]) -> PathBuf {
@@ -124,6 +145,19 @@ mod tests {
                 "news.ini: line 1: unknown section type: gossip",
             ]
         );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn write_city_copies_port_ostra_and_never_overwrites_a_city_file() {
+        let dir = scratch("city-copy");
+        let path = write_city(&dir).unwrap();
+        assert_eq!(path, dir.join("city.ini"));
+        assert_eq!(fs::read_to_string(&path).unwrap(), PORT_OSTRA);
+        fs::write(&path, "mine").unwrap();
+        let error = write_city(&dir).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(&path).unwrap(), "mine");
         let _ = fs::remove_dir_all(&dir);
     }
 
