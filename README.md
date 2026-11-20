@@ -6,15 +6,19 @@ TTYmud is a multiplayer text game for the terminal. You are a hacker in a near-f
 
 TTYmud is a MUD (multi-user dungeon). The networks are the dungeons. The hostile security software is the monster.
 
+The website is at [collide2954.github.io/ttymud](https://collide2954.github.io/ttymud/).
+
 ## Status
 
-TTYmud is in early development. Milestones M0 to M9 are complete. You can run a server and play the default city with other players over an encrypted connection. In a terminal, the client shows a HUD with status bars, an output pane, and a chat pane.
+TTYmud is in early development. Milestones M0 to M10 are complete. You can run a server and play the default city with other players over an encrypted connection. In a terminal, the client shows a HUD with status bars, an output pane, and a chat pane.
 
 You select a handle and a starter kit, and the server keeps them. Your first job is a hack into the network of a dental office. After that, fixers post new jobs each day against six corporations. The server makes a new network for each job. You earn credits, buy programs and hardware, and sell stolen data to a fence.
 
 The corporations react to all players. Noise raises their alert levels, and analysts read the logs of each run. A corporation patches the software that players exploit too often. The news feed reports the events of the city, and the fixers tell rumors.
 
 You can make a crew of up to 4 handles. Crewmates share one copy of a target network, and each role helps the crew. Crews take heists, and the goal of a heist is in a vault that has no route.
+
+You compile stronger versions of your programs from blueprints. The fence pays less for data that many players sell. The police auction the rigs of burned handles.
 
 If the targets trace you too often, your handle burns. You can talk in channels and send private messages. Moderators and safety tools keep the chat safe, and a recovery code keeps your account safe. The [roadmap](docs/roadmap.md) gives the plan.
 
@@ -58,6 +62,7 @@ The [player guide](docs/player.md) tells you how to play. The [operator guide](d
 
 ## Documents
 
+- [Website](https://collide2954.github.io/ttymud/)
 - [Player guide](docs/player.md)
 - [Operator guide](docs/operator.md)
 - [Design overview](docs/design/overview.md)
