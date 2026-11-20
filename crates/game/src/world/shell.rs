@@ -188,6 +188,15 @@ impl World {
         ]))
     }
 
+    pub(super) fn stop_script(&mut self, player: PlayerId) -> Option<Message> {
+        let process = self.players.get_mut(&player)?.rig.process.take()?;
+        Some(
+            Message::new(Kind::Game)
+                .span(Style::File, process.name)
+                .text(" stops."),
+        )
+    }
+
     pub(super) fn tick_scripts(&mut self) -> Vec<Output> {
         let running: Vec<PlayerId> = self
             .players
@@ -703,6 +712,81 @@ mod tests {
         assert_eq!(ram(&mut world), ["RAM: 9/9 GB"]);
         tick(&mut world, player);
         assert_eq!(ram(&mut world), ["RAM: 8/9 GB"]);
+    }
+
+    fn stopped(world: &World, player: PlayerId) -> bool {
+        world
+            .players
+            .get(&player)
+            .is_some_and(|state| state.rig.process.is_none())
+    }
+
+    #[test]
+    fn a_crash_stops_the_script() {
+        let (mut world, player) = in_run(&["wait 30"], 4);
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.integrity = 5;
+        }
+        let shown: Vec<String> = world
+            .damage(player, 10)
+            .iter()
+            .map(ttymud_text::Message::plain)
+            .collect();
+        assert_eq!(
+            shown[..2],
+            [
+                "Your rig crashes, and you lose the loot of this run.",
+                "x.sh stops."
+            ]
+        );
+        assert!(stopped(&world, player));
+    }
+
+    #[test]
+    fn a_trace_stops_the_script() {
+        let (mut world, player) = in_run(&["wait 30"], 4);
+        let shown: Vec<String> = world
+            .raise_trace(player, 100)
+            .iter()
+            .map(ttymud_text::Message::plain)
+            .collect();
+        assert_eq!(shown[2], "x.sh stops.", "{shown:?}");
+        assert!(stopped(&world, player));
+    }
+
+    #[test]
+    fn a_burn_stops_the_script() {
+        let (mut world, player) = in_run(&["wait 30"], 4);
+        if let Some(state) = world.players.get_mut(&player) {
+            state.heat = 4;
+            if let Some(run) = state.run.as_mut() {
+                run.trace = 80;
+            }
+        }
+        let shown = plain(&world.command(player, "jackout"));
+        assert!(shown.contains(&"x.sh stops.".to_owned()), "{shown:?}");
+        assert!(stopped(&world, player));
+    }
+
+    #[test]
+    fn a_disconnect_stops_the_script() {
+        let mut world = crate::testing::world();
+        let player = crate::testing::hacker(&mut world, "a", "nyx");
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.ram = 9;
+            state
+                .rig
+                .files
+                .push(File::new("x.sh", vec!["wait 30".to_owned()]));
+        }
+        world.command(player, "sh x.sh");
+        world.leave(player);
+        let (player, _) = world.connect("a");
+        assert_eq!(plain(&world.command(player, "ps")), ["No script runs."]);
+        assert_eq!(
+            plain(&world.command(player, "status | grep GB")),
+            ["RAM: 8/9 GB"]
+        );
     }
 
     #[test]

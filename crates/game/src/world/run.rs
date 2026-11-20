@@ -114,14 +114,19 @@ impl World {
         if state.rig.integrity > 0 {
             return Vec::new();
         }
-        if let Some(shown) = self.match_crash(player) {
-            return shown;
+        let stopped = self.stop_script(player);
+        let mut shown = if let Some(shown) = self.match_crash(player) {
+            shown
+        } else if let Some(shown) = self.darknet_crash(player) {
+            shown
+        } else {
+            let mut shown = vec![Message::game(CRASH)];
+            shown.extend(self.drop_link(player, true));
+            shown
+        };
+        if let Some(stopped) = stopped {
+            shown.insert(shown.len().min(1), stopped);
         }
-        if let Some(shown) = self.darknet_crash(player) {
-            return shown;
-        }
-        let mut shown = vec![Message::game(CRASH)];
-        shown.extend(self.drop_link(player, true));
         shown
     }
 
@@ -249,6 +254,7 @@ impl World {
             self.publish(format!("{name} traces an intruder and calls the police."));
         }
         shown.push(self.add_heat(player, heat));
+        shown.extend(self.stop_script(player));
         let scene = self.drop_link(player, true);
         shown.extend(self.burn_if_hot(player, scene));
         shown

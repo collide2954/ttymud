@@ -26,6 +26,7 @@ impl World {
     }
 
     pub(super) fn burn(&mut self, player: PlayerId) -> Vec<Message> {
+        let stopped = self.stop_script(player);
         let (here, start, now) = (self.here(player), self.start, self.now);
         let Some(state) = self.players.get_mut(&player) else {
             return Vec::new();
@@ -67,15 +68,19 @@ impl World {
         self.auction_rig(&name, rig);
         let taken = presence::named(&name, " burns. The police take the rig away.");
         self.notify(here, player, &taken);
-        vec![
+        let mut shown = vec![
             Message::game("Your heat is 5. The police know who you are."),
             Message::game("Your handle ")
                 .span(Style::Player, &name)
                 .text(" burns. The police seize your rig and its files."),
+        ];
+        shown.extend(stopped);
+        shown.extend([
             Message::game("Your account keeps its know-how and its stash."),
             Message::game("Choose a new handle: the name that other players see."),
             Message::game(RULE),
-        ]
+        ]);
+        shown
     }
 
     pub(super) fn post_burns(&mut self) {
