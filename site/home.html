@@ -142,6 +142,9 @@ target/release/ttymud connect ostra.example.net</code></pre>
 target/release/ttymud-server init ostra-data
 target/release/ttymud-server run ostra-data</code></pre>
 <p>The server listens on port 7331. The <a href="operator.html">operator guide</a> tells you about the server key, moderators, backups, and the game data.</p>
+<p>To make your own city, start from a copy of Port Ostra. Change the file <code>city.ini</code>, and then check the data directory:</p>
+<pre class="code"><code>target/release/ttymud-server city ostra-data
+target/release/ttymud-server check ostra-data</code></pre>
 </div>
 </section>
 
@@ -170,6 +173,7 @@ target/release/ttymud-server run ostra-data</code></pre>
 <li>Public server list</li>
 <li>Linked cities</li>
 <li>New ICE, smarter analysts, and new jobs</li>
+<li>Custom cities</li>
 </ol>
 </div>
 <div>

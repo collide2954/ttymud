@@ -49,11 +49,13 @@ These rules control the dependencies between crates:
     ttymud-server run <data-dir> [--listen <address>] [--ssh <address>]
     ttymud-server mod <data-dir> [add|remove <handle>]
     ttymud-server delete <data-dir> <handle>
-    ttymud-server play [name]
+    ttymud-server city <data-dir>
+    ttymud-server check <data-dir>
+    ttymud-server play [name] [--city <file>]
 
-The default port is 7331. The `play` command lets one player walk Port Ostra without a network. It is for tests and for a first look at the game. It uses real time and asks for a handle, as the server does. It saves nothing. The [player guide](../player.md) and the [operator guide](../operator.md) tell how to use the commands.
+The default port is 7331. The `play` command lets one player walk Port Ostra, or the city in a file, without a network. It is for tests and for a first look at the game. It uses real time and asks for a handle, as the server does. It saves nothing. The [player guide](../player.md) and the [operator guide](../operator.md) tell how to use the commands.
 
-The `mod` command shows, adds, and removes the moderators of a server. The `delete` command deletes an account and its data. These commands come later: `ttymud identity` and `ttymud-server check`.
+The `mod` command shows, adds, and removes the moderators of a server. The `delete` command deletes an account and its data. The `city` command writes a copy of Port Ostra to start a new city. The `check` command reads the data directory as `run` does, and it shows all errors. The command `ttymud identity` comes later.
 
 ## Server
 
@@ -135,7 +137,7 @@ As a result, a crash cannot leave a damaged file. To make a backup, copy the dat
 
 Hubs, corporations, host templates, fixers, shops, and ICE are content files. The programs and the starter kits are in the code. They use a small text format with sections and keys. The [content](../content.md) document gives the format. The save files use the same format, and the same parser reads them. The parser is in the `text` crate, so the client can read the server list without the `game` crate.
 
-The default city, Port Ostra, is in `crates/server/content/`. The server binary contains it, so a server needs no other files. Later, an operator will put content files in the data directory. A file in the data directory will replace the default file with the same name. The `ttymud-server check` command will find errors in content files.
+The default city, Port Ostra, is in `crates/server/content/`. The server binary contains it, so a server needs no other files. If the data directory has the file `city.ini`, the server runs that city instead. The `ttymud-server check` command finds the errors in the city file and in the saves.
 
 ## Wire protocol
 

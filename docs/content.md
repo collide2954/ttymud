@@ -1,6 +1,8 @@
 # Content files
 
-A content file describes a city: its hosts and routes, the files on the hosts, the target networks, their ICE, and the contracts. It also gives the fixers, the shops, the chat channels, and the corporations and host templates for generated targets. This document gives the format. Port Ostra, the default city, uses this format. A later version of the server will also read content files from its data directory.
+A content file describes a city: its hosts and routes, the files on the hosts, the target networks, their ICE, and the contracts. It also gives the fixers, the shops, the chat channels, and the corporations and host templates for generated targets. This document gives the format. Port Ostra, the default city, uses this format.
+
+A server reads its city from the file `city.ini` in its data directory. Without this file, it runs Port Ostra. The [operator guide](operator.md#make-your-own-city) tells you how to start a city and how to check it.
 
 ## Format
 

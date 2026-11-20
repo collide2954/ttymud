@@ -71,6 +71,7 @@ This table records the main design decisions. When a decision changes, change th
 | Identity | A key pair is the account. A recovery code can replace a lost key. |
 | Connection | A TTYmud client and a TTYmud server that use the Noise protocol. With the `ssh` feature, a normal SSH client can also connect. |
 | Linked cities | Operators make links between servers in `links.ini`. One linked channel and the headlines go through a link. Handles, credits, and files stay in their city. |
+| Custom cities | The file `city.ini` in the data directory replaces Port Ostra. `ttymud-server city` writes a copy to start from, and `ttymud-server check` finds the errors. |
 | Interface | Adaptive layers: line mode for all terminals, and a HUD when the terminal can show it. |
 | Code | A Cargo workspace with two binaries: `ttymud` and `ttymud-server`. |
 | Text model | A small `ttymud-text` crate holds styles, spans, and messages. |

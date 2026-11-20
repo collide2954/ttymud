@@ -99,6 +99,7 @@ The check cannot find all STE problems. A person must also read each document.
 | budget | How much a corporation spends on security: low, medium, high, or top. |
 | burn list | The public list of the handles that burned on a server. |
 | channel | A chat room for the players of a server, on all hosts. |
+| city file | The content file of the city of a server: `city.ini` in the data directory, or Port Ostra in the binary. |
 | contract | A job from a fixer. |
 | copy | The state of a target network for one run, or for the runs of one crew: its ICE, analysts, logs, and bridges. |
 | corp | A corporation in a content file. |

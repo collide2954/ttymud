@@ -1,6 +1,6 @@
 # Operator guide
 
-This guide tells you how to run a TTYmud server. A server runs one city. In version 0.1, the server runs the default city, Port Ostra.
+This guide tells you how to run a TTYmud server. A server runs one city. By default, it runs Port Ostra, but you can also write your own city.
 
 ## Build the server
 
@@ -174,12 +174,13 @@ The server keeps the game data in plain text files in the data directory:
 - `audit.log`: the actions of the moderators, one on each line.
 - `reports.ini`: the reports of the players, with their chat.
 - `bans.ini`: the banned accounts, and the IP addresses of IP bans.
+- `city.ini`: your own city, if you made one. The server reads this file, but it never writes it.
 
 The server does not keep the files that crashed rigs leave in a darknet, the open challenges, and the fights in the arena. After a restart, they are gone. The save of a fighter keeps the rig from before the fight, so a restart takes nothing from the fighters.
 
 The server writes a file each time its data changes. A storage thread writes the files, so a slow disk does not stop the game. The server writes each file to a temporary file first, and then it renames the file. As a result, a crash cannot leave a damaged file.
 
-When the server starts, it reads all the files. If a file has an error, the server shows the file, the line, and the error. Then it stops.
+When the server starts, it reads all the files. If it finds errors, it shows each error with its file and its line. Then it stops. To find the errors before a start, use the `check` command. The section [Check the data directory](#check-the-data-directory) tells how.
 
 > CAUTION: Stop the server before you change a file in the data directory. If the server runs, it can write over your change.
 
@@ -197,6 +198,32 @@ Do not show the seed to players. With the seed and the server code, a person can
 
 The ICE selects its actions with a different seed, which the server takes from the clock when it starts. As a result, the ICE acts in a different order after each start.
 
+## Make your own city
+
+By default, the server runs the version of Port Ostra that is in the binary. To run a different city, put the file `city.ini` in the data directory. The [content guide](content.md) gives the format of the file.
+
+Use this command to start from a copy of Port Ostra:
+
+    ttymud-server city ostra-data
+
+The command writes the file `city.ini`. If the file is already there, the command does not change it. To give the city its own id, change the line `[city port-ostra]`, for example to `[city night-owl]`. Then change the name of the city and the other sections.
+
+The server reads `city.ini` only when it starts. After you change the file, stop the server and start it again. Without `city.ini`, a new version of the server also gives you a new version of Port Ostra. A copy in `city.ini` does not change.
+
+You can change a city that has players. If you remove a fixer, a contract, or a channel, the handles lose the jobs, the contracts, or the channels that use it. A change to the corporations or the templates also changes the target networks of the jobs.
+
+## Check the data directory
+
+Use this command to find errors before you start the server:
+
+    ttymud-server check ostra-data
+
+The command reads the data directory as the `run` command does: the server key, `links.ini`, the city, and the saves. It shows each error with its file and its line. If it finds no errors, it shows the city, the number of accounts, and the links. The command does not change files, so you can use it while the server runs.
+
+The file `world.ini` keeps the id of the city. If you change the id of a city that has saves, the server does not start. To keep the accounts and start a new world, delete `world.ini` and `news.ini`. Or use a new data directory.
+
+> CAUTION: A new world has a new seed. Then the jobs on the board change, and the jobs that handles accepted also change.
+
 ## Try the city offline
 
 Use this command to walk Port Ostra alone, without a network:
@@ -204,5 +231,9 @@ Use this command to walk Port Ostra alone, without a network:
     ttymud-server play
 
 The game asks for a handle and a starter kit, as on a server. To give the handle on the command line, put it after `play`, for example `ttymud-server play nyx`. The offline mode does not save anything. The commands for recovery codes and device links work only on a server.
+
+To walk a different city, give its file with the `--city` option:
+
+    ttymud-server play --city ostra-data/city.ini
 
 Type `quit` to stop. The offline mode uses real time, as the server does. As a result, the ICE acts on each tick of two seconds.

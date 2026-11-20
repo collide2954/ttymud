@@ -157,7 +157,7 @@ M9 added crew channels.
 - `cities`, and `news <city>` for the headlines of a linked city.
 - `ignore`, `block`, `report`, and `mute` for handles of linked cities. Private messages stay in their city.
 
-## Version 0.5: deeper runs
+## Version 0.5: deeper runs and your own city
 
 ### M16: New ICE, smarter analysts, and new jobs (done)
 
@@ -167,6 +167,14 @@ M9 added crew channels.
 - A strict analyst who finds your trail can cut one route that leads deeper, with a telegraph 2 ticks before.
 - Wipe jobs with `rm <file>`, and plant jobs with `upload <file>`. About one job in three is a wipe or a plant.
 - The command `ttymud-server delete` deletes an account and its data. The records of the moderators stay.
+
+### M17: Custom cities (done)
+
+- The file `city.ini` in the data directory replaces Port Ostra. Without it, the server runs the Port Ostra of the binary.
+- `ttymud-server city` writes a copy of Port Ostra to start from. It never writes over a city file.
+- `ttymud-server check` reads the data directory as `run` does, and shows all errors with their files and lines.
+- `ttymud-server play --city` walks a city file offline.
+- When `world.ini` is for a different city, the message tells the fix.
 
 ## Later
 
