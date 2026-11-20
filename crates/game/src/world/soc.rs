@@ -1,6 +1,7 @@
 use ttymud_text::{Kind, Message, Style};
 
 use super::instance::{InstanceId, tell};
+use super::jobs::DAY;
 use super::run::MAX_TRACE;
 use super::{HostId, NetworkId, Output, PlayerId, Step, World, address};
 use crate::names::person;
@@ -292,9 +293,15 @@ impl World {
                 )));
                 if habit != Habit::Lazy && run.access > Level::Guest {
                     run.access = Level::Guest;
-                    let network = &self.networks[run.network.0].name;
+                    let day = self.now / DAY;
+                    let used = std::mem::take(&mut run.passwords);
+                    let network = &mut self.networks[run.network.0];
+                    network
+                        .resets
+                        .extend(used.into_iter().map(|key| (key, day)));
+                    let name = &network.name;
                     shown.push(line().text(format!(
-                        " locks your stolen account. Your access in {network}: guest."
+                        " locks your stolen account and resets its password. Your access in {name}: guest."
                     )));
                 }
             }
@@ -449,10 +456,47 @@ mod tests {
                     "[SOC] Analyst {name} reads the logs of {here} and finds your trail. Trace: 2% -> 9%."
                 ),
                 format!(
-                    "[SOC] Analyst {name} locks your stolen account. Your access in Acme Corp: guest."
+                    "[SOC] Analyst {name} locks your stolen account and resets its password. Your access in Acme Corp: guest."
                 ),
             ]
         );
+    }
+
+    #[test]
+    fn a_reset_password_stops_the_stolen_credentials_until_the_next_day() {
+        let (mut world, player, _, _) = watched(NOON);
+        set_up(&mut world, player, &[Habit::Strict], Level::Guest);
+        let network = world
+            .players
+            .get(&player)
+            .and_then(|state| state.run.as_ref());
+        let network = network.map(|run| run.network);
+        let creds = world
+            .hosts
+            .iter()
+            .filter(|host| host.network == network)
+            .flat_map(|host| &host.files)
+            .find(|file| file.name == "helpdesk.txt")
+            .cloned();
+        if let (Some(state), Some(creds)) = (world.players.get_mut(&player), creds) {
+            state.rig.files.push(creds);
+        }
+        let learned = |world: &mut World| {
+            let shown = plain(&world.command(player, "read helpdesk.txt"));
+            shown.last().cloned().unwrap_or_default()
+        };
+        let user = "You learn the credentials. Your access in Acme Corp: user.";
+        assert_eq!(learned(&mut world), user);
+        world.command(player, "scan");
+        for _ in 0..3 {
+            world.tick();
+        }
+        assert_eq!(
+            learned(&mut world),
+            "These credentials do not work. Somebody reset the password."
+        );
+        world.set_time(NOON + 86_400);
+        assert_eq!(learned(&mut world), user);
     }
 
     #[test]

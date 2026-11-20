@@ -1,5 +1,6 @@
 use ttymud_text::{Message, Style};
 
+use super::jobs::DAY;
 use super::{PlayerId, Step, World};
 use crate::content::File;
 use crate::target::Level;
@@ -63,18 +64,30 @@ impl World {
     }
 
     pub(super) fn learn(&mut self, player: PlayerId, files: &[File]) -> Option<Message> {
+        let day = self.now / DAY;
         let run = self.players.get_mut(&player)?.run.as_mut()?;
         let network = &self.networks[run.network.0];
-        let best = files
+        let found: Vec<&(String, Level)> = files
             .iter()
             .filter_map(|file| file.key.as_ref())
             .filter_map(|key| network.keys.iter().find(|(known, _)| known == key))
-            .map(|&(_, level)| level)
-            .max()?;
+            .collect();
+        let reset = |key: &str| {
+            let mut resets = network.resets.iter();
+            resets.any(|(known, when)| known == key && *when == day)
+        };
+        let (stale, fresh): (Vec<_>, Vec<_>) = found.into_iter().partition(|(key, _)| reset(key));
+        let Some(best) = fresh.iter().map(|&&(_, level)| level).max() else {
+            return (!stale.is_empty()).then(|| {
+                Message::game("These credentials do not work. Somebody reset the password.")
+            });
+        };
         if best <= run.access {
             return None;
         }
         run.access = best;
+        run.passwords
+            .extend(fresh.iter().map(|(key, _)| key.clone()));
         let (name, level) = (&network.name, best.word());
         Some(Message::game(format!(
             "You learn the credentials. Your access in {name}: {level}."

@@ -33,6 +33,7 @@ pub(super) struct Run {
     pub(super) shells: Vec<(HostId, Level)>,
     pub(super) last: Option<Verb>,
     pub(super) frozen: Option<(Verb, u32)>,
+    pub(super) passwords: Vec<String>,
 }
 
 impl Run {
@@ -51,6 +52,7 @@ impl Run {
             shells: Vec::new(),
             last: None,
             frozen: None,
+            passwords: Vec::new(),
         }
     }
 }
