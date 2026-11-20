@@ -22,6 +22,8 @@ download <file>   Copy a file from this host to your rig.
 inventory         Show the files on your rig.
 buy <item>        Buy a program or a rig upgrade at a shop.
 lots              Show the lots of the police auction: the data, hardware, and programs from the rigs of burned handles.
+probe <ice>       Find the weak point of an ICE. In a darknet, it also shows the rig of a handle.
+crack <ice>       Attack an ICE. At zero integrity, the ICE breaks. In a darknet, it also attacks the rig of a handle.
 > lok
 Unknown command: lok. Did you mean look?
 > xyzzy

@@ -53,26 +53,13 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::{DARK, heard, plain};
-    use crate::{Content, PlayerId, World};
+    use crate::testing::{dark, heard, inside, plain};
 
     const ASK: &str = "The Undercity is a darknet. Other handles there can crash your rig, take your files, and tip off the police. Type go alley again to agree.";
 
-    fn city() -> World {
-        World::new(Content::parse(DARK).unwrap(), 0)
-    }
-
-    fn inside(world: &mut World, name: &str) -> PlayerId {
-        let (player, _) = world.join(name);
-        for _ in 0..2 {
-            world.command(player, "go alley");
-        }
-        player
-    }
-
     #[test]
     fn a_darknet_asks_for_a_second_go_on_each_entry() {
-        let mut world = city();
+        let mut world = dark();
         let (nyx, _) = world.join("nyx");
         assert_eq!(plain(&world.command(nyx, "go alley")), [ASK]);
         assert_eq!(world.prompt(nyx).as_deref(), Some("nyx@hub $ "));
@@ -97,7 +84,7 @@ mod tests {
 
     #[test]
     fn the_consent_lasts_one_minute() {
-        let mut world = city();
+        let mut world = dark();
         let (nyx, _) = world.join("nyx");
         world.command(nyx, "go alley");
         world.set_time(61);
@@ -113,7 +100,7 @@ mod tests {
 
     #[test]
     fn all_handles_in_a_darknet_share_one_copy() {
-        let mut world = city();
+        let mut world = dark();
         let nyx = inside(&mut world, "nyx");
         let (zer0, _) = world.join("zer0");
         world.command(zer0, "go alley");
@@ -130,7 +117,7 @@ mod tests {
 
     #[test]
     fn noise_in_a_darknet_makes_no_trace() {
-        let mut world = city();
+        let mut world = dark();
         let nyx = inside(&mut world, "nyx");
         world.command(nyx, "scan");
         let trace = world

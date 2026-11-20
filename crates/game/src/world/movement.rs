@@ -92,7 +92,7 @@ fn piped_route(items: Vec<Item>) -> Result<String, Message> {
         .into_iter()
         .filter_map(|item| match item {
             Item::Route(id) => Some(id),
-            Item::File(_) | Item::Ice { .. } | Item::Line(_) => None,
+            Item::File(_) | Item::Ice { .. } | Item::Rig { .. } | Item::Line(_) => None,
         })
         .collect();
     if routes.len() == 1 {

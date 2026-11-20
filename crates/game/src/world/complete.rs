@@ -145,6 +145,8 @@ impl World {
         if analysts {
             names.extend(self.analyst_names(player));
             names.extend(self.employee_here(player));
+        } else {
+            names.extend(self.rivals(player).into_iter().map(|(_, name)| name));
         }
         names
     }

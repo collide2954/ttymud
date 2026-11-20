@@ -188,6 +188,7 @@ pub(crate) enum Item {
     Route(String),
     File(File),
     Ice { name: String, weak: bool },
+    Rig { name: String, weak: bool },
     Line(String),
 }
 
@@ -196,7 +197,7 @@ impl Item {
         match self {
             Self::Route(id) => id,
             Self::File(file) => &file.name,
-            Self::Ice { name, .. } | Self::Line(name) => name,
+            Self::Ice { name, .. } | Self::Rig { name, .. } | Self::Line(name) => name,
         }
     }
 }
@@ -497,7 +498,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         verb: Verb::Probe,
         names: &["probe"],
         usage: "probe <ice>",
-        summary: "Find the weak point of an ICE.",
+        summary: "Find the weak point of an ICE. In a darknet, it also shows the rig of a handle.",
         example: "probe sentry",
         takes: Takes::Optional(Kinds::ICE),
         gives: Gives::Items(Kinds::ICE),
@@ -506,7 +507,7 @@ pub(crate) const COMMANDS: &[Command] = &[
         verb: Verb::Crack,
         names: &["crack"],
         usage: "crack <ice>",
-        summary: "Attack an ICE. At zero integrity, the ICE breaks.",
+        summary: "Attack an ICE. At zero integrity, the ICE breaks. In a darknet, it also attacks the rig of a handle.",
         example: "crack sentry",
         takes: Takes::Optional(Kinds::ICE),
         gives: Gives::Nothing,

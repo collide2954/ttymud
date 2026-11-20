@@ -26,6 +26,7 @@ mod movement;
 mod news;
 mod presence;
 mod programs;
+mod pvp;
 mod ram;
 mod reports;
 mod rig;
@@ -599,7 +600,7 @@ impl World {
                     Some(label) => line.text(label),
                     None => line,
                 },
-                Item::Route(_) | Item::Ice { .. } | Item::Line(_) => line,
+                Item::Route(_) | Item::Ice { .. } | Item::Rig { .. } | Item::Line(_) => line,
             })
             .collect();
         Step { shown, items }
@@ -712,6 +713,7 @@ fn listing(items: &[Item]) -> Vec<Message> {
             Item::Route(id) => Message::new(Kind::Game).span(Style::Host, format!("{id}/")),
             Item::File(file) => Message::new(Kind::Game).span(Style::File, &file.name),
             Item::Ice { name, .. } => Message::new(Kind::Game).span(Style::Ice, name),
+            Item::Rig { name, .. } => Message::new(Kind::Game).span(Style::Player, name),
             Item::Line(text) => Message::game(text),
         })
         .collect()
@@ -738,6 +740,7 @@ enum Thing {
     Route,
     File,
     Ice,
+    Target,
     Program,
     Ware,
     Channel,
@@ -752,7 +755,7 @@ impl Thing {
             Self::File => Style::File,
             Self::Ice => Style::Ice,
             Self::Program | Self::Ware | Self::Channel => Style::Command,
-            Self::Handle | Self::Member => Style::Player,
+            Self::Target | Self::Handle | Self::Member => Style::Player,
         }
     }
 
@@ -761,6 +764,7 @@ impl Thing {
             Self::Route => format!("No route to {word}"),
             Self::File => format!("No file named {word}"),
             Self::Ice => format!("No ICE named {word}"),
+            Self::Target => format!("No target named {word}"),
             Self::Program => format!("No program named {word}"),
             Self::Ware => format!("The shop does not sell {word}"),
             Self::Channel => format!("No channel named {word}"),
@@ -774,6 +778,7 @@ impl Thing {
             Self::Route => "Routes",
             Self::File => "Files",
             Self::Ice => "ICE",
+            Self::Target => "Targets",
             Self::Program => "Programs",
             Self::Ware => "For sale",
             Self::Channel => "Channels",

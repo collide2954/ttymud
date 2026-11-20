@@ -196,7 +196,7 @@ impl World {
                 .into_iter()
                 .filter_map(|item| match item {
                     Item::File(file) => Some(file.name),
-                    Item::Route(_) | Item::Ice { .. } | Item::Line(_) => None,
+                    Item::Route(_) | Item::Ice { .. } | Item::Rig { .. } | Item::Line(_) => None,
                 })
                 .collect(),
             (_, Some(_)) => return Err(Message::error("sell takes a file or a pipe, not both.")),

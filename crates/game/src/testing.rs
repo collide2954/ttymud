@@ -29,6 +29,18 @@ pub(crate) fn world() -> World {
     World::new(Content::parse(CITY).unwrap(), 0)
 }
 
+pub(crate) fn dark() -> World {
+    World::new(Content::parse(DARK).unwrap(), 0)
+}
+
+pub(crate) fn inside(world: &mut World, name: &str) -> PlayerId {
+    let (player, _) = world.join(name);
+    for _ in 0..2 {
+        world.command(player, "go alley");
+    }
+    player
+}
+
 pub(crate) fn hired_world() -> World {
     let city = CITY.replace("home = back-room", "home = back-room\ncontract = lab-job");
     World::new(Content::parse(&format!("{city}{JOB}")).unwrap(), 0)

@@ -5,6 +5,12 @@ use super::presence::named;
 use super::{HostId, Output, PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::{self, Command, Item, Program, Verb};
 
+#[derive(Debug)]
+pub(super) enum Target {
+    Ice { name: String, weak: bool },
+    Rig { name: String, weak: bool },
+}
+
 impl World {
     pub(super) fn ready(&self, player: PlayerId, found: &[&Command]) -> Result<(), Message> {
         let programs: Vec<&str> = found
@@ -163,11 +169,13 @@ impl World {
         input: Option<Vec<Item>>,
     ) -> Result<Step, Message> {
         let targets = self.targets(player, "crack", args, input)?;
-        let [(name, weak)] = targets.as_slice() else {
-            return Err(Message::error("crack takes one ICE at a time."));
+        let (name, weak) = match targets.as_slice() {
+            [Target::Ice { name, weak }] => (name, *weak),
+            [Target::Rig { name, weak }] => return Ok(self.crack_rig(player, name, *weak)),
+            _ => return Err(Message::error("crack takes one target at a time.")),
         };
         let crack = self.power(player, Verb::Crack);
-        let (strength, point) = if *weak {
+        let (strength, point) = if weak {
             (crack * 2, (" in its weak point", " through its weak point"))
         } else {
             (crack, ("", ""))
@@ -214,35 +222,39 @@ impl World {
     }
 
     pub(super) fn probe(
-        &self,
+        &mut self,
         player: PlayerId,
         args: &[String],
         input: Option<Vec<Item>>,
     ) -> Result<Step, Message> {
         let targets = self.targets(player, "probe", args, input)?;
-        let names: Vec<String> = targets.into_iter().map(|(name, _)| name).collect();
-        let here = self.here(player);
         let mut step = Step::default();
-        let Some(instance) = self.instance(player) else {
-            return Ok(step);
-        };
-        for ice in instance
-            .ice
-            .iter()
-            .filter(|ice| ice.host == here && names.contains(&ice.name))
-        {
-            if ice.broken() {
-                step.shown.push(ice.describe().text("."));
-                continue;
+        for target in targets {
+            match target {
+                Target::Ice { name, .. } => self.probe_ice(player, name, &mut step),
+                Target::Rig { name, .. } => self.probe_rig(player, name, &mut step),
             }
-            let weakness = format!(". Weak point: {}.", ice.kind.weakness());
-            step.shown.push(ice.describe().text(weakness));
-            step.items.push(Item::Ice {
-                name: ice.name.clone(),
-                weak: true,
-            });
         }
         Ok(step)
+    }
+
+    fn probe_ice(&self, player: PlayerId, name: String, step: &mut Step) {
+        let here = self.here(player);
+        let Some(ice) = self.instance(player).and_then(|instance| {
+            instance
+                .ice
+                .iter()
+                .find(|ice| ice.host == here && ice.name == name)
+        }) else {
+            return;
+        };
+        if ice.broken() {
+            step.shown.push(ice.describe().text("."));
+            return;
+        }
+        let weakness = format!(". Weak point: {}.", ice.kind.weakness());
+        step.shown.push(ice.describe().text(weakness));
+        step.items.push(Item::Ice { name, weak: true });
     }
 
     pub(super) fn targets(
@@ -251,7 +263,7 @@ impl World {
         command: &str,
         args: &[String],
         input: Option<Vec<Item>>,
-    ) -> Result<Vec<(String, bool)>, Message> {
+    ) -> Result<Vec<Target>, Message> {
         let here = self.here(player);
         let known: Vec<&str> = self
             .instance(player)
@@ -262,10 +274,11 @@ impl World {
             .collect();
         match (args, input) {
             ([], Some(items)) => {
-                let targets: Vec<(String, bool)> = items
+                let targets: Vec<Target> = items
                     .into_iter()
                     .filter_map(|item| match item {
-                        Item::Ice { name, weak } => Some((name, weak)),
+                        Item::Ice { name, weak } => Some(Target::Ice { name, weak }),
+                        Item::Rig { name, weak } => Some(Target::Rig { name, weak }),
                         Item::Route(_) | Item::File(_) | Item::Line(_) => None,
                     })
                     .collect();
@@ -279,6 +292,7 @@ impl World {
             (_, Some(_)) => Err(Message::error(format!(
                 "{command} takes an ICE or a pipe, not both."
             ))),
+            (words, None) if self.pvp(player) => self.aim(player, command, words, &known),
             ([], None) => Err(usage(&format!("{command} <ice>"), Thing::Ice, &known)),
             ([word, ..], None) if known.is_empty() => {
                 Err(Message::error(format!("No ICE named {word}. Type "))
@@ -287,7 +301,10 @@ impl World {
             }
             (words, None) => words
                 .iter()
-                .map(|word| choose(Thing::Ice, word, &known).map(|name| (name.to_owned(), false)))
+                .map(|word| {
+                    let name = choose(Thing::Ice, word, &known)?.to_owned();
+                    Ok(Target::Ice { name, weak: false })
+                })
                 .collect(),
         }
     }
@@ -473,7 +490,7 @@ mod tests {
     fn crack_takes_one_ice_at_a_time() {
         assert_eq!(
             at_gate(&["scan | crack"])[0],
-            "crack takes one ICE at a time."
+            "crack takes one target at a time."
         );
         assert_eq!(at_gate(&["status | grep cycles"]), ["Cycles: 4/4"]);
         assert_eq!(

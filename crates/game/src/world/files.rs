@@ -157,7 +157,7 @@ fn piped_files(command: &str, items: Vec<Item>) -> Result<Vec<File>, Message> {
         .into_iter()
         .filter_map(|item| match item {
             Item::File(file) => Some(file),
-            Item::Route(_) | Item::Ice { .. } | Item::Line(_) => None,
+            Item::Route(_) | Item::Ice { .. } | Item::Rig { .. } | Item::Line(_) => None,
         })
         .collect();
     if files.is_empty() {

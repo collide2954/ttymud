@@ -2,6 +2,7 @@ use ttymud_text::{Kind, Message, Style};
 
 use super::instance::{name_of, tell, witnesses};
 use super::presence::named;
+use super::programs::Target;
 use super::run::Run;
 use super::{PlayerId, Step, World};
 use crate::commands::{Item, Verb};
@@ -105,8 +106,10 @@ impl World {
             }
         }
         let targets = self.targets(player, "pretext", args, input)?;
-        let [(name, _)] = targets.as_slice() else {
-            return Err(Message::error("pretext takes one warden at a time."));
+        let name = match targets.as_slice() {
+            [Target::Ice { name, .. }] => name,
+            [Target::Rig { .. }] => return Err(Message::error("pretext works only on a warden.")),
+            _ => return Err(Message::error("pretext takes one warden at a time.")),
         };
         let here = self.here(player);
         let Some(ice) = self.instance_mut(player).and_then(|instance| {
