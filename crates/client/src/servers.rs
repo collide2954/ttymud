@@ -1,5 +1,6 @@
 use ttymud_net::PublicKey;
 use ttymud_text::ini::{self, Error, Section};
+use ttymud_text::{is_address, is_server_name};
 
 const LIST: &str = include_str!("../../../servers.ini");
 const KEYS: [&str; 4] = ["city", "address", "key", "desc"];
@@ -50,32 +51,20 @@ fn read_server(section: &Section<'_>) -> Result<Server, Error> {
             format!("unknown section type: {kind} (use server)"),
         ));
     }
-    if !good_name(name) {
+    if !is_server_name(name) {
         return Err(at(
             line,
             format!("bad server name: {name} (use 3 to 16 of a-z, 0-9, and -, but not localhost)"),
         ));
     }
-    if let Some(pair) = section.pairs.iter().find(|pair| !KEYS.contains(&pair.key)) {
-        let message = format!("unknown key in server {name}: {}", pair.key);
-        return Err(at(pair.line, message));
+    if let Some(error) = section.unknown(&KEYS) {
+        return Err(error);
     }
-    let field = |key: &str| {
-        let mut found = section.pairs.iter().filter(|pair| pair.key == key);
-        match (found.next(), found.next()) {
-            (Some(pair), None) if !pair.value.is_empty() => Ok(pair),
-            (Some(_), Some(pair)) => Err(at(
-                pair.line,
-                format!("server {name} has more than one {key}"),
-            )),
-            _ => Err(at(line, format!("server {name} has no {key}"))),
-        }
-    };
     let (city, address, key, description) = (
-        field("city")?,
-        field("address")?,
-        field("key")?,
-        field("desc")?,
+        section.single("city")?,
+        section.single("address")?,
+        section.single("key")?,
+        section.single("desc")?,
     );
     for (pair, limit) in [(city, MAX_CITY), (description, MAX_DESCRIPTION)] {
         let (text, field) = (pair.value, pair.key);
@@ -88,11 +77,7 @@ fn read_server(section: &Section<'_>) -> Result<Server, Error> {
             return Err(at(pair.line, message));
         }
     }
-    if !address
-        .value
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || ".-:[]".contains(c))
-    {
+    if !is_address(address.value) {
         let message = format!("bad address for server {name}: {}", address.value);
         return Err(at(address.line, message));
     }
@@ -107,14 +92,6 @@ fn read_server(section: &Section<'_>) -> Result<Server, Error> {
         key: public,
         description: description.value.to_owned(),
     })
-}
-
-fn good_name(name: &str) -> bool {
-    (3..=16).contains(&name.len())
-        && name != "localhost"
-        && name
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
 fn at(line: usize, message: String) -> Error {

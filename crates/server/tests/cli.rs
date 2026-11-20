@@ -97,6 +97,25 @@ fn run_without_init_explains_what_to_do() -> io::Result<()> {
 }
 
 #[test]
+fn run_refuses_a_bad_links_file() -> io::Result<()> {
+    let dir = scratch("bad-links");
+    server(&["init", &dir])?;
+    std::fs::write(
+        std::path::Path::new(&dir).join("links.ini"),
+        "[link Dock]\n",
+    )?;
+    let output = server(&["run", &dir, "--listen", "127.0.0.1:0"])?;
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("links.ini: line 1: bad link name: Dock"),
+        "{stderr}"
+    );
+    Ok(())
+}
+
+#[test]
 fn run_opens_the_city_to_clients() -> io::Result<()> {
     let dir = scratch("run");
     server(&["init", &dir])?;

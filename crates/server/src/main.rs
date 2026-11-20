@@ -148,6 +148,7 @@ fn run(dir: &Path, listen: &str, ssh: Option<&str>) -> io::Result<()> {
         return Err(io::Error::other(NO_SSH));
     }
     let keys = ttymud_server::load_keys(dir).map_err(|error| missing_key(dir, error))?;
+    let peers = ttymud_server::load_peers(dir, keys.public())?;
     let world = ttymud_server::load_world(dir)?;
     let identity = ttymud_server::load_identity(dir)?;
     let store = ttymud_server::Store::start(dir)?;
@@ -156,6 +157,9 @@ fn run(dir: &Path, listen: &str, ssh: Option<&str>) -> io::Result<()> {
     println!("Fingerprint: {}", keys.public().fingerprint());
     println!("Key: {}", keys.public().to_hex());
     println!("Accounts: {}", world.account_count());
+    for peer in &peers {
+        println!("Link: {} at {}", peer.name, peer.address);
+    }
     #[cfg(feature = "ssh")]
     if let Some(address) = ssh {
         let key = ttymud_server::ssh_host_key(dir)?;

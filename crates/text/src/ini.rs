@@ -29,6 +29,34 @@ pub struct Pair<'a> {
     pub line: usize,
 }
 
+impl<'a> Section<'a> {
+    pub fn single(&self, key: &str) -> Result<&Pair<'a>, Error> {
+        let (kind, id) = (self.kind, self.id);
+        let mut found = self.pairs.iter().filter(|pair| pair.key == key);
+        match (found.next(), found.next()) {
+            (Some(pair), None) if !pair.value.is_empty() => Ok(pair),
+            (Some(_), Some(pair)) => Err(Error {
+                line: pair.line,
+                message: format!("{kind} {id} has more than one {key}"),
+            }),
+            _ => Err(Error {
+                line: self.line,
+                message: format!("{kind} {id} has no {key}"),
+            }),
+        }
+    }
+
+    #[must_use]
+    pub fn unknown(&self, keys: &[&str]) -> Option<Error> {
+        let pair = self.pairs.iter().find(|pair| !keys.contains(&pair.key))?;
+        let (kind, id, key) = (self.kind, self.id, pair.key);
+        Some(Error {
+            line: pair.line,
+            message: format!("unknown key in {kind} {id}: {key}"),
+        })
+    }
+}
+
 #[must_use]
 pub fn read(text: &str) -> (Vec<Section<'_>>, Vec<Error>) {
     let mut sections: Vec<Section<'_>> = Vec::new();
@@ -92,6 +120,41 @@ mod tests {
         let (_, errors) = read("key = early\n[host]\n[host a]\nnonsense\n");
         let lines: Vec<usize> = errors.iter().map(|error| error.line).collect();
         assert_eq!(lines, [1, 2, 4]);
+    }
+
+    #[test]
+    fn single_gives_the_one_value_of_a_key() {
+        let (sections, _) = read("[server dock]\ncity = Ostra\ndesc = A\ndesc = B\naddress =\n");
+        let value = |key| {
+            let found = sections[0].single(key);
+            found
+                .map(|pair| (pair.value, pair.line))
+                .map_err(|error| error.to_string())
+        };
+        assert_eq!(value("city"), Ok(("Ostra", 2)));
+        assert_eq!(
+            value("desc"),
+            Err("line 4: server dock has more than one desc".to_owned())
+        );
+        assert_eq!(
+            value("address"),
+            Err("line 1: server dock has no address".to_owned())
+        );
+        assert_eq!(
+            value("key"),
+            Err("line 1: server dock has no key".to_owned())
+        );
+    }
+
+    #[test]
+    fn unknown_finds_the_first_key_that_is_not_allowed() {
+        let (sections, _) = read("[link dock]\naddress = a\nport = 1\nzone = 2\n");
+        let found = |keys: &[&str]| sections[0].unknown(keys).map(|error| error.to_string());
+        assert_eq!(
+            found(&["address"]),
+            Some("line 3: unknown key in link dock: port".to_owned())
+        );
+        assert_eq!(found(&["address", "port", "zone"]), None);
     }
 
     #[test]

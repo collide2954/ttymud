@@ -1,7 +1,9 @@
+mod address;
 pub mod ini;
 mod sanitize;
 mod status;
 
+pub use address::{is_address, is_server_name};
 pub use sanitize::{MAX_LENGTH, clean, sanitize};
 pub use status::{Mate, RunStatus, Status};
 
