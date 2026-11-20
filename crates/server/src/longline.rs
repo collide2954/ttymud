@@ -69,6 +69,7 @@ fn connect(peer: &Peer, keys: &Keys, hub: &Hub) -> io::Result<()> {
         let message = format!("the server at {address} has a different key");
         return Err(io::Error::other(message));
     }
+    stream.set_read_timeout(Some(SILENCE))?;
     let (mut receiver, mut sender, control) = split(session, stream)?;
     let Ok(LinkMessage::Hello { city }) = LinkMessage::decode(&receiver.receive()?) else {
         let message = format!("the server at {address} does not list this server in its links.ini");
@@ -85,7 +86,7 @@ pub(crate) fn accept(
     stream: TcpStream,
     hub: &Hub,
 ) -> io::Result<()> {
-    stream.set_read_timeout(Some(TIMEOUT))?;
+    stream.set_read_timeout(Some(SILENCE))?;
     stream.set_write_timeout(Some(WRITE_TIMEOUT))?;
     let (mut receiver, mut sender, control) = split(session, stream)?;
     sender.send(&hello(hub))?;
@@ -114,7 +115,6 @@ fn link(peer: &Peer, city: &str, (mut receiver, sender, control): Halves, hub: &
     let Ok(closer) = control.try_clone() else {
         return;
     };
-    let _ = control.set_read_timeout(Some(SILENCE));
     let spawned = thread::Builder::new()
         .name(format!("link-writer-{name}"))
         .spawn(move || write_loop(sender, &mailbox, &closer));
@@ -128,25 +128,33 @@ fn link(peer: &Peer, city: &str, (mut receiver, sender, control): Halves, hub: &
         connection,
         outbox,
     };
-    if hub.events.send(up).is_ok() {
-        read_loop(name, connection, &mut receiver, hub);
+    let reason = if hub.events.send(up).is_ok() {
+        let reason = read_loop(name, connection, &mut receiver, hub);
         let down = Event::PeerDown {
             name: name.clone(),
             connection,
         };
         let _ = hub.events.send(down);
-    }
-    println!("Link {name} is down.");
+        reason
+    } else {
+        "the game stopped".to_owned()
+    };
+    println!("Link {name} is down: {reason}.");
     let _ = control.shutdown(Shutdown::Both);
     let _ = writer.join();
 }
 
-fn read_loop(name: &str, connection: u64, receiver: &mut Receiver<TcpStream>, hub: &Hub) {
+fn read_loop(name: &str, connection: u64, receiver: &mut Receiver<TcpStream>, hub: &Hub) -> String {
     let mut bucket = Bucket::new(BURST, PER_SECOND, Instant::now());
-    while let Ok(bytes) = receiver.receive() {
+    loop {
+        let bytes = match receiver.receive() {
+            Ok(bytes) => bytes,
+            Err(error) => return error.to_string(),
+        };
         let message = match LinkMessage::decode(&bytes) {
             Ok(LinkMessage::Ping) | Err(DecodeError::UnknownType(_)) => continue,
-            Ok(LinkMessage::Hello { .. }) | Err(_) => return,
+            Ok(LinkMessage::Hello { .. }) => return "the server sent a second hello".to_owned(),
+            Err(error) => return format!("the server sent a bad message: {error}"),
             Ok(message) => message,
         };
         if !bucket.take(Instant::now()) {
@@ -158,7 +166,7 @@ fn read_loop(name: &str, connection: u64, receiver: &mut Receiver<TcpStream>, hu
             message,
         };
         if hub.events.send(event).is_err() {
-            return;
+            return "the game stopped".to_owned();
         }
     }
 }
