@@ -99,7 +99,7 @@ Players can ignore, block, and report a handle of a linked city, for example `ny
 
 - The server writes chat to disk only as the evidence of a report, in `reports.ini`. If the operator turns on chat logs in a later version, the server tells each player at login.
 - The server keeps IP addresses in memory only. An IP ban writes the address to `bans.ini`.
-- An operator can delete an account and all of its data with one command.
+- An operator can delete an account and its data with one command, `ttymud-server delete`. The command keeps the records of the moderators: the reports, the bans, and the audit log.
 
 ## Protection of the server
 

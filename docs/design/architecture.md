@@ -48,11 +48,12 @@ These rules control the dependencies between crates:
     ttymud-server init <data-dir>
     ttymud-server run <data-dir> [--listen <address>] [--ssh <address>]
     ttymud-server mod <data-dir> [add|remove <handle>]
+    ttymud-server delete <data-dir> <handle>
     ttymud-server play [name]
 
 The default port is 7331. The `play` command lets one player walk Port Ostra without a network. It is for tests and for a first look at the game. It uses real time and asks for a handle, as the server does. It saves nothing. The [player guide](../player.md) and the [operator guide](../operator.md) tell how to use the commands.
 
-The `mod` command shows, adds, and removes the moderators of a server. These commands come later: `ttymud identity` and `ttymud-server check`.
+The `mod` command shows, adds, and removes the moderators of a server. The `delete` command deletes an account and its data. These commands come later: `ttymud identity` and `ttymud-server check`.
 
 ## Server
 

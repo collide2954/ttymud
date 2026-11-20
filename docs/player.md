@@ -238,6 +238,8 @@ A link code works one time, for 10 minutes. Type `keys` to see the keys of your 
 
 Your account can be online on one device at a time. When you connect on a second device, the first device disconnects.
 
+To delete your account and its data on a server, ask the operator of the server.
+
 ## Your handle
 
 At your first connection, the game asks for a handle. The handle is the name that other players see. A handle has 3 to 16 letters, digits, hyphens, or underscores. The game compares names without case, so `Nyx` and `nyx` are the same name.

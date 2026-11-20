@@ -183,7 +183,13 @@ When the server starts, it reads all the files. If a file has an error, the serv
 
 > CAUTION: Stop the server before you change a file in the data directory. If the server runs, it can write over your change.
 
-To make a backup, stop the server and copy the data directory. To delete an account, stop the server and delete the file of the account. Then remove the section of the account from `keys.ini`.
+To make a backup, stop the server and copy the data directory.
+
+To delete an account and its data, stop the server. Then use the `delete` command with the handle of the account, for example:
+
+    ttymud-server delete ostra-data nyx
+
+For an account without a handle, give the name of its file in `accounts/`, without `.ini`. The command deletes the file of the account and its keys in `keys.ini`. It also removes the account from its crew and from the moderators. The burn list, the reports, the bans, and the audit log do not change. As a result, a ban stays. A key that is not banned can connect again, but it starts a new account.
 
 The seed in `world.ini` sets the job board and the target networks. As a result, a job has the same network after a restart. Keep the file. If you lose it, the server makes a new seed. Then the jobs on the board and the accepted jobs change.
 
