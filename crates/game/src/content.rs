@@ -112,6 +112,23 @@ pub(crate) struct NetworkDef {
     pub(crate) id: String,
     pub(crate) name: String,
     pub(crate) security: Security,
+    pub(crate) zone: Zone,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Zone {
+    Target,
+    Darknet,
+}
+
+impl Zone {
+    fn find(word: &str) -> Option<Self> {
+        match word {
+            "target" => Some(Self::Target),
+            "darknet" => Some(Self::Darknet),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

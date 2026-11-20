@@ -17,6 +17,14 @@ step = download: Go to core and type download data.db.
 step = exit: Type back until you leave the lab.
 ";
 
+pub(crate) const DARK: &str = "\
+[city d]\nname = D\nstart = hub\nhome = home\n\
+[host hub]\nname = Hub\ndesc = A hub.\nroute = home\nroute = alley\n\
+[host home]\nname = Home\ndesc = A home.\n\
+[network dark]\nname = The Undercity\nzone = darknet\n\
+[host alley]\nname = Alley\ndesc = An alley.\nnetwork = dark\nroute = den\n\
+[host den]\nname = Den\ndesc = A den.\nnetwork = dark\n";
+
 pub(crate) fn world() -> World {
     World::new(Content::parse(CITY).unwrap(), 0)
 }

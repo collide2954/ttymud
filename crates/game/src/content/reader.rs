@@ -1,7 +1,7 @@
 use super::targets::FixerLines;
 use super::{
     ChannelDef, ContentError, ContractDef, CorpDef, File, FixerDef, HostDef, IceDef, NetworkDef,
-    ShopDef, TemplateDef,
+    ShopDef, TemplateDef, Zone,
 };
 use crate::contract::Event;
 use crate::heat::Security;
@@ -182,9 +182,19 @@ impl Reader {
             );
             return;
         }
-        self.allow(section, &["name", "security"]);
+        self.allow(section, &["name", "security", "zone"]);
         self.check_name(section.line, section.id, Name::Plain);
         let name = self.single(section, "name").unwrap_or_default().0;
+        let zone = match self.optional(section, "zone") {
+            None => Zone::Target,
+            Some((word, line)) => Zone::find(&word).unwrap_or_else(|| {
+                self.error(
+                    line,
+                    format!("unknown zone: {word} (use target or darknet)"),
+                );
+                Zone::Target
+            }),
+        };
         let security = match self.optional(section, "security") {
             None => Security::Low,
             Some((word, line)) => Security::find(&word).unwrap_or_else(|| {
@@ -200,6 +210,7 @@ impl Reader {
             id: section.id.to_owned(),
             name,
             security,
+            zone,
         };
         self.networks.push((network, section.line));
     }

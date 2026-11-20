@@ -27,6 +27,7 @@ impl World {
         let from = self.here(player);
         let target = self.route(player, &place)?;
         self.may_enter(player, target)?;
+        self.consent(player, target)?;
         self.guard(player, target)?;
         self.move_to(player, target);
         Ok(self.arrive(player, from, target))

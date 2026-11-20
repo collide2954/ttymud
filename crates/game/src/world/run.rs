@@ -5,6 +5,7 @@ use super::heat::FAST_HEAT;
 use super::ice::deploy;
 use super::instance::{Instance, InstanceId, decoy_on, name_of, witnesses};
 use super::{HostId, NetworkId, Output, PlayerId, Step, World};
+use crate::content::Zone;
 use crate::contract::Event;
 use crate::heat::MAX_HEAT;
 use crate::ice::{Action, IceKind};
@@ -200,6 +201,9 @@ impl World {
         else {
             return Vec::new();
         };
+        if self.networks[run.network.0].zone != Zone::Target {
+            return Vec::new();
+        }
         run.trace = (run.trace + amount).min(MAX_TRACE);
         if run.trace < MAX_TRACE {
             return Vec::new();
@@ -259,7 +263,12 @@ impl World {
     }
 
     fn start_run(&mut self, player: PlayerId, network: NetworkId) -> Vec<Message> {
-        let joined = self.crew_copy(player, network);
+        let darknet = self.zone(network) == Zone::Darknet;
+        let joined = if darknet {
+            self.darknet_copy(network)
+        } else {
+            self.crew_copy(player, network)
+        };
         let id = joined.unwrap_or_else(|| {
             let instance = Instance {
                 network,
@@ -289,7 +298,9 @@ impl World {
         });
         let name = &self.networks[network.0].name;
         let alert = self.network_alert(network);
-        let start = if joined.is_some() {
+        let start = if darknet {
+            format!("You enter the darknet {name}. Other handles can attack you here.")
+        } else if joined.is_some() {
             format!("You join your crew in the network of {name}.")
         } else {
             format!("You connect to the network of {name}.")
@@ -314,7 +325,11 @@ impl World {
             self.close_instance(run.instance);
         }
         let name = &self.networks[network.0].name;
-        let exit = Message::game(format!("You leave the network of {name}. Clean exit."));
+        let exit = if self.zone(network) == Zone::Darknet {
+            Message::game(format!("You leave the darknet {name}."))
+        } else {
+            Message::game(format!("You leave the network of {name}. Clean exit."))
+        };
         if self.is_job(player, network) {
             self.advance(player, Event::Exit);
         }

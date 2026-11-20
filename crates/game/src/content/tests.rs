@@ -1,6 +1,6 @@
 use super::{
     ChannelDef, Content, ContractDef, CorpDef, File, FixerDef, IceDef, NetworkDef, ShopDef,
-    TemplateDef,
+    TemplateDef, Zone,
 };
 use crate::commands::Verb;
 use crate::contract::Event;
@@ -699,10 +699,29 @@ fn hosts_can_be_in_a_network() {
         id: "lab".to_owned(),
         name: "The Lab".to_owned(),
         security: Security::Low,
+        zone: Zone::Target,
     };
     assert_eq!(content.networks, [lab]);
     assert_eq!(content.hosts[2].network.as_deref(), Some("lab"));
     assert_eq!(content.hosts[0].network, None);
+}
+
+#[test]
+fn a_network_can_be_a_darknet() {
+    let text = NET.replace("name = N\n", "name = N\nzone = darknet\n");
+    assert_eq!(
+        Content::parse(&text).unwrap().networks[0].zone,
+        Zone::Darknet
+    );
+    let text = NET.replace("name = N\n", "name = N\nzone = target\n");
+    assert_eq!(
+        Content::parse(&text).unwrap().networks[0].zone,
+        Zone::Target
+    );
+    assert_eq!(
+        errors(&NET.replace("name = N\n", "name = N\nzone = jungle\n")),
+        ["line 9: unknown zone: jungle (use target or darknet)"]
+    );
 }
 
 #[test]

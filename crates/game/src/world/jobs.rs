@@ -4,7 +4,7 @@ use super::alert::Alert;
 use super::contract::{Contract, Job};
 use super::heists::HEIST_SLOT;
 use super::{Host, HostId, Network, NetworkId, PlayerId, Step, World, lines, listed};
-use crate::content::{CorpDef, FixerDef};
+use crate::content::{CorpDef, FixerDef, Zone};
 use crate::heat::Security;
 use crate::random::{Random, mix};
 use crate::target::{Layer, Target, generate};
@@ -356,6 +356,7 @@ impl World {
         self.networks.push(Network {
             name: target.name.clone(),
             security: security.unwrap_or(Security::Low),
+            zone: Zone::Target,
             entries,
             keys: target.keys.clone(),
             corp: Some(corp),

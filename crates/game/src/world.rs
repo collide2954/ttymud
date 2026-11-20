@@ -10,6 +10,7 @@ mod chat;
 mod complete;
 mod contract;
 mod crews;
+mod darknet;
 mod files;
 mod grep;
 mod heat;
@@ -46,7 +47,7 @@ use std::net::IpAddr;
 use ttymud_text::{Kind, Message, Style, sanitize};
 
 use crate::commands::{self, Command, Item, Verb};
-use crate::content::{Content, CorpDef, File, IceDef, NetworkDef, TemplateDef};
+use crate::content::{Content, CorpDef, File, IceDef, NetworkDef, TemplateDef, Zone};
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::kits::Kit;
@@ -93,6 +94,7 @@ struct NetworkId(usize);
 struct Network {
     name: String,
     security: Security,
+    zone: Zone,
     entries: Vec<HostId>,
     keys: Vec<(String, Level)>,
     corp: Option<usize>,
@@ -104,6 +106,7 @@ impl From<NetworkDef> for Network {
         Self {
             name: def.name,
             security: def.security,
+            zone: def.zone,
             entries: Vec::new(),
             keys: Vec::new(),
             corp: None,
@@ -149,6 +152,7 @@ struct Player {
     social: Social,
     address: Option<IpAddr>,
     stash: Vec<File>,
+    consent: Option<(HostId, u64)>,
 }
 
 impl Player {
@@ -156,6 +160,7 @@ impl Player {
         Self {
             name: name.to_owned(),
             chain: vec![at],
+            consent: None,
             heat: 0,
             cooled: 0,
             credits: 0,
@@ -455,11 +460,12 @@ impl World {
         }
         let here = state.chain.last()?;
         let place = format!("{}@{} $ ", state.name, self.hosts[here.0].id);
+        let integrity = state.rig.integrity;
         Some(match &state.run {
-            Some(run) => {
-                let integrity = state.rig.integrity;
+            Some(run) if self.networks[run.network.0].zone == Zone::Target => {
                 format!("[trace {}% integ {integrity}] {place}", run.trace)
             }
+            Some(_) => format!("[integ {integrity}] {place}"),
             None => place,
         })
     }

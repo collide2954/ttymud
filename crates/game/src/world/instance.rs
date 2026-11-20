@@ -81,9 +81,11 @@ impl World {
         let Some(id) = self.instance_id(player) else {
             return Vec::new();
         };
+        let crew = self.handle(player).and_then(|name| self.crews.of(name));
         self.members(id)
             .into_iter()
             .filter(|member| member.player != player)
+            .filter(|member| crew.is_some_and(|crew| crew.has(&member.name)))
             .map(|member| Mate {
                 name: member.name,
                 trace: member.trace,
