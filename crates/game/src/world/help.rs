@@ -58,7 +58,12 @@ impl World {
                 Verb::Read => readable,
                 Verb::Rm => !self.scripts(player).is_empty(),
                 Verb::Download => !self.files_on(here, player).is_empty(),
-                Verb::Recovery | Verb::Link | Verb::Keys | Verb::Revoke | Verb::Available => false,
+                Verb::Recovery
+                | Verb::Link
+                | Verb::Keys
+                | Verb::Revoke
+                | Verb::Wait
+                | Verb::Available => false,
                 _ => true,
             })
             .map(Command::name);

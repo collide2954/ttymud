@@ -14,12 +14,13 @@ pub(super) fn grep(args: &[String], items: Vec<Item>) -> Result<Step, Message> {
         .into_iter()
         .filter(|item| item.name().to_lowercase().contains(&needle))
         .collect();
-    let shown = if items.is_empty() {
-        vec![Message::game(format!("No match for {pattern}."))]
-    } else {
-        listing(&items)
-    };
-    Ok(Step { shown, items })
+    if items.is_empty() {
+        return Err(Message::error(format!("No match for {pattern}.")));
+    }
+    Ok(Step {
+        shown: listing(&items),
+        items,
+    })
 }
 
 #[cfg(test)]
@@ -47,8 +48,11 @@ mod tests {
     }
 
     #[test]
-    fn grep_without_a_match_says_so() {
-        assert_eq!(run("ls | grep zzz"), ["No match for zzz."]);
+    fn grep_without_a_match_fails() {
+        assert_eq!(run("ls | grep zzz | read"), ["No match for zzz."]);
+        let (mut world, player) = crate::testing::joined();
+        let outputs = world.command(player, "ls | grep zzz");
+        assert_eq!(outputs[0].message.kind, ttymud_text::Kind::Error);
     }
 
     #[test]

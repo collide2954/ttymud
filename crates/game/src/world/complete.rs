@@ -361,8 +361,9 @@ mod tests {
 
     #[test]
     fn chat_quotes_and_unknown_commands_complete_nothing() {
-        for text in ["say he", "'he", "read \"mo", "xyzzy a", "ls || gr"] {
+        for text in ["say he", "'he", "read \"mo", "xyzzy a", "ls | | gr"] {
             assert_eq!(names(text), Vec::<String>::new(), "{text}");
         }
+        assert_eq!(names("ls || gr"), names("gr"));
     }
 }

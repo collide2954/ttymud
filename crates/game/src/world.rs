@@ -584,6 +584,7 @@ impl World {
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Echo => self.echo(player, args),
             Verb::Rm => self.rm(player, args),
+            Verb::Wait => Err(Message::error("wait works only in a script.")),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Tell => Err(Message::error("Usage: tell <handle> <text>.")),
             Verb::Reply => Err(Message::error("Usage: reply <text>.")),
@@ -877,6 +878,8 @@ fn parse_error(error: ParseError) -> Message {
     Message::error(match error {
         ParseError::OpenQuote => "A quote is not closed.",
         ParseError::EmptyStage => "Each side of | needs a command.",
+        ParseError::EmptyLink => "Each side of && and || needs a command.",
+        ParseError::Chain => "&& and || work only in a script.",
     })
 }
 
@@ -1066,6 +1069,12 @@ mod tests {
     fn parse_errors_explain_the_problem() {
         assert_eq!(run("look \"x"), ["A quote is not closed."]);
         assert_eq!(run("ls |"), ["Each side of | needs a command."]);
+        assert_eq!(run("ls &&"), ["Each side of && and || needs a command."]);
+        assert_eq!(
+            run("scan && crack sentry"),
+            ["&& and || work only in a script."]
+        );
+        assert_eq!(run("wait 2"), ["wait works only in a script."]);
     }
 
     #[test]
