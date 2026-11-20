@@ -338,7 +338,7 @@ mod tests {
     fn tab_completes_through_the_server() {
         let keys = "go ma".chars().map(Key::Char).chain([Key::Tab]).collect();
         let mut screen = Screen::new(Vec::new(), 80, Depth::None);
-        let ending = run(link(completer), feed(keys), &mut screen).unwrap();
+        let ending = run(link(completer).into(), feed(keys), &mut screen).unwrap();
         assert_eq!(ending, Ending::Closed);
         let text = String::from_utf8_lossy(&screen.output).into_owned();
         assert!(text.contains("\r\x1b[K$ go market "), "{text:?}");
@@ -348,7 +348,7 @@ mod tests {
     fn keys_drive_a_session_on_a_server() {
         let keys = vec![Key::Char('l'), Key::Char('s'), Key::Enter, Key::EndOfInput];
         let mut screen = Screen::new(Vec::new(), 80, Depth::None);
-        let ending = run(link(echo), feed(keys), &mut screen).unwrap();
+        let ending = run(link(echo).into(), feed(keys), &mut screen).unwrap();
         assert_eq!(ending, Ending::Quit);
         let text = String::from_utf8_lossy(&screen.output).into_owned();
         assert!(text.contains("\r\x1b[Kecho ls\r\n"), "{text:?}");

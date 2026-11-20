@@ -1,10 +1,9 @@
 use std::io;
-use std::net::{Shutdown, TcpStream};
+use std::net::Shutdown;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread;
 use std::time::Duration;
 
-use ttymud_net::{Receiver, Sender};
 use ttymud_text::clean;
 use ttymud_wire::{ClientMessage, ServerMessage};
 
@@ -18,6 +17,47 @@ const CLOSE: Duration = Duration::from_secs(1);
 pub enum Ending {
     Quit,
     Closed,
+}
+
+type Incoming = Box<dyn FnMut() -> Option<ServerMessage> + Send>;
+type Outgoing = Box<dyn FnMut(ClientMessage) -> io::Result<()> + Send>;
+
+pub struct Wire {
+    receive: Incoming,
+    send: Outgoing,
+    close: Box<dyn FnOnce() + Send>,
+}
+
+impl Wire {
+    pub fn new(
+        receive: impl FnMut() -> Option<ServerMessage> + Send + 'static,
+        send: impl FnMut(ClientMessage) -> io::Result<()> + Send + 'static,
+        close: impl FnOnce() + Send + 'static,
+    ) -> Self {
+        Self {
+            receive: Box::new(receive),
+            send: Box::new(send),
+            close: Box::new(close),
+        }
+    }
+}
+
+impl From<Link> for Wire {
+    fn from(link: Link) -> Self {
+        let Link {
+            mut receiver,
+            mut sender,
+            control,
+            ..
+        } = link;
+        Self::new(
+            move || ServerMessage::decode(&receiver.receive().ok()?).ok(),
+            move |message| Ok(sender.send(&message.encode())?),
+            move || {
+                let _ = control.shutdown(Shutdown::Both);
+            },
+        )
+    }
 }
 
 pub(crate) enum Event {
@@ -56,16 +96,15 @@ pub(crate) trait View {
 }
 
 pub(crate) fn run(
-    link: Link,
+    wire: Wire,
     input: impl FnOnce(&mpsc::Sender<Event>) + Send + 'static,
     view: &mut impl View,
 ) -> io::Result<Ending> {
-    let Link {
-        receiver,
-        mut sender,
-        control,
-        ..
-    } = link;
+    let Wire {
+        mut receive,
+        mut send,
+        close,
+    } = wire;
     let (events, inbox) = mpsc::channel();
     let (alive, watch) = mpsc::channel::<()>();
     let network = {
@@ -74,15 +113,16 @@ pub(crate) fn run(
             .name("network".to_owned())
             .spawn(move || {
                 let _alive = alive;
-                listen(receiver, &events);
+                listen(&mut receive, &events);
             })?
     };
     thread::Builder::new()
         .name("input".to_owned())
         .spawn(move || input(&events))?;
-    let ending = play(&inbox, &mut sender, view).and_then(|ending| view.finish().map(|()| ending));
-    let _ = control.shutdown(Shutdown::Both);
-    // On Windows, shutdown can fail with NotConnected and leave the network read blocked.
+    let ending = play(&inbox, &mut send, view).and_then(|ending| view.finish().map(|()| ending));
+    drop(send);
+    close();
+    // A close cannot always wake the reader, for example when a shutdown fails on Windows.
     if matches!(watch.recv_timeout(CLOSE), Err(RecvTimeoutError::Timeout)) {
         return ending;
     }
@@ -96,11 +136,8 @@ pub(crate) fn is_quit(line: &str) -> bool {
     clean(line).trim().eq_ignore_ascii_case("quit")
 }
 
-fn listen(mut receiver: Receiver<TcpStream>, events: &mpsc::Sender<Event>) {
-    while let Ok(bytes) = receiver.receive() {
-        let Ok(message) = ServerMessage::decode(&bytes) else {
-            break;
-        };
+fn listen(receive: &mut Incoming, events: &mpsc::Sender<Event>) {
+    while let Some(message) = receive() {
         let close = matches!(message, ServerMessage::Close(_));
         if events.send(Event::Server(message)).is_err() || close {
             return;
@@ -111,7 +148,7 @@ fn listen(mut receiver: Receiver<TcpStream>, events: &mpsc::Sender<Event>) {
 
 fn play(
     inbox: &mpsc::Receiver<Event>,
-    sender: &mut Sender<TcpStream>,
+    outgoing: &mut Outgoing,
     view: &mut impl View,
 ) -> io::Result<Ending> {
     let (mut sent, mut prompts, mut draining) = (0_usize, 0_usize, false);
@@ -160,7 +197,7 @@ fn play(
             Typed::Complete(_) | Typed::Nothing => None,
         };
         if let Some(request) = request
-            && sender.send(&request.encode()).is_err()
+            && outgoing(request).is_err()
         {
             return Ok(Ending::Closed);
         }

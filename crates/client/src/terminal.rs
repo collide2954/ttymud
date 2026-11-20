@@ -10,7 +10,7 @@ use crate::narrate::Narrated;
 use crate::screen::Screen;
 use crate::session::{Event, run};
 use crate::settings::{Settings, detect};
-use crate::{Ending, Link};
+use crate::{Ending, Wire};
 
 #[must_use]
 pub fn detect_terminal() -> Settings {
@@ -18,25 +18,25 @@ pub fn detect_terminal() -> Settings {
     detect(|name| std::env::var(name).ok(), terminal, cfg!(windows))
 }
 
-pub fn edit_mode(link: Link, settings: Settings) -> io::Result<Ending> {
+pub fn edit_mode(wire: impl Into<Wire>, settings: Settings) -> io::Result<Ending> {
     let _raw = Raw::enable()?;
     let width = terminal::size().map_or(80, |(width, _)| width);
     let mut screen = Screen::new(io::stdout(), width, settings.color);
     if settings.verbose {
-        run(link, read_keys, &mut Narrated::new(screen))
+        run(wire.into(), read_keys, &mut Narrated::new(screen))
     } else {
-        run(link, read_keys, &mut screen)
+        run(wire.into(), read_keys, &mut screen)
     }
 }
 
-pub fn hud_mode(link: Link, settings: Settings) -> io::Result<Ending> {
+pub fn hud_mode(wire: impl Into<Wire>, settings: Settings) -> io::Result<Ending> {
     let _raw = Raw::enable()?;
     let (width, height) = terminal::size().unwrap_or((80, 24));
     let mut hud = Hud::new(io::stdout(), settings, width, height)?;
     if settings.verbose {
-        run(link, read_keys, &mut Narrated::new(hud))
+        run(wire.into(), read_keys, &mut Narrated::new(hud))
     } else {
-        run(link, read_keys, &mut hud)
+        run(wire.into(), read_keys, &mut hud)
     }
 }
 

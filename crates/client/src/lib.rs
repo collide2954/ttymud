@@ -21,6 +21,6 @@ pub use known::{DEFAULT_PORT, KnownServers, Trust, normalize};
 pub use line::line_mode;
 pub use link::{ConnectError, Link, connect};
 pub use render::{Shown, render};
-pub use session::Ending;
+pub use session::{Ending, Wire};
 pub use settings::{Choices, Depth, Layer, Settings, read_settings};
 pub use terminal::{detect_terminal, edit_mode, hud_mode};

@@ -3,10 +3,10 @@ use std::sync::mpsc;
 
 use crate::narrate::Narrated;
 use crate::session::{Event, View, run};
-use crate::{Ending, Link, Shown};
+use crate::{Ending, Shown, Wire};
 
 pub fn line_mode(
-    link: Link,
+    wire: impl Into<Wire>,
     input: impl BufRead + Send + 'static,
     output: impl Write,
     verbose: bool,
@@ -17,9 +17,9 @@ pub fn line_mode(
     };
     let reader = move |events: &mpsc::Sender<Event>| read(input, events);
     if verbose {
-        run(link, reader, &mut Narrated::new(plain))
+        run(wire.into(), reader, &mut Narrated::new(plain))
     } else {
-        run(link, reader, &mut plain)
+        run(wire.into(), reader, &mut plain)
     }
 }
 
@@ -70,15 +70,18 @@ fn read(input: impl BufRead, events: &mpsc::Sender<Event>) {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
+    use std::io::{self, Cursor};
     use std::net::{TcpListener, TcpStream};
     use std::sync::mpsc;
     use std::thread;
     use std::time::Duration;
 
+    use ttymud_text::Message;
+    use ttymud_wire::{ClientMessage, ServerMessage};
+
     use super::line_mode;
-    use crate::Ending;
     use crate::testing::{echo, link, ticker};
+    use crate::{Ending, Wire};
 
     fn session(input: &str) -> (Ending, String) {
         let input = Cursor::new(input.as_bytes().to_vec());
@@ -138,6 +141,43 @@ mod tests {
     fn the_end_of_the_input_quits() {
         let (ending, _) = session("");
         assert_eq!(ending, Ending::Quit);
+    }
+
+    #[test]
+    fn a_session_runs_over_a_wire_of_channels() {
+        let (to_client, from_server) = mpsc::channel();
+        let (to_server, from_client) = mpsc::channel();
+        let welcome = ServerMessage::Welcome {
+            city: "Test City".to_owned(),
+            name: "anon-test".to_owned(),
+        };
+        for message in [welcome, ServerMessage::Prompt("$ ".to_owned())] {
+            to_client.send(message).unwrap();
+        }
+        thread::spawn(move || {
+            for message in from_client {
+                if let ClientMessage::Command(line) = message {
+                    let echo = Message::game(format!("echo {line}"));
+                    let _ = to_client.send(ServerMessage::Text(echo));
+                    let _ = to_client.send(ServerMessage::Prompt("$ ".to_owned()));
+                }
+            }
+        });
+        let wire = Wire::new(
+            move || from_server.recv().ok(),
+            move |message| to_server.send(message).map_err(io::Error::other),
+            || {},
+        );
+        let input = Cursor::new(b"look\nquit\n".to_vec());
+        let mut screen = Vec::new();
+        let ending = line_mode(wire, input, &mut screen, false).unwrap();
+        assert_eq!(ending, Ending::Quit);
+        let text = String::from_utf8_lossy(&screen);
+        assert!(
+            text.starts_with("Connected to Test City as anon-test.\n$ "),
+            "{text}"
+        );
+        assert!(text.contains("echo look\n$ "), "{text}");
     }
 
     #[test]
