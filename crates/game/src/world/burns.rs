@@ -36,7 +36,7 @@ impl World {
         state.heat = 0;
         state.credits = 0;
         state.rep.clear();
-        state.run = None;
+        let closed = state.run.take().map(|run| run.instance);
         state.end_contract();
         state.kit = None;
         state.chain = vec![start];
@@ -46,6 +46,9 @@ impl World {
             entry.handle = None;
             entry.know = know;
             entry.stash = stash;
+        }
+        if let Some(id) = closed {
+            self.close_instance(id);
         }
         self.burns.push(Burn {
             name: name.clone(),

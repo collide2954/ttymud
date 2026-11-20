@@ -109,22 +109,26 @@ pub(super) fn deploy(hosts: &[Host], network: NetworkId, bonus: u32) -> Vec<Ice>
 impl World {
     pub(super) fn tick_ice(&mut self, player: PlayerId) -> Vec<Message> {
         let here = self.here(player);
-        let Some(run) = self
-            .players
-            .get_mut(&player)
-            .and_then(|state| state.run.as_mut())
-        else {
+        let Some(id) = self.instance_id(player) else {
             return Vec::new();
         };
         let mut shown = Vec::new();
-        if run.mask > 0 {
+        if let Some(run) = self
+            .players
+            .get_mut(&player)
+            .and_then(|state| state.run.as_mut())
+            && run.mask > 0
+        {
             run.mask -= 1;
             if run.mask == 0 {
                 shown.push(Message::game("Your mask drops."));
             }
         }
+        let Some(instance) = self.instances.get_mut(&id) else {
+            return shown;
+        };
         let mut fired = Vec::new();
-        for (index, ice) in run.ice.iter_mut().enumerate() {
+        for (index, ice) in instance.ice.iter_mut().enumerate() {
             if ice.broken() {
                 continue;
             }
@@ -162,14 +166,10 @@ impl World {
 
     fn fire(&mut self, player: PlayerId, index: usize, action: Action) -> Vec<Message> {
         let here = self.here(player);
-        let Some(run) = self
-            .players
-            .get_mut(&player)
-            .and_then(|state| state.run.as_mut())
-        else {
+        let Some(instance) = self.instance_mut(player) else {
             return Vec::new();
         };
-        let source = run.ice[index].named();
+        let source = instance.ice[index].named();
         match action.effect() {
             Effect::Alert => {
                 let alert = source
@@ -177,7 +177,7 @@ impl World {
                     .span(Style::Danger, action.name())
                     .text(".");
                 let mut woken = Vec::new();
-                for ice in &mut run.ice {
+                for ice in &mut instance.ice {
                     if ice.kind == IceKind::Hound && !ice.awake && !ice.broken() {
                         ice.awake = true;
                         ice.host = here;
@@ -202,7 +202,12 @@ impl World {
                     .text(" fires ")
                     .span(Style::Danger, action.name())
                     .text(".");
-                if std::mem::take(&mut run.firewall) {
+                let stopped = self
+                    .players
+                    .get_mut(&player)
+                    .and_then(|state| state.run.as_mut())
+                    .is_some_and(|run| std::mem::take(&mut run.firewall));
+                if stopped {
                     return vec![hit.text(" Your firewall stops it.")];
                 }
                 self.damage_hit(player, hit, amount)
@@ -239,14 +244,10 @@ impl World {
 
     pub(super) fn guard(&self, player: PlayerId, target: HostId) -> Result<(), Message> {
         let here = self.here(player);
-        let Some(run) = self
-            .players
-            .get(&player)
-            .and_then(|state| state.run.as_ref())
-        else {
+        let Some(instance) = self.instance(player) else {
             return Ok(());
         };
-        let warden = run.ice.iter().find(|ice| {
+        let warden = instance.ice.iter().find(|ice| {
             ice.host == here && ice.guards == Some(target) && !ice.broken() && !ice.fooled
         });
         let Some(warden) = warden else {
@@ -264,8 +265,8 @@ impl World {
     }
 
     pub(super) fn ice_line(&self, host: HostId, viewer: PlayerId) -> Option<Message> {
-        let run = self.players.get(&viewer)?.run.as_ref()?;
-        let here: Vec<&Ice> = run.ice.iter().filter(|ice| ice.host == host).collect();
+        let instance = self.instance(viewer)?;
+        let here: Vec<&Ice> = instance.ice.iter().filter(|ice| ice.host == host).collect();
         if here.is_empty() {
             return None;
         }

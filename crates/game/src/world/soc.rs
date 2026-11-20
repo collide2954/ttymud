@@ -112,19 +112,16 @@ impl World {
     }
 
     pub(super) fn analyst_names(&self, player: PlayerId) -> Vec<&str> {
-        let run = self
-            .players
-            .get(&player)
-            .and_then(|state| state.run.as_ref());
-        run.into_iter()
-            .flat_map(|run| &run.analysts)
+        self.instance(player)
+            .into_iter()
+            .flat_map(|instance| &instance.analysts)
             .map(|analyst| analyst.name.as_str())
             .collect()
     }
 
     pub(super) fn fool(&mut self, player: PlayerId, word: &str) -> Option<Result<Step, Message>> {
-        let run = self.players.get_mut(&player)?.run.as_mut()?;
-        let analyst = run
+        let instance = self.instance_mut(player)?;
+        let analyst = instance
             .analysts
             .iter_mut()
             .find(|analyst| analyst.name.eq_ignore_ascii_case(word))?;
@@ -151,8 +148,8 @@ impl World {
     }
 
     pub(super) fn soc_line(&self, player: PlayerId) -> Option<Message> {
-        let run = self.players.get(&player)?.run.as_ref()?;
-        let (first, rest) = run.analysts.split_first()?;
+        let instance = self.instance(player)?;
+        let (first, rest) = instance.analysts.split_first()?;
         let named = |line: Message, analyst: &Analyst| {
             line.span(Style::Player, &analyst.name)
                 .text(format!(" ({})", analyst.habit.word()))
@@ -166,25 +163,28 @@ impl World {
 
     pub(super) fn tick_soc(&mut self, player: PlayerId) -> Vec<Message> {
         let here = self.here(player);
-        let Some(run) = self
-            .players
-            .get_mut(&player)
-            .and_then(|state| state.run.as_mut())
-        else {
+        let Some(id) = self.instance_id(player) else {
             return Vec::new();
         };
-        let network = run.network;
+        let Some(instance) = self.instances.get_mut(&id) else {
+            return Vec::new();
+        };
+        let network = instance.network;
         let hosts: Vec<HostId> = (0..self.hosts.len())
             .filter(|&index| self.hosts[index].network == Some(network))
             .map(HostId)
             .collect();
-        let noisiest = run
+        let noisiest = instance
             .logs
             .iter()
             .max_by_key(|&&(_, noise)| noise)
             .map(|&(host, _)| host);
         let mut events = Vec::new();
-        for analyst in run.analysts.iter_mut().filter(|analyst| !analyst.fooled) {
+        for analyst in instance
+            .analysts
+            .iter_mut()
+            .filter(|analyst| !analyst.fooled)
+        {
             analyst.wait = analyst.wait.saturating_sub(1);
             if analyst.wait > 0 {
                 continue;
@@ -235,16 +235,23 @@ impl World {
             ];
         }
         let line = line.text(" reads the logs of ").span(Style::Host, id);
-        let Some(run) = self
-            .players
-            .get_mut(&player)
-            .and_then(|state| state.run.as_mut())
-        else {
+        let (Some(copy), Some(run)) = (
+            self.instance_id(player),
+            self.players
+                .get_mut(&player)
+                .and_then(|state| state.run.as_mut()),
+        ) else {
             return Vec::new();
         };
-        let logged = run.logs.iter().position(|&(known, _)| known == host);
-        let found = match logged {
-            Some(index) if run.mask == 0 => run.logs.remove(index).1,
+        let logs = self
+            .instances
+            .get_mut(&copy)
+            .map(|instance| &mut instance.logs);
+        let found = match logs {
+            Some(logs) if run.mask == 0 => logs
+                .iter()
+                .position(|&(known, _)| known == host)
+                .map_or(0, |index| logs.remove(index).1),
             _ => 0,
         };
         if found == 0 {
@@ -285,12 +292,9 @@ mod tests {
     const NIGHT: u64 = 20_000 * 86_400 + 2 * 3_600;
 
     fn staff(world: &World, player: PlayerId) -> Vec<String> {
-        let run = world
-            .players
-            .get(&player)
-            .and_then(|state| state.run.as_ref());
-        run.map_or_default(|run| {
-            run.analysts
+        world.instance(player).map_or_default(|instance| {
+            instance
+                .analysts
                 .iter()
                 .map(|analyst| analyst.name.clone())
                 .collect()
@@ -298,30 +302,27 @@ mod tests {
     }
 
     fn versions(world: &World, player: PlayerId) -> Vec<u32> {
-        let run = world
-            .players
-            .get(&player)
-            .and_then(|state| state.run.as_ref());
-        run.map_or_default(|run| run.ice.iter().map(|ice| ice.version).collect())
+        world
+            .instance(player)
+            .map_or_default(|instance| instance.ice.iter().map(|ice| ice.version).collect())
     }
 
     fn watched(at: u64) -> (World, PlayerId, String, String) {
         let (mut world, player) = hired_at(at);
         enter_job(&mut world, player);
         let here = world.hosts[world.here(player).0].id.clone();
-        let Some(state) = world.players.get_mut(&player) else {
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.cycles = 20;
+        }
+        let Some(instance) = world.instance_mut(player) else {
             return (world, player, String::new(), here);
         };
-        state.rig.cycles = 20;
-        let Some(run) = state.run.as_mut() else {
-            return (world, player, String::new(), here);
-        };
-        run.ice.clear();
-        for (index, analyst) in run.analysts.iter_mut().enumerate() {
+        instance.ice.clear();
+        for (index, analyst) in instance.analysts.iter_mut().enumerate() {
             analyst.habit = Habit::Strict;
             analyst.wait = if index == 0 { 1 } else { 100 };
         }
-        let name = run.analysts[0].name.clone();
+        let name = instance.analysts[0].name.clone();
         (world, player, name, here)
     }
 
@@ -398,11 +399,13 @@ mod tests {
         };
         state.rig.loads.push(Verb::Pretext);
         state.rig.cycles = 20;
-        let Some(run) = state.run.as_mut() else {
+        if let Some(run) = state.run.as_mut() {
+            run.access = access;
+        }
+        let Some(instance) = world.instance_mut(player) else {
             return;
         };
-        run.access = access;
-        for (analyst, &habit) in run.analysts.iter_mut().zip(habits) {
+        for (analyst, &habit) in instance.analysts.iter_mut().zip(habits) {
             analyst.habit = habit;
         }
     }
@@ -433,12 +436,8 @@ mod tests {
         set_up(&mut world, player, &[Habit::Lazy], Level::User);
         world.command(player, "scan");
         let host = world.here(player);
-        if let Some(run) = world
-            .players
-            .get_mut(&player)
-            .and_then(|state| state.run.as_mut())
-        {
-            run.analysts[0].target = Some(host);
+        if let Some(instance) = world.instance_mut(player) {
+            instance.analysts[0].target = Some(host);
         }
         assert_eq!(
             plain(&world.tick()),
@@ -479,14 +478,10 @@ mod tests {
             plain(&world.command(player, &format!("pretext {strict}"))),
             [format!("{strict} is strict and does not believe you.")]
         );
-        if let Some(run) = world
-            .players
-            .get_mut(&player)
-            .and_then(|state| state.run.as_mut())
-        {
-            run.ice.clear();
-            run.analysts[0].wait = 1;
-            run.analysts[1].wait = 100;
+        if let Some(instance) = world.instance_mut(player) {
+            instance.ice.clear();
+            instance.analysts[0].wait = 1;
+            instance.analysts[1].wait = 100;
         }
         assert_eq!(plain(&world.tick()), Vec::<String>::new());
     }

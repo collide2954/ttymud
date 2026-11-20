@@ -14,6 +14,7 @@ mod heat;
 mod help;
 mod ice;
 mod ignore;
+mod instance;
 mod jobs;
 mod moderation;
 mod movement;
@@ -58,6 +59,7 @@ pub use chat::is_chat;
 pub use complete::Completion;
 use contract::{Contract, Job};
 use crews::Crews;
+use instance::{Instance, InstanceId};
 use jobs::Fixer;
 use moderation::Moderation;
 use news::News;
@@ -208,6 +210,8 @@ pub struct World {
     burns_dirty: bool,
     news: News,
     crews: Crews,
+    instances: BTreeMap<InstanceId, Instance>,
+    next_instance: u64,
     now: u64,
     next_player: u64,
     outbox: Vec<Output>,
@@ -312,6 +316,8 @@ impl World {
                 ..News::default()
             },
             crews: Crews::default(),
+            instances: BTreeMap::new(),
+            next_instance: 0,
             now: 0,
             next_player: 0,
             outbox: Vec::new(),

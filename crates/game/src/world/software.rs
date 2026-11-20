@@ -107,10 +107,10 @@ mod tests {
         if let Some(state) = world.players.get_mut(&player) {
             state.rig.loads.push(Verb::Exploit);
             state.rig.cycles = 20;
-            if let Some(run) = state.run.as_mut() {
-                run.ice.clear();
-                run.analysts.clear();
-            }
+        }
+        if let Some(instance) = world.instance_mut(player) {
+            instance.ice.clear();
+            instance.analysts.clear();
         }
         let corp = world.run_corp(player).unwrap_or_default();
         let here = world.here(player);

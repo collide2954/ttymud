@@ -129,11 +129,9 @@ impl World {
     fn targets_here(&self, player: PlayerId, analysts: bool) -> Vec<&str> {
         let here = self.here(player);
         let mut names: Vec<&str> = self
-            .players
-            .get(&player)
-            .and_then(|state| state.run.as_ref())
+            .instance(player)
             .into_iter()
-            .flat_map(|run| &run.ice)
+            .flat_map(|instance| &instance.ice)
             .filter(|ice| ice.host == here && ice.known && !ice.broken())
             .map(|ice| ice.name.as_str())
             .collect();

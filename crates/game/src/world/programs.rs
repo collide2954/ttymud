@@ -1,6 +1,5 @@
 use ttymud_text::{Kind, Message, Style};
 
-use super::run::Run;
 use super::{PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::{self, Command, Item, Program};
 
@@ -51,13 +50,16 @@ impl World {
 
     pub(super) fn scan(&mut self, player: PlayerId) -> Result<Step, Message> {
         let here = self.here(player);
-        let run = self
-            .players
-            .get_mut(&player)
-            .and_then(|state| state.run.as_mut())
+        let id = self
+            .instance_id(player)
             .ok_or_else(|| Message::error("scan works only in a target network."))?;
         let mut step = Step::default();
-        for ice in run.ice.iter_mut().filter(|ice| ice.host == here) {
+        let ice = self
+            .instances
+            .get_mut(&id)
+            .into_iter()
+            .flat_map(|instance| instance.ice.iter_mut());
+        for ice in ice.filter(|ice| ice.host == here) {
             ice.known = true;
             let mut line = ice.describe();
             if ice.broken() {
@@ -85,11 +87,12 @@ impl World {
 
     pub(super) fn scrub(&mut self, player: PlayerId) -> Result<Step, Message> {
         let here = self.here(player);
-        let Some(run) = self
-            .players
-            .get_mut(&player)
-            .and_then(|state| state.run.as_mut())
-        else {
+        let (Some(id), Some(run)) = (
+            self.instance_id(player),
+            self.players
+                .get_mut(&player)
+                .and_then(|state| state.run.as_mut()),
+        ) else {
             return Ok(Step::default());
         };
         if run.trace == 0 {
@@ -97,8 +100,10 @@ impl World {
         }
         let before = run.trace;
         run.trace = before.saturating_sub(SCRUB);
-        run.logs.retain(|&(host, _)| host != here);
         let after = run.trace;
+        if let Some(instance) = self.instances.get_mut(&id) {
+            instance.logs.retain(|&(host, _)| host != here);
+        }
         Ok(Step::show(vec![Message::game(format!(
             "scrub deletes your log lines. Trace: {before}% -> {after}%."
         ))]))
@@ -120,15 +125,14 @@ impl World {
             (CRACK, ("", ""))
         };
         let here = self.here(player);
-        let ice = self
-            .players
-            .get_mut(&player)
-            .and_then(|state| state.run.as_mut())
-            .and_then(|run| {
-                run.ice
+        let ice = self.instance_id(player).and_then(|id| {
+            self.instances.get_mut(&id).and_then(|instance| {
+                instance
+                    .ice
                     .iter_mut()
                     .find(|ice| ice.host == here && &ice.name == name)
-            });
+            })
+        });
         let Some(ice) = ice else {
             return Ok(Step::default());
         };
@@ -171,10 +175,10 @@ impl World {
         let names: Vec<String> = targets.into_iter().map(|(name, _)| name).collect();
         let here = self.here(player);
         let mut step = Step::default();
-        let Some(run) = self.run_of(player) else {
+        let Some(instance) = self.instance(player) else {
             return Ok(step);
         };
-        for ice in run
+        for ice in instance
             .ice
             .iter()
             .filter(|ice| ice.host == here && names.contains(&ice.name))
@@ -193,10 +197,6 @@ impl World {
         Ok(step)
     }
 
-    fn run_of(&self, player: PlayerId) -> Option<&Run> {
-        self.players.get(&player)?.run.as_ref()
-    }
-
     pub(super) fn targets(
         &self,
         player: PlayerId,
@@ -206,9 +206,9 @@ impl World {
     ) -> Result<Vec<(String, bool)>, Message> {
         let here = self.here(player);
         let known: Vec<&str> = self
-            .run_of(player)
+            .instance(player)
             .into_iter()
-            .flat_map(|run| &run.ice)
+            .flat_map(|instance| &instance.ice)
             .filter(|ice| ice.host == here && ice.known)
             .map(|ice| ice.name.as_str())
             .collect();

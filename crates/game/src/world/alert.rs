@@ -236,12 +236,9 @@ mod tests {
             .filter(|host| host.network.is_some_and(|known| known.0 == network))
             .flat_map(|host| host.ice.iter().map(|ice| (ice.version + 2).min(9)))
             .collect();
-        let run = world
-            .players
-            .get(&player)
-            .and_then(|state| state.run.as_ref());
-        let versions: Vec<u32> =
-            run.map_or_default(|run| run.ice.iter().map(|ice| ice.version).collect());
+        let versions: Vec<u32> = world
+            .instance(player)
+            .map_or_default(|instance| instance.ice.iter().map(|ice| ice.version).collect());
         assert_eq!(versions, base);
         world.command(player, "scan");
         assert_eq!(trace(&world, player), 6);

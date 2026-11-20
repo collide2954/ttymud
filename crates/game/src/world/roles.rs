@@ -64,8 +64,9 @@ impl World {
             return Err(Message::error("pretext takes one warden at a time."));
         };
         let here = self.here(player);
-        let Some(ice) = self.run_mut(player).and_then(|run| {
-            run.ice
+        let Some(ice) = self.instance_mut(player).and_then(|instance| {
+            instance
+                .ice
                 .iter_mut()
                 .find(|ice| ice.host == here && &ice.name == name)
         }) else {
@@ -178,8 +179,10 @@ mod tests {
             .and_then(|state| state.run.as_mut())
         {
             run.trace = 0;
-            let gate = run.ice[0].host;
-            for ice in &mut run.ice {
+        }
+        if let Some(instance) = world.instance_mut(player) {
+            let gate = instance.ice[0].host;
+            for ice in &mut instance.ice {
                 ice.intent = None;
                 if ice.kind == IceKind::Hound {
                     ice.awake = true;

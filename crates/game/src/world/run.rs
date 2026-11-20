@@ -2,8 +2,8 @@ use ttymud_text::{Message, Style};
 
 use super::alert::{Alert, TRACE_ALERT};
 use super::heat::FAST_HEAT;
-use super::ice::{Ice, deploy};
-use super::soc::Analyst;
+use super::ice::deploy;
+use super::instance::{Instance, InstanceId};
 use super::{HostId, NetworkId, PlayerId, Step, World};
 use crate::contract::Event;
 use crate::heat::MAX_HEAT;
@@ -17,18 +17,16 @@ const CRASH: &str = "Your rig crashes, and you lose the loot of this run.";
 
 #[derive(Debug)]
 pub(super) struct Run {
+    pub(super) instance: InstanceId,
     pub(super) network: NetworkId,
     pub(super) start: usize,
     pub(super) trace: u32,
     pub(super) loot: Vec<String>,
-    pub(super) ice: Vec<Ice>,
     pub(super) firewall: bool,
     pub(super) mask: u32,
     pub(super) proxy: bool,
     pub(super) access: Level,
     pub(super) shells: Vec<(HostId, Level)>,
-    pub(super) analysts: Vec<Analyst>,
-    pub(super) logs: Vec<(HostId, u32)>,
 }
 
 impl World {
@@ -118,23 +116,26 @@ impl World {
         } else {
             Action::Alert.ticks()
         };
-        let Some(run) = self
-            .players
-            .get_mut(&player)
-            .and_then(|state| state.run.as_mut())
-        else {
+        let Some(id) = self.instance_id(player) else {
             return Vec::new();
         };
-        let masked = run.mask > 0;
+        let masked = self
+            .players
+            .get(&player)
+            .and_then(|state| state.run.as_ref())
+            .is_some_and(|run| run.mask > 0);
+        let Some(instance) = self.instances.get_mut(&id) else {
+            return Vec::new();
+        };
         if !masked {
-            match run.logs.iter_mut().find(|(host, _)| *host == here) {
+            match instance.logs.iter_mut().find(|(host, _)| *host == here) {
                 Some((_, logged)) => *logged += noise,
-                None => run.logs.push((here, noise)),
+                None => instance.logs.push((here, noise)),
             }
         }
         let mut shown = Vec::new();
         let mut watched = false;
-        for ice in run
+        for ice in instance
             .ice
             .iter_mut()
             .filter(|ice| ice.host == here && !ice.broken() && !masked)
@@ -192,6 +193,7 @@ impl World {
 
     fn drop_link(&mut self, player: PlayerId, lose_loot: bool) -> Vec<Message> {
         let from = self.here(player);
+        let mut closed = None;
         if let Some(state) = self.players.get_mut(&player)
             && let Some(run) = state.run.take()
         {
@@ -202,6 +204,10 @@ impl World {
                     .files
                     .retain(|file| !run.loot.contains(&file.name));
             }
+            closed = Some(run.instance);
+        }
+        if let Some(id) = closed {
+            self.close_instance(id);
         }
         let here = self.here(player);
         self.relocate(player, from, here);
@@ -209,56 +215,67 @@ impl World {
     }
 
     pub(super) fn cross(&mut self, player: PlayerId, from: HostId, to: HostId) -> Vec<Message> {
-        let entering = self.hosts[to.0].network;
-        let bonus = entering.map_or(0, |network| self.ice_bonus(network));
-        let alert = entering.and_then(|network| self.network_alert(network));
-        let analysts = entering.map_or_else(Vec::new, |network| self.staff(network));
+        match (self.hosts[from.0].network, self.hosts[to.0].network) {
+            (None, Some(network)) => self.start_run(player, network),
+            (Some(network), None) => self.end_run(player, network),
+            _ => Vec::new(),
+        }
+    }
+
+    fn start_run(&mut self, player: PlayerId, network: NetworkId) -> Vec<Message> {
+        let instance = Instance {
+            network,
+            ice: deploy(&self.hosts, network, self.ice_bonus(network)),
+            analysts: self.staff(network),
+            logs: Vec::new(),
+        };
+        let id = self.open_instance(instance);
         let Some(state) = self.players.get_mut(&player) else {
             return Vec::new();
         };
-        match (self.hosts[from.0].network, self.hosts[to.0].network) {
-            (None, Some(network)) => {
-                state.run = Some(Run {
-                    network,
-                    start: state.chain.len() - 1,
-                    trace: 0,
-                    loot: Vec::new(),
-                    ice: deploy(&self.hosts, network, bonus),
-                    firewall: false,
-                    mask: 0,
-                    proxy: false,
-                    access: Level::Guest,
-                    shells: Vec::new(),
-                    analysts,
-                    logs: Vec::new(),
-                });
-                let name = &self.networks[network.0].name;
-                let connect = match alert.filter(|&alert| alert > Alert::Green) {
-                    Some(alert) => format!(
-                        "You connect to the network of {name}. It is on {} alert.",
-                        alert.word()
-                    ),
-                    None => format!("You connect to the network of {name}."),
-                };
-                let shown = vec![Message::game(connect)];
-                if self.is_job(player, network) {
-                    self.advance(player, Event::Enter);
-                }
-                shown
-            }
-            (Some(network), None) => {
-                state.run = None;
-                let name = &self.networks[network.0].name;
-                let exit = Message::game(format!("You leave the network of {name}. Clean exit."));
-                if self.is_job(player, network) {
-                    self.advance(player, Event::Exit);
-                }
-                std::iter::once(exit)
-                    .chain(self.finish_contract(player, network))
-                    .collect()
-            }
-            _ => Vec::new(),
+        state.run = Some(Run {
+            instance: id,
+            network,
+            start: state.chain.len() - 1,
+            trace: 0,
+            loot: Vec::new(),
+            firewall: false,
+            mask: 0,
+            proxy: false,
+            access: Level::Guest,
+            shells: Vec::new(),
+        });
+        let name = &self.networks[network.0].name;
+        let alert = self.network_alert(network);
+        let connect = match alert.filter(|&alert| alert > Alert::Green) {
+            Some(alert) => format!(
+                "You connect to the network of {name}. It is on {} alert.",
+                alert.word()
+            ),
+            None => format!("You connect to the network of {name}."),
+        };
+        if self.is_job(player, network) {
+            self.advance(player, Event::Enter);
         }
+        vec![Message::game(connect)]
+    }
+
+    fn end_run(&mut self, player: PlayerId, network: NetworkId) -> Vec<Message> {
+        let closed = self
+            .players
+            .get_mut(&player)
+            .and_then(|state| state.run.take());
+        if let Some(run) = closed {
+            self.close_instance(run.instance);
+        }
+        let name = &self.networks[network.0].name;
+        let exit = Message::game(format!("You leave the network of {name}. Clean exit."));
+        if self.is_job(player, network) {
+            self.advance(player, Event::Exit);
+        }
+        std::iter::once(exit)
+            .chain(self.finish_contract(player, network))
+            .collect()
     }
 }
 
