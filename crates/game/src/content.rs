@@ -40,6 +40,7 @@ pub(crate) struct ChannelDef {
     pub(crate) id: String,
     pub(crate) desc: String,
     pub(crate) auto: bool,
+    pub(crate) linked: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

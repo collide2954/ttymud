@@ -8,6 +8,7 @@ pub(super) struct Channel {
     pub(super) id: String,
     pub(super) desc: String,
     pub(super) auto: bool,
+    pub(super) linked: bool,
 }
 
 impl From<ChannelDef> for Channel {
@@ -16,6 +17,7 @@ impl From<ChannelDef> for Channel {
             id: def.id,
             desc: def.desc,
             auto: def.auto,
+            linked: def.linked,
         }
     }
 }
@@ -151,6 +153,9 @@ impl World {
         let Some(name) = self.players.get(&player).map(|state| state.name.clone()) else {
             return Vec::new();
         };
+        if self.linked_channel().as_ref() == Some(&id) {
+            self.send_out(&name, text);
+        }
         let message = Message::new(Kind::Chat)
             .text(format!("[{id}] <"))
             .span(Style::Player, name)
@@ -224,6 +229,7 @@ mod tests {
             [
                 "#city: All of the test city. You are in this channel.",
                 "#trade: Buy and sell.",
+                "#longline: All linked cities.",
                 "Type #<channel> <text> to talk. Type join or leave to change your channels.",
             ]
         );
@@ -239,7 +245,7 @@ mod tests {
         assert_eq!(said("leave trade"), ["You are not in #trade."]);
         assert_eq!(
             said("join nope"),
-            ["No channel named nope. Channels: city, trade"]
+            ["No channel named nope. Channels: city, trade, longline"]
         );
     }
 
@@ -252,7 +258,7 @@ mod tests {
         assert_eq!(run("#city"), ["Usage: #<channel> <text>."]);
         assert_eq!(
             run("#nope hi"),
-            ["No channel named nope. Channels: city, trade"]
+            ["No channel named nope. Channels: city, trade, longline"]
         );
         assert_eq!(run("#c a | b"), ["[city] <ghost> a | b"]);
     }

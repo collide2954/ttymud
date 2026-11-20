@@ -22,6 +22,7 @@ mod ice;
 mod ignore;
 mod instance;
 mod jobs;
+mod longline;
 mod market;
 mod matches;
 mod moderation;
@@ -76,6 +77,8 @@ use crews::Crews;
 use duels::Challenge;
 use instance::{Instance, InstanceId};
 use jobs::Fixer;
+use longline::Longline;
+pub use longline::Outgoing;
 use market::Market;
 use matches::{End, Match};
 use moderation::Moderation;
@@ -240,6 +243,7 @@ pub struct World {
     burns: Vec<Burn>,
     burns_dirty: bool,
     news: News,
+    longline: Longline,
     crews: Crews,
     instances: BTreeMap<InstanceId, Instance>,
     next_instance: u64,
@@ -344,6 +348,7 @@ impl World {
                 host: content.news.as_deref().map(find),
                 ..News::default()
             },
+            longline: Longline::default(),
             crews: Crews::default(),
             instances: BTreeMap::new(),
             next_instance: 0,

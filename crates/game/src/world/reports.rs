@@ -148,11 +148,22 @@ impl World {
         let Some(state) = self.players.get(&speaker) else {
             return;
         };
+        let (key, line) = (state.key(), format!("{place}: <{}> {text}", state.name));
+        let listener = listener.and_then(|listener| self.person(listener));
+        self.remember_line(key, listener, line);
+    }
+
+    pub(super) fn remember_line(
+        &mut self,
+        speaker: String,
+        listener: Option<String>,
+        line: String,
+    ) {
         let said = Said {
             when: self.now,
-            speaker: state.key(),
-            listener: listener.and_then(|listener| self.person(listener)),
-            line: format!("{place}: <{}> {text}", state.name),
+            speaker,
+            listener,
+            line,
         };
         let now = self.now;
         let history = &mut self.moderation.reports.history;

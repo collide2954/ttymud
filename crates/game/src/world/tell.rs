@@ -50,6 +50,10 @@ impl World {
         if name.is_empty() || text.is_empty() {
             return self.deliver(player, vec![Message::error("Usage: tell <handle> <text>.")]);
         }
+        if name.contains('@') {
+            let refusal = Message::error("Private messages stay in this city.");
+            return self.deliver(player, vec![refusal]);
+        }
         let online = self.online();
         let names: Vec<&str> = online.iter().map(|&(_, name)| name).collect();
         let target = match choose(Thing::Handle, name, &names) {

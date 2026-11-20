@@ -4,6 +4,7 @@ use ttymud_text::Message;
 use ttymud_text::ini;
 
 use super::bans::Bans;
+use super::longline::is_remote;
 use super::reports::Reports;
 use super::save::Text;
 use super::{Output, PlayerId, Step, World, minute_word};
@@ -131,6 +132,11 @@ impl World {
         if self.moderation.moderators.contains(&key) {
             return Err(Message::error(format!("You cannot {verb} a moderator.")));
         }
+        if is_remote(&key) && verb != "mute" {
+            return Err(Message::error(format!(
+                "{name} is in a linked city. You can only mute a handle of a linked city."
+            )));
+        }
         Ok((key, name))
     }
 
@@ -206,6 +212,9 @@ impl World {
     }
 
     fn muted_until(&self, key: &str) -> u64 {
+        if is_remote(key) {
+            return self.remote_muted_until(key);
+        }
         match self.players.values().find(|state| state.key() == key) {
             Some(state) => state.social.muted,
             None => self
@@ -216,6 +225,10 @@ impl World {
     }
 
     fn set_muted(&mut self, key: &str, until: u64) {
+        if is_remote(key) {
+            self.set_remote_muted(key, until);
+            return;
+        }
         let online = self.players.values_mut().filter(|state| state.key() == key);
         for state in online {
             state.social.muted = until;

@@ -108,6 +108,7 @@ fn a_channel_has_a_description_and_can_be_automatic() {
         id: id.to_owned(),
         desc: desc.to_owned(),
         auto,
+        linked: false,
     };
     assert_eq!(
         Content::parse(&text).unwrap().channels,
@@ -115,6 +116,25 @@ fn a_channel_has_a_description_and_can_be_automatic() {
             channel("city", "All of the city.", true),
             channel("trade", "Buy and sell.", false)
         ]
+    );
+    let linked = format!("{text}[channel longline]\ndesc = All linked cities.\nlinked = yes\n");
+    let found = Content::parse(&linked).unwrap().channels;
+    assert_eq!(
+        found
+            .iter()
+            .map(|channel| channel.linked)
+            .collect::<Vec<_>>(),
+        [false, false, true]
+    );
+    assert_eq!(
+        errors(&linked.replace("linked = yes", "linked = both")),
+        ["line 26: bad linked: both (use yes or no)"]
+    );
+    assert_eq!(
+        errors(&format!(
+            "{linked}[channel wire]\ndesc = Again.\nlinked = yes\n"
+        )),
+        ["line 27: channel wire cannot be linked, because channel longline is linked"]
     );
     assert_eq!(
         errors(&text.replace("auto = yes", "auto = maybe")),

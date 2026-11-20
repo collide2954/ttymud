@@ -1,5 +1,6 @@
 use ttymud_text::{Message, Style};
 
+use super::longline::is_remote;
 use super::{Player, PlayerId, Step, World, lines, listed};
 use crate::matching::{self, Found};
 
@@ -15,10 +16,20 @@ impl World {
     }
 
     pub(super) fn hears(&self, listener: PlayerId, speaker: PlayerId) -> bool {
-        let (Some(state), Some(key)) = (self.players.get(&listener), self.person(speaker)) else {
+        let key = self.person(speaker);
+        key.is_none_or(|key| self.hears_key(listener, &key))
+    }
+
+    pub(super) fn hears_key(&self, listener: PlayerId, key: &str) -> bool {
+        let Some(state) = self.players.get(&listener) else {
             return true;
         };
-        !state.social.ignores.contains(&key) && !state.social.blocks.contains(&key)
+        let social = &state.social;
+        !social
+            .ignores
+            .iter()
+            .chain(&social.blocks)
+            .any(|known| known == key)
     }
 
     pub(super) fn blocks(&self, listener: PlayerId, speaker: PlayerId) -> bool {
@@ -29,6 +40,9 @@ impl World {
     }
 
     pub(super) fn find_person(&self, word: &str) -> Result<(String, String), Message> {
+        if word.contains('@') {
+            return self.remote_person(word);
+        }
         let online = self.online_names();
         if let Found::One(name) = matching::resolve(word, &online)
             && let Some(state) = self.players.values().find(|state| state.name == name)
@@ -52,6 +66,9 @@ impl World {
     pub(super) fn person_label<'a>(&'a self, key: &'a str) -> Option<&'a str> {
         if let Some(name) = key.strip_prefix('@') {
             return Some(name);
+        }
+        if is_remote(key) {
+            return Some(key);
         }
         let online = self
             .players
