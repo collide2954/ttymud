@@ -1,10 +1,10 @@
 use ttymud_text::Message;
+use ttymud_text::ini;
 
 use super::save::{Text, allow, checked, problem};
 use super::{HostId, Step, World, lines};
 use crate::content::{ContentError, File};
 use crate::date::stamp;
-use crate::ini;
 
 pub(super) const NEWS: &str = "news.ini";
 const NEWS_FILE: &str = "news.txt";

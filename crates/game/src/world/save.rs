@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
+use ttymud_text::ini::{self, Pair, Section};
+
 use super::account::{Account, Saved};
 use super::alert::CorpState;
 use super::auction::AUCTION;
@@ -18,7 +20,6 @@ use super::{PlayerId, World};
 use crate::commands::{self, TOP_VERSION, Verb};
 use crate::content::{ContentError, File};
 use crate::heat::MAX_HEAT;
-use crate::ini::{self, Pair, Section};
 use crate::kits::{CYCLES, KITS, RAM};
 
 const ACCOUNTS: &str = "accounts/";

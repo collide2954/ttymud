@@ -1,7 +1,8 @@
+use ttymud_text::ini::{Pair, Section};
+
 use super::reader::{Name, Reader};
 use super::{CorpDef, File, FixerDef, TemplateDef, is_script};
 use crate::heat::{MAX_HEAT, Security};
-use crate::ini::{Pair, Section};
 use crate::target::Layer;
 
 pub(super) struct FixerLines {

@@ -6,31 +6,14 @@ mod targets;
 #[cfg(test)]
 mod tests;
 
-use std::fmt;
-
 use reader::Reader;
+pub use ttymud_text::ini::Error as ContentError;
 
 use crate::commands::{self, TOP_VERSION, Verb};
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::ice::IceKind;
 use crate::target::{Layer, Level};
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ContentError {
-    pub line: usize,
-    pub message: String,
-}
-
-impl fmt::Display for ContentError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.line == 0 {
-            f.write_str(&self.message)
-        } else {
-            write!(f, "line {}: {}", self.line, self.message)
-        }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Content {

@@ -1,4 +1,20 @@
-use crate::content::ContentError;
+use std::fmt;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Error {
+    pub line: usize,
+    pub message: String,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.line == 0 {
+            f.write_str(&self.message)
+        } else {
+            write!(f, "line {}: {}", self.line, self.message)
+        }
+    }
+}
 
 pub struct Section<'a> {
     pub kind: &'a str,
@@ -14,10 +30,10 @@ pub struct Pair<'a> {
 }
 
 #[must_use]
-pub fn read(text: &str) -> (Vec<Section<'_>>, Vec<ContentError>) {
+pub fn read(text: &str) -> (Vec<Section<'_>>, Vec<Error>) {
     let mut sections: Vec<Section<'_>> = Vec::new();
     let mut errors = Vec::new();
-    let mut error = |line, message: String| errors.push(ContentError { line, message });
+    let mut error = |line, message: String| errors.push(Error { line, message });
     for (index, raw) in text.lines().enumerate() {
         let line = index + 1;
         let text = raw.trim();
@@ -58,13 +74,12 @@ pub fn read(text: &str) -> (Vec<Section<'_>>, Vec<ContentError>) {
 
 #[cfg(test)]
 mod tests {
-    use super::read;
-    use crate::content::ContentError;
+    use super::{Error, read};
 
     #[test]
     fn sections_keep_their_keys_in_order() {
         let (sections, errors) = read("# note\n[host a]\nroute = b\nroute = c\n\n[file a/x]\n");
-        assert_eq!(errors, Vec::<ContentError>::new());
+        assert_eq!(errors, Vec::<Error>::new());
         let kinds: Vec<(&str, &str)> = sections.iter().map(|s| (s.kind, s.id)).collect();
         assert_eq!(kinds, [("host", "a"), ("file", "a/x")]);
         let routes: Vec<&str> = sections[0].pairs.iter().map(|pair| pair.value).collect();
@@ -77,5 +92,18 @@ mod tests {
         let (_, errors) = read("key = early\n[host]\n[host a]\nnonsense\n");
         let lines: Vec<usize> = errors.iter().map(|error| error.line).collect();
         assert_eq!(lines, [1, 2, 4]);
+    }
+
+    #[test]
+    fn an_error_shows_its_line_unless_it_has_none() {
+        let at = |line| {
+            Error {
+                line,
+                message: "no city section".to_owned(),
+            }
+            .to_string()
+        };
+        assert_eq!(at(3), "line 3: no city section");
+        assert_eq!(at(0), "no city section");
     }
 }

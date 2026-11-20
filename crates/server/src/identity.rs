@@ -4,7 +4,7 @@ use std::io;
 use std::path::Path;
 
 use ttymud_game::ContentError;
-use ttymud_game::ini::{self, Section};
+use ttymud_text::ini::{self, Section};
 
 pub(crate) const KEYS: &str = "keys.ini";
 const LINK_TIME: u64 = 10 * 60;

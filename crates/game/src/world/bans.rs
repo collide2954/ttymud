@@ -1,12 +1,12 @@
 use std::net::IpAddr;
 
 use ttymud_text::Message;
+use ttymud_text::ini::{self, Section};
 
 use super::save::{Text, allow, checked, number, problem};
 use super::{PlayerId, Step, World, lines};
 use crate::content::ContentError;
 use crate::date::stamp;
-use crate::ini::{self, Section};
 
 pub(super) const BANS: &str = "bans.ini";
 pub const BANNED: &str = "You are banned from this server.";

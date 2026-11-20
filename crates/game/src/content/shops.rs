@@ -1,7 +1,8 @@
+use ttymud_text::ini::{Pair, Section};
+
 use super::ShopDef;
 use super::reader::{Name, Reader};
 use crate::commands::{self, TOP_VERSION, Verb};
-use crate::ini::{Pair, Section};
 use crate::kits::{CYCLES, RAM};
 
 const SHOP_VERSION: u32 = 2;

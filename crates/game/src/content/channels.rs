@@ -1,6 +1,7 @@
+use ttymud_text::ini::Section;
+
 use super::ChannelDef;
 use super::reader::{Name, Reader};
-use crate::ini::Section;
 
 impl Reader {
     pub(super) fn channel(&mut self, section: &Section<'_>) {

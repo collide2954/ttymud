@@ -1,3 +1,5 @@
+use ttymud_text::ini::{self, Section};
+
 use super::targets::FixerLines;
 use super::{
     ChannelDef, ContentError, ContractDef, CorpDef, File, FixerDef, HostDef, IceDef, NetworkDef,
@@ -6,7 +8,6 @@ use super::{
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::ice::IceKind;
-use crate::ini::{self, Section};
 
 #[derive(Clone, Copy)]
 pub(super) enum Name {

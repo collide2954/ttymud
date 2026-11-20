@@ -1,12 +1,12 @@
 use std::collections::VecDeque;
 
 use ttymud_text::Message;
+use ttymud_text::ini::{self, Section};
 
 use super::save::{Text, allow, checked, number, problem};
 use super::{Output, PlayerId, Step, World, lines};
 use crate::content::ContentError;
 use crate::date::stamp;
-use crate::ini::{self, Section};
 
 pub(super) const REPORTS: &str = "reports.ini";
 const EVIDENCE: u64 = 15 * 60;
