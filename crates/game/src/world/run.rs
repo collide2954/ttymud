@@ -319,6 +319,8 @@ impl World {
                 bridges: Vec::new(),
                 files: Vec::new(),
                 clock: 0,
+                cuts: Vec::new(),
+                cutting: Vec::new(),
             };
             self.open_instance(instance)
         });

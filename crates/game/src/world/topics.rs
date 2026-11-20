@@ -174,6 +174,12 @@ fn soc() -> Vec<Message> {
         Message::game(
             "A careful or strict analyst also locks your stolen account. Then your access is guest again.",
         ),
+        Message::game(
+            "The analyst also resets the stolen password. Those credentials do not work until the next day.",
+        ),
+        Message::game(
+            "A strict analyst can also cut one route that leads deeper. The cut lasts until the run ends.",
+        ),
         Message::game("Type ")
             .span(Style::Command, "scrub")
             .text(" to delete your logs on this host. While ")

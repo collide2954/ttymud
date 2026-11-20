@@ -1,6 +1,8 @@
+use std::collections::VecDeque;
+
 use ttymud_text::{Kind, Message, Style};
 
-use super::instance::{InstanceId, tell};
+use super::instance::{Cut, InstanceId, tell};
 use super::jobs::DAY;
 use super::run::MAX_TRACE;
 use super::{HostId, NetworkId, Output, PlayerId, Step, World, address};
@@ -12,6 +14,7 @@ const POOL: usize = 6;
 const DAY_STAFF: usize = 2;
 const NIGHT_STAFF: usize = 1;
 const READ_TICKS: u32 = 2;
+const CUT_TICKS: u32 = 2;
 const FOUND_TRACE: u32 = 5;
 const SALT: u64 = 0x050c;
 const HABITS: [Habit; 3] = [Habit::Careful, Habit::Strict, Habit::Lazy];
@@ -53,6 +56,13 @@ pub(super) struct Analyst {
     pub(super) wait: u32,
     pub(super) target: Option<HostId>,
     pub(super) fooled: bool,
+    pub(super) cut: bool,
+}
+
+fn soc_line(name: &str) -> Message {
+    Message::new(Kind::Telegraph)
+        .text("[SOC] Analyst ")
+        .span(Style::Player, name)
 }
 
 pub(super) fn day_shift(now: u64) -> bool {
@@ -91,6 +101,7 @@ impl World {
                 wait: habit.every() + 2 * index,
                 target: None,
                 fooled: false,
+                cut: false,
             })
             .collect()
     }
@@ -167,6 +178,29 @@ impl World {
         let Some(instance) = self.instances.get_mut(&id) else {
             return Vec::new();
         };
+        let everyone: Vec<PlayerId> = members.iter().map(|member| member.player).collect();
+        let mut finished = Vec::new();
+        for cut in &mut instance.cutting {
+            cut.ticks = cut.ticks.saturating_sub(1);
+            if cut.ticks == 0 {
+                finished.push(cut.clone());
+            }
+        }
+        instance.cutting.retain(|cut| cut.ticks > 0);
+        instance.cuts.extend(finished.iter().map(|cut| cut.route));
+        let mut outputs: Vec<Output> = finished
+            .iter()
+            .flat_map(|cut| {
+                let ((from, to), hosts) = (cut.route, &self.hosts);
+                let message = soc_line(&cut.analyst)
+                    .text(" cuts the route from ")
+                    .span(Style::Host, &hosts[from.0].id)
+                    .text(" to ")
+                    .span(Style::Host, &hosts[to.0].id)
+                    .text(".");
+                tell(&everyone, &message)
+            })
+            .collect();
         let network = instance.network;
         let hosts: Vec<HostId> = (0..self.hosts.len())
             .filter(|&index| self.hosts[index].network == Some(network))
@@ -210,7 +244,6 @@ impl World {
             analyst.wait = READ_TICKS;
             events.push((analyst.name.clone(), analyst.habit, host, false));
         }
-        let mut outputs = Vec::new();
         for (name, habit, host, read) in events {
             if self.members(id).is_empty() {
                 break;
@@ -230,11 +263,7 @@ impl World {
         let members = self.members(id);
         let everyone: Vec<PlayerId> = members.iter().map(|member| member.player).collect();
         let place = self.hosts[host.0].id.clone();
-        let line = || {
-            Message::new(Kind::Telegraph)
-                .text("[SOC] Analyst ")
-                .span(Style::Player, name)
-        };
+        let line = || soc_line(name);
         if !read {
             let turns = line()
                 .text(" turns to the logs of ")
@@ -308,7 +337,86 @@ impl World {
             shown.extend(self.raise_trace(player, gain));
             outputs.extend(address(player, shown));
         }
+        if habit == Habit::Strict {
+            outputs.extend(self.start_cut(id, name, host));
+        }
         outputs
+    }
+
+    fn start_cut(&mut self, id: InstanceId, name: &str, from: HostId) -> Vec<Output> {
+        let everyone: Vec<PlayerId> = self
+            .members(id)
+            .iter()
+            .map(|member| member.player)
+            .collect();
+        let Some(instance) = self.instances.get(&id) else {
+            return Vec::new();
+        };
+        if everyone.is_empty()
+            || instance
+                .analysts
+                .iter()
+                .any(|analyst| analyst.name == name && analyst.cut)
+        {
+            return Vec::new();
+        }
+        let depth = self.depths(instance.network);
+        let taken = |route: (HostId, HostId)| {
+            instance.cuts.contains(&route) || instance.cutting.iter().any(|cut| cut.route == route)
+        };
+        let deeper: Vec<HostId> = self.hosts[from.0]
+            .routes
+            .iter()
+            .copied()
+            .filter(|&to| {
+                depth[to.0].is_some() && depth[to.0] > depth[from.0] && !taken((from, to))
+            })
+            .collect();
+        if deeper.is_empty() {
+            return Vec::new();
+        }
+        let to = deeper[self.random.below(deeper.len())];
+        let Some(instance) = self.instances.get_mut(&id) else {
+            return Vec::new();
+        };
+        for analyst in instance
+            .analysts
+            .iter_mut()
+            .filter(|analyst| analyst.name == name)
+        {
+            analyst.cut = true;
+        }
+        instance.cutting.push(Cut {
+            analyst: name.to_owned(),
+            route: (from, to),
+            ticks: CUT_TICKS,
+        });
+        let message = soc_line(name)
+            .text(" starts to cut the route from ")
+            .span(Style::Host, &self.hosts[from.0].id)
+            .text(" to ")
+            .span(Style::Host, &self.hosts[to.0].id)
+            .text(format!(" ({CUT_TICKS} ticks)."));
+        tell(&everyone, &message)
+    }
+
+    fn depths(&self, network: NetworkId) -> Vec<Option<usize>> {
+        let mut depth = vec![None; self.hosts.len()];
+        let mut queue: VecDeque<HostId> =
+            self.networks[network.0].entries.iter().copied().collect();
+        for entry in &queue {
+            depth[entry.0] = Some(0);
+        }
+        while let Some(host) = queue.pop_front() {
+            let next = depth[host.0].map(|known| known + 1);
+            for &route in &self.hosts[host.0].routes {
+                if self.hosts[route.0].network == Some(network) && depth[route.0].is_none() {
+                    depth[route.0] = next;
+                    queue.push_back(route);
+                }
+            }
+        }
+        depth
     }
 }
 
@@ -391,12 +499,47 @@ mod tests {
             [format!("[SOC] Analyst {name} turns to the logs of {here}.")]
         );
         assert_eq!(plain(&world.tick()), Vec::<String>::new());
+        let shown = plain(&world.tick());
+        assert_eq!(
+            shown[0],
+            format!(
+                "[SOC] Analyst {name} reads the logs of {here} and finds your trail. Trace: 2% -> 9%."
+            )
+        );
+        let cut = format!("[SOC] Analyst {name} starts to cut the route from {here} to ");
+        assert!(shown[1].starts_with(&cut), "{shown:?}");
+    }
+
+    #[test]
+    fn a_strict_analyst_cuts_one_route_that_leads_deeper() {
+        let (mut world, player, name, here) = watched(NOON);
+        world.command(player, "scan");
+        for _ in 0..3 {
+            world.tick();
+        }
+        let route = world
+            .instance(player)
+            .and_then(|instance| instance.cutting.first().map(|cut| cut.route));
+        let deeper = route.map_or_default(|(_, to)| world.hosts[to.0].id.clone());
+        assert_eq!(plain(&world.tick()), Vec::<String>::new());
         assert_eq!(
             plain(&world.tick()),
             [format!(
-                "[SOC] Analyst {name} reads the logs of {here} and finds your trail. Trace: 2% -> 9%."
+                "[SOC] Analyst {name} cuts the route from {here} to {deeper}."
             )]
         );
+        assert_eq!(
+            plain(&world.command(player, &format!("go {deeper}"))),
+            [format!("The SOC cut the route to {deeper}.")]
+        );
+        world.command(player, "scan");
+        for _ in 0..8 {
+            world.tick();
+        }
+        let cuts = world
+            .instance(player)
+            .map_or(0, |instance| instance.cuts.len() + instance.cutting.len());
+        assert_eq!(cuts, 1);
     }
 
     #[test]
@@ -450,7 +593,7 @@ mod tests {
         world.tick();
         world.tick();
         assert_eq!(
-            plain(&world.tick()),
+            plain(&world.tick())[..2],
             [
                 format!(
                     "[SOC] Analyst {name} reads the logs of {here} and finds your trail. Trace: 2% -> 9%."

@@ -16,6 +16,15 @@ pub(super) struct Instance {
     pub(super) bridges: Vec<(HostId, HostId)>,
     pub(super) files: Vec<(HostId, File)>,
     pub(super) clock: u32,
+    pub(super) cuts: Vec<(HostId, HostId)>,
+    pub(super) cutting: Vec<Cut>,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct Cut {
+    pub(super) analyst: String,
+    pub(super) route: (HostId, HostId),
+    pub(super) ticks: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -406,16 +415,14 @@ mod tests {
         world.tick();
         let outputs = world.tick();
         assert_eq!(
-            heard(&outputs, nyx),
-            [format!(
+            heard(&outputs, nyx)[0],
+            format!(
                 "[SOC] Analyst {name} reads the logs of {here} and finds your trail. Trace: 2% -> 9%."
-            )]
+            )
         );
         assert_eq!(
-            heard(&outputs, zer0),
-            [format!(
-                "[SOC] Analyst {name} reads the logs of {here} and finds the trail of nyx."
-            )]
+            heard(&outputs, zer0)[0],
+            format!("[SOC] Analyst {name} reads the logs of {here} and finds the trail of nyx.")
         );
         assert_eq!(trace(&world, zer0), 0);
     }

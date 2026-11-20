@@ -362,6 +362,11 @@ impl World {
         let Some(instance) = self.instance(player) else {
             return Ok(());
         };
+        if instance.cuts.contains(&(here, target)) {
+            return Err(Message::error("The SOC cut the route to ")
+                .span(Style::Host, &self.hosts[target.0].id)
+                .text("."));
+        }
         let warden = instance.ice.iter().find(|ice| {
             ice.host == here && ice.guards == Some(target) && !ice.broken() && !ice.fooled
         });

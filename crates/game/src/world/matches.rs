@@ -111,6 +111,8 @@ impl World {
             bridges: Vec::new(),
             files,
             clock: 0,
+            cuts: Vec::new(),
+            cutting: Vec::new(),
         };
         let copy = self.open_instance(instance);
         let mut moves = Vec::new();
