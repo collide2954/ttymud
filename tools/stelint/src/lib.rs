@@ -1,3 +1,4 @@
+mod html;
 mod markdown;
 mod sentence;
 mod vocabulary;
@@ -16,8 +17,17 @@ const PARAGRAPH_LIMIT: usize = 6;
 
 #[must_use]
 pub fn check(markdown: &str, rules: &Rules) -> Vec<Issue> {
+    check_blocks(markdown::blocks(markdown), rules)
+}
+
+#[must_use]
+pub fn check_html(html: &str, rules: &Rules) -> Vec<Issue> {
+    check_blocks(html::blocks(html), rules)
+}
+
+fn check_blocks(blocks: Vec<Block>, rules: &Rules) -> Vec<Issue> {
     let mut issues = Vec::new();
-    for block in markdown::blocks(markdown) {
+    for block in blocks {
         semicolons(&block, &mut issues);
         contractions(&block, &mut issues);
         unapproved(&block, rules, &mut issues);
@@ -255,6 +265,23 @@ mod tests {
         let rules = Rules::from_style_guide("No table here.");
         assert!(rules.is_empty());
         assert_eq!(check("Ensure it.", &rules), Vec::<Issue>::new());
+    }
+
+    #[test]
+    fn html_text_gets_the_same_checks() {
+        let html = format!(
+            "<h1>A; b</h1>\n<p>{}.</p>\n<pre><code>{}; x.</code></pre>",
+            words(26),
+            words(30)
+        );
+        let found: Vec<(usize, String)> = super::check_html(&html, &Rules::default())
+            .into_iter()
+            .map(|issue| (issue.line, issue.message))
+            .collect();
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert_eq!(found[0], (1, "semicolon: write two sentences".to_owned()));
+        assert_eq!(found[1].0, 2);
+        assert!(found[1].1.starts_with("sentence has 26 words (max 25)"));
     }
 
     #[test]
