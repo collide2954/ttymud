@@ -10,6 +10,7 @@ license = "Apache-2.0"
 repository = "https://github.com/collide2954/ttymud"
 
 [workspace.dependencies]
+ttymud = { path = "crates/client" }
 ttymud-game = { path = "crates/game" }
 ttymud-net = { path = "crates/net" }
 ttymud-text = { path = "crates/text" }

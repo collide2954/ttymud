@@ -1,4 +1,5 @@
 mod markdown;
+mod servers;
 
 use std::env;
 use std::fmt::Write;
@@ -11,8 +12,11 @@ use markdown::{Page, escape, render};
 
 const REPOSITORY: &str = "https://github.com/collide2954/ttymud";
 const GUIDES: [&str; 2] = ["player", "operator"];
+const TEMPLATES: [&str; 3] = ["layout.html", "home.html", "servers.html"];
 const HOME_TITLE: &str = "TTYmud: a hacker game for the terminal";
 const HOME_TEXT: &str = "TTYmud is a multiplayer hacker game for the terminal. Take contracts, hack into corporate networks, and stay ahead of the trace.";
+const SERVERS_TITLE: &str = "Servers · TTYmud";
+const SERVERS_TEXT: &str = "The public list of TTYmud servers. Connect to a server on the list by its name, and the client checks the key of the server.";
 
 fn main() -> ExitCode {
     let Some(out) = env::args_os().nth(1) else {
@@ -41,13 +45,25 @@ fn build(root: &Path, out: &Path) -> io::Result<()> {
         let Some(name) = path.file_name() else {
             continue;
         };
-        if path.is_file() && name != "layout.html" && name != "home.html" {
+        let template = name.to_str().is_some_and(|name| TEMPLATES.contains(&name));
+        if path.is_file() && !template {
             fs::copy(&path, out.join(name))?;
         }
     }
     let home = fs::read_to_string(site.join("home.html"))?;
     let index = fill(&layout, "index.html", HOME_TITLE, HOME_TEXT, &home);
     fs::write(out.join("index.html"), index)?;
+    let list = servers::list(&ttymud::servers());
+    let template = fs::read_to_string(site.join("servers.html"))?;
+    let content = template.replace("{{servers}}", &list);
+    let page = fill(
+        &layout,
+        "servers.html",
+        SERVERS_TITLE,
+        SERVERS_TEXT,
+        &content,
+    );
+    fs::write(out.join("servers.html"), page)?;
     for name in GUIDES {
         let markdown = fs::read_to_string(root.join("docs").join(format!("{name}.md")))?;
         let page = render(&markdown, &target);
@@ -159,6 +175,10 @@ mod tests {
         let layout = "<title>{{title}}</title>|{{description}}|{{content}}";
         write(&root.join("site/layout.html"), layout);
         write(&root.join("site/home.html"), "<p>Home.</p>");
+        write(
+            &root.join("site/servers.html"),
+            "<h1>Servers</h1>\n{{servers}}",
+        );
         write(&root.join("site/style.css"), "body {}");
         write(
             &root.join("docs/player.md"),
@@ -191,6 +211,13 @@ mod tests {
             "{player}"
         );
         assert!(read("operator.html").contains("<h1 id=\"operator-guide\">Operator guide</h1>"));
+        let servers = read("servers.html");
+        assert!(
+            servers.starts_with("<title>Servers · TTYmud</title>|"),
+            "{servers}"
+        );
+        assert!(servers.contains("<h1>Servers</h1>\n<"), "{servers}");
+        assert!(!servers.contains("{{servers}}"), "{servers}");
         assert!(!out.join("layout.html").exists() && !out.join("home.html").exists());
         let _ = fs::remove_dir_all(&root);
         let _ = fs::remove_dir_all(&out);

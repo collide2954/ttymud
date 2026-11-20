@@ -6,6 +6,8 @@ on:
     paths:
       - "site/**"
       - "docs/**"
+      - "servers.ini"
+      - "crates/client/src/servers.rs"
       - "tools/site/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:

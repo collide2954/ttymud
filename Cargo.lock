@@ -1694,6 +1694,10 @@ dependencies = [
 [[package]]
 name = "site"
 version = "0.1.0"
+dependencies = [
+ "ttymud",
+ "ttymud-net",
+]
 
 [[package]]
 name = "slab"

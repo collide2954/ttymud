@@ -1,0 +1,11 @@
+<div class="wrap page">
+<h1>Servers</h1>
+<p class="intro">This page shows the public list of servers. The client has the same list, so you can connect to a server on the list by its name. Then the client compares the key of the server with the key on the list.</p>
+{{servers}}
+<h2 id="key">Connect with the key</h2>
+<p>A client knows only the servers that were on the list when someone built it. To connect to a newer server, use its address and its key:</p>
+<pre class="code"><code>ttymud connect ADDRESS --key KEY</code></pre>
+<p>The client compares the key of the server with the key that you give. Then it keeps the key for the next connections.</p>
+<h2 id="add">Add your server</h2>
+<p>To add your server to the list, change the file <a href="https://github.com/collide2954/ttymud/blob/main/servers.ini"><code>servers.ini</code></a> in a pull request. The <a href="operator.html#add-your-server-to-the-list">operator guide</a> tells you how.</p>
+</div>

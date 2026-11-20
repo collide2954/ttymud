@@ -117,10 +117,11 @@ cargo run -p ttymud-server -- play</code></pre>
 </div>
 <div>
 <h3>Connect to a server</h3>
-<p>Build the client, and then connect to the address of a server:</p>
+<p>Build the client. Then connect to a server on the <a href="servers.html">server list</a> by its name, or to the address of a different server:</p>
 <pre class="code"><code>cargo build --release -p ttymud
+target/release/ttymud servers
 target/release/ttymud connect ostra.example.net</code></pre>
-<p>At the first start, the client makes your identity key. Compare the fingerprint of a new server with the fingerprint that its operator publishes.</p>
+<p>At the first start, the client makes your identity key. For a server on the list, the client checks the key of the server. For a different server, compare its fingerprint with the fingerprint that its operator publishes.</p>
 <p>If the server has an SSH port, you can also connect with SSH and your SSH key:</p>
 <pre class="code"><code>ssh -p 7332 ostra.example.net</code></pre>
 </div>
