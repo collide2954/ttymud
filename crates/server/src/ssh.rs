@@ -122,6 +122,7 @@ async fn listen(listener: TcpListener, config: Arc<Config>, hub: Hub) {
     };
     loop {
         let Ok((stream, peer)) = listener.accept().await else {
+            tokio::time::sleep(Duration::from_millis(100)).await;
             continue;
         };
         let Some(admission) = Admission::new(&hub.limits, peer.ip()) else {
@@ -159,6 +160,7 @@ struct Client {
     ready: Arc<AtomicBool>,
     key: Option<[u8; 32]>,
     channel: Option<ChannelId>,
+    started: bool,
     terminal: Option<(String, u16, u16)>,
     vars: Vec<(String, String)>,
     input: Option<tokio::sync::mpsc::Sender<Input>>,
@@ -173,6 +175,7 @@ impl Client {
             ready: Arc::new(AtomicBool::new(false)),
             key: None,
             channel: None,
+            started: false,
             terminal: None,
             vars: Vec::new(),
             input: None,
@@ -185,10 +188,11 @@ impl Client {
         words: &str,
         session: &mut Session,
     ) -> Result<(), russh::Error> {
-        let open = self.input.is_none() && self.channel == Some(channel);
+        let open = !self.started && self.channel == Some(channel);
         let Some(digest) = self.key.filter(|_| open) else {
             return session.channel_failure(channel);
         };
+        self.started = true;
         let choices = match choices(words) {
             Ok(choices) => choices,
             Err(problem) => {
