@@ -131,7 +131,10 @@ The check cannot find all STE problems. A person must also read each document.
 | job board, board | The list of the jobs that the fixers post each day. |
 | know-how | The programs and blueprints that an account keeps after a burn. |
 | layer | One level of a target: the edge, the LAN, the core, or the vault. |
+| link | A connection between two servers that list each other in `links.ini`. It carries the linked channel and the headlines. |
 | link code | A code for one use that adds a new device to an account. |
+| linked channel | The one channel that reaches the players of all linked cities. In Port Ostra, it is `#longline`. |
+| linked city | A city on a different server that has a link to this server. |
 | loot | Data and items that a handle takes from a target. |
 | lot | One item of the police auction. |
 | maintenance laptop, laptop | A LAN host of a heist target that syncs with the vault at times. |

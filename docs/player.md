@@ -180,7 +180,7 @@ You can talk in three ways:
 - A line that starts with `#` and the name of a channel talks in that channel, for example `#ostra hello`. A channel reaches its members on all hosts.
 - `tell <handle> <text>` sends a private message to a handle that is online. `reply <text>` answers the last handle that sent you a private message.
 
-Port Ostra has the channels `#ostra`, `#help`, and `#market`. A new handle starts in `#ostra` and `#help`. Type `channels` to see the channels. Type `join market` or `leave market` to change your channels. The server keeps your channels with your handle.
+Port Ostra has the channels `#ostra`, `#help`, `#market`, and `#longline`. A new handle starts in `#ostra` and `#help`. Type `channels` to see the channels. Type `join market` or `leave market` to change your channels. The server keeps your channels with your handle.
 
 Type `who` to see the handles that are online. The list marks the moderators.
 
@@ -208,6 +208,16 @@ The operator of the server selects the moderators. A moderator can do these acti
 - Ban an account. The server disconnects the account and refuses it after that. A ban can also refuse an IP address.
 
 The moderators also read the reports. The server writes each action of a moderator to an audit log. If you are a moderator, type `help` to see your commands.
+
+## Linked cities
+
+Each server is a different city. Operators can make links between their servers. Type `cities` to see the linked cities, and if each link is up.
+
+The `#longline` channel reaches the players of all linked cities. To talk there, type `join longline` first. The name of a handle from a different city ends with the name of its city, for example `nyx@night-owl`.
+
+To read the headlines of a linked city, type `news` and the name of the city, for example `news night-owl`.
+
+The `ignore`, `block`, and `report` commands also work on a handle from a different city, for example `ignore nyx@night-owl`. Private messages stay in your city.
 
 ## Your account on more devices
 

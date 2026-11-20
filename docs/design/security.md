@@ -17,6 +17,7 @@ TTYmud protects players and servers against these threats.
 | A player sends too many messages or commands. | Rate limits. |
 | A player harasses a different player. | Ignore, block, report, and moderator tools. |
 | An attacker opens too many connections. | Connection limits and handshake time limits. |
+| A linked server sends harmful chat or too many messages. | Links only between servers that list each other, sanitized text, a rate limit for each link, and mute for handles of linked cities. |
 
 TTYmud does not protect against these threats:
 
@@ -86,6 +87,14 @@ The client also removes control characters from all text before it shows the tex
 - **Reports.** `report <handle>` sends the recent messages of that player to the moderators. The server keeps the last 15 minutes of chat in memory, so that a moderator can confirm a report. A report keeps the public messages of the player, and the private messages of the player to the reporter. A player can have one open report about each handle.
 - **Moderators.** The operator selects the moderators with the `ttymud-server mod` command. Moderators can mute, kick, and ban accounts. A ban applies to the account and, as an option, to an IP address. The server writes all moderator actions to an audit log, the file `audit.log`.
 
+## Linked cities
+
+Two operators can make a link between their servers in the file `links.ini`. A link starts only when each server lists the full key of the other server. The server that connects compares the key of the other server with the key in its list. As a result, a different computer cannot pretend to be a linked server.
+
+A linked server can send only messages for the linked channel and headlines. It cannot send handles, credits, files, private messages, or commands. The receiving server sanitizes each text, and it ignores a message from a handle with a name that is not valid. Each link has a rate limit: 40 messages quickly, and then 4 messages each second. The server ignores the other messages.
+
+Players can ignore, block, and report a handle of a linked city, for example `nyx@night-owl`. Moderators can mute it, but they cannot kick or ban it. A mute of a handle of a linked city stays only until the server stops. The operators of both servers can read the chat of the linked channel.
+
 ## Privacy
 
 - The server writes chat to disk only as the evidence of a report, in `reports.ini`. If the operator turns on chat logs in a later version, the server tells each player at login.
@@ -119,5 +128,6 @@ Version 0.1 has these parts of the design:
 - All the tools in the [chat safety](#chat-safety) section.
 - The SSH port of the `ssh` feature, with public keys only. SSH connections have the same connection limits and rate limits as Noise connections, and a login has a maximum of 10 seconds.
 - For each SSH session, the server keeps a short queue of input and a short queue of output. If a client stops reading for 30 seconds, the server disconnects it. The line editor on the server holds a maximum of 400 characters and 100 lines of history.
+- Links between cities, as the [linked cities](#linked-cities) section tells. Each link has a queue of 64 messages. If the other server reads too slowly, the server drops the new messages for it.
 
 Until a player selects a handle, the Welcome message gives the name `anon-` and the first eight hexadecimal characters of the public key. Other players do not see a player without a handle. The server always uses the full key to identify an account.

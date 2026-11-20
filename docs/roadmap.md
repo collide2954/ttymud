@@ -149,9 +149,17 @@ M9 added crew channels.
 - A Servers page on the website, from the same list.
 - The ini reader moves to the `text` crate, so the client reads the list without the `game` crate.
 
+### M15: Linked cities (done)
+
+- The file `links.ini` in the data directory. A link starts only when both servers list each other with the full key.
+- Links on the game port. The server with the lower key connects, and both sides send a Hello message. Ping messages, a rate limit, and new tries after a failure.
+- The linked channel `#longline` in Port Ostra. Handles from other cities have names such as `nyx@night-owl`.
+- `cities`, and `news <city>` for the headlines of a linked city.
+- `ignore`, `block`, `report`, and `mute` for handles of linked cities. Private messages stay in their city.
+
 ## Later
 
-- Links between cities.
+- Travel between linked cities.
 
 ## Open questions
 

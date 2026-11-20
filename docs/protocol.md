@@ -110,6 +110,8 @@ The server applies these limits to each connection.
 | Chat | 5 messages quickly, then a maximum of 1 every 2 seconds. |
 | Complete messages | The same limit as commands. |
 | Time to write a frame | 10 seconds. |
+| Messages on a link | 40 messages quickly, then a maximum of 4 each second. The server ignores the other messages. |
+| Time to write a frame on a link | 30 seconds. |
 
 If a command goes above a limit, the server does not run it. The server sends a Text message with the kind Error. If a Complete message goes above the limit, the server does not answer it.
 
@@ -118,3 +120,27 @@ If a command goes above a limit, the server does not run it. The server sends a 
 The server sends a Close message when it ends a connection. For example, it ends the old connection when the same account connects again. It also ends a connection after a kick or a ban. A banned or revoked key gets only a Close message.
 
 After the Close message, the server stops all writes. Then it waits a maximum of 5 seconds for the client to close the connection. As a result, the connection does not reset before the client reads the Close message.
+
+## Links between servers
+
+Two servers can make a link between their cities. Each operator adds the other server to the file `links.ini`, with its address and its full key. The [operator guide](operator.md#linked-cities) tells how.
+
+A link uses the same port and the same Noise handshake as a client. The server with the lower key connects to the other server. It compares the key of the other server with the key in its `links.ini`. The other server knows a linked server by its key. A key that is not in its `links.ini` gets a Welcome message, as a client does.
+
+After the handshake, the server that accepts the connection sends a Hello message. Then the server that connects sends a Hello message. After that, each side can send these messages at any time.
+
+| Type | Name | Fields | Use |
+| --- | --- | --- | --- |
+| 32 | Hello | Text: the name of the city. | The first message of each side. |
+| 33 | Chat | Text: the handle. Text: the message. | One message in the linked channel. |
+| 34 | News | Number: the time, in seconds since 1970. Text: the headline. | One headline of the city. |
+| 35 | Ping | None. | It shows that the link still works. |
+
+These rules apply to a link:
+
+- The types of link messages are different from the types of server messages. If the other server does not list this server, the first message is a Welcome message, and the link stops at once.
+- When a link starts, each side sends its 10 latest headlines. After that, it sends each new headline.
+- If a side has nothing to send for 60 seconds, it sends a Ping message. If a side gets no message for 150 seconds, it closes the link.
+- A side ignores a message type that it does not know. A second Hello message, or a message that is not valid, closes the link.
+- The receiving side sanitizes each text. It ignores a Chat message from a handle with a name that is not valid.
+- If a link stops, the server that connects tries again after 5 seconds. After each failure, it waits two times longer, to a maximum of 5 minutes.

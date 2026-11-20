@@ -15,7 +15,7 @@ TTYmud is a Cargo workspace.
     │   ├── text/        ttymud-text: styles, spans, messages, the text sanitizer, and the ini reader
     │   ├── game/        ttymud-game: rules, world, content files, and the command parser
     │   ├── wire/        ttymud-wire: protocol messages and their encoding
-    │   ├── net/         ttymud-net: keys, Noise sessions, and frames
+    │   ├── net/         ttymud-net: keys, Noise sessions, frames, and server addresses
     │   ├── server/      ttymud-server: the server binary and the default city
     │   └── client/      ttymud: the client binary and the display library
     ├── tools/
@@ -29,7 +29,7 @@ Each directory in `crates/` and `tools/` contains one package. The name before t
 These rules control the dependencies between crates:
 
 - `text` has no dependencies. `game` and `wire` use only `text`. These three crates do no input or output. As a result, their tests are fast and always give the same result.
-- `net` uses only `snow`. It makes keys, does the Noise handshake, and encrypts the frames.
+- `net` uses only `snow`. It makes keys, does the Noise handshake, and encrypts the frames. It also checks server names and addresses, and it adds the default port to an address.
 - `server` uses `game`, `wire`, `net`, and `text`. With the `ssh` feature, it also uses the display library of `client` for SSH players.
 - `client` uses `wire`, `net`, and `text`, but not `game`. The client does not know the game rules. As a result, a modified client cannot change the rules.
 - The client binary contains the public list of servers from `servers.ini`. It reads the list with the ini reader of `text`.
@@ -62,12 +62,13 @@ The server uses threads from the Rust standard library. Without the `ssh` featur
 - **SSH thread.** With the `ssh` feature, one thread runs a small Tokio runtime for the SSH connections. It applies the same connection limits. Each SSH session gets a thread that runs the display of the client library with the `remote` function. That thread sends commands to the game loop with the same rate limits as a session thread.
 - **Session threads.** Each session does the Noise handshake, decodes the messages, and applies the rate limits. It sends inputs to the game loop through a channel.
 - **Writer threads.** Each session has a writer thread. It receives outputs from the game loop through a different channel, and it encrypts and writes them.
+- **Link threads.** For each link in `links.ini`, the server with the lower key has a thread that connects to the other server. After a failure, that thread tries again. Each link that is up has a reader thread and a writer thread. The reader sends the chat and the headlines to the game loop. The writer sends the chat and the headlines of the game loop, and a Ping message after 60 seconds without messages.
 - **Game loop thread.** It owns the world state. No other thread can touch the world, so the world has no locks. The loop applies each input when it arrives. It also owns the keys of the accounts, and it does the commands for recovery codes and device links.
 - **Storage thread.** It writes the save files to the data directory. As a result, a slow disk does not stop the game loop.
 
 The game loop also runs a tick every two seconds. If the loop is late, it does not run the ticks that it missed. After the text of a tick, the loop sends a Refresh message with the new prompt. Each player who gets text from a different player also gets a Refresh message.
 
-After each input and each tick, the game loop gets the changed save texts from the world. It sends them to the storage thread. It also sends a Status message to each player whose state changed. When the server starts, it reads all save files before it opens the port.
+After each input and each tick, the game loop gets the changed save texts from the world. It sends them to the storage thread. It also sends a Status message to each player whose state changed. Then it sends the new messages of the linked channel and the new headlines to each link that is up. When the server starts, it reads all save files before it opens the port.
 
 If an account connects again, with the same key or a different key, the new connection replaces the old connection. The old connection gets a Close message with the reason. A kick and a ban also end a connection with a Close message. After a Close message, the writer thread stops all writes and waits for the client to close the connection. As a result, the reset of a connection cannot delete the Close message.
 
@@ -152,6 +153,13 @@ All messages go in Noise transport frames. A message starts with a type byte, an
 | Candidates | The results of a tab completion |
 | Close | The reason for the disconnection |
 | Refresh | A new prompt after text that is not an answer to a command |
+
+| Between linked servers | Contents |
+| --- | --- |
+| Hello | The name of the city |
+| Chat | A handle and one message of the linked channel |
+| News | The time and the text of one headline |
+| Ping | Nothing. It shows that the link still works. |
 
 The [protocol](../protocol.md) document gives the full details. One message comes later. Hello will give the protocol version, the client layer, and the terminal size.
 

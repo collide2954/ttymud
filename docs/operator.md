@@ -32,7 +32,7 @@ By default, the server accepts connections on all IPv4 interfaces, on port 7331.
 
     ttymud-server run ostra-data --listen 127.0.0.1:7400
 
-When the server starts, it shows the name of the city, its address, its key and fingerprint, and the number of accounts. To stop the server, push Ctrl+C.
+When the server starts, it shows the name of the city, its address, its key and fingerprint, and the number of accounts. It also shows its links to other cities. To stop the server, push Ctrl+C.
 
 ## Publish the key
 
@@ -85,6 +85,35 @@ To add your server, add a section to the file [servers.ini](../servers.ini) in t
 A test checks each section. The test refuses control characters and hidden characters in the text. A new version of the client contains the new list. An older client does not know your server, so publish your address and your full key too.
 
 If you change the address or the key of your server, change your section in a pull request. If you close your server, remove your section.
+
+## Linked cities
+
+You can make a link between your server and the server of a different operator. A link carries the linked channel and the headlines of the news between the two cities. In Port Ostra, the linked channel is `#longline`. Handles, credits, files, and private messages do not go through a link.
+
+To make a link, both operators add a section to the file `links.ini` in the data directory. For example:
+
+    [link night-owl]
+    address = night-owl.example.net:7400
+    key = 9b5bf04af430799f0e2a6c4d8b1f3e5a7c9d2b4f6e8a0c1d3e5f7a9b2c4d6e8f
+
+| Line | Value |
+| --- | --- |
+| `[link <name>]` | The name of the other city on your server. Players see it after a handle, for example `nyx@night-owl`. Use 3 to 16 characters: the letters `a` to `z`, the digits, and `-`. |
+| `address` | The host name or the IP address of the other server. If the port is not 7331, add the port after a colon. |
+| `key` | The full key of the other server, from its line `Key:`. |
+
+A server can have a maximum of 16 links. The server reads `links.ini` when it starts. To add or remove a link, change the file, and then start the server again.
+
+The server with the lower key connects to the other server on its game port. As a result, the game port of each server must accept connections from the other server. If the other server does not list your server, the link does not start.
+
+When a link starts or stops, the server writes a line, for example:
+
+    Link night-owl is up: Port Ostra.
+    Link night-owl is down: the connection is closed.
+
+> CAUTION: A linked server can send chat and headlines to your players. Make links only with operators that you trust. The operators of both servers can read the chat of the linked channel.
+
+A moderator can mute a handle of a linked city, for example `mute nyx@night-owl 30`. A kick or a ban works only on the handles of your city. If a linked city causes problems, remove its section from `links.ini`.
 
 ## Limits
 

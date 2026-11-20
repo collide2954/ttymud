@@ -70,6 +70,7 @@ This table records the main design decisions. When a decision changes, change th
 | Chat security | Encrypted traffic, sanitized text, rate limits, ignore, block, and moderator tools. No end-to-end encryption. |
 | Identity | A key pair is the account. A recovery code can replace a lost key. |
 | Connection | A TTYmud client and a TTYmud server that use the Noise protocol. With the `ssh` feature, a normal SSH client can also connect. |
+| Linked cities | Operators make links between servers in `links.ini`. One linked channel and the headlines go through a link. Handles, credits, and files stay in their city. |
 | Interface | Adaptive layers: line mode for all terminals, and a HUD when the terminal can show it. |
 | Code | A Cargo workspace with two binaries: `ttymud` and `ttymud-server`. |
 | Text model | A small `ttymud-text` crate holds styles, spans, and messages. |
@@ -99,7 +100,7 @@ This table records the main design decisions. When a decision changes, change th
 | Document | Contents |
 | --- | --- |
 | [gameplay.md](gameplay.md) | Hosts, commands, pipelines, danger, ICE, programs, roles, and progression. |
-| [world.md](world.md) | Zones, targets, corporations, the SOC, exploit decay, news, economy, crews, and PvP. |
+| [world.md](world.md) | Zones, targets, corporations, the SOC, exploit decay, news, economy, crews, PvP, and linked cities. |
 | [interface.md](interface.md) | Client layers, terminal support, accessibility, and the first run. |
 | [security.md](security.md) | Threats, transport, identity, chat safety, and privacy. |
 | [architecture.md](architecture.md) | Crates, binaries, server threads, storage, content, protocol, and tests. |

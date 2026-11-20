@@ -188,3 +188,12 @@ TTYmud is a PvE game first. PvP occurs only when the player agrees to it.
 - **Darknet zones.** These zones are lawless. Before you go in, the game asks you to agree. In a darknet zone, other players can crash your rig, take the data that it drops, and tip off the police. Each tip adds 1 heat. Darknet zones have better prices and rare blueprints.
 
 A player cannot burn a different player directly. Tips can add a maximum of 1 heat to a handle in each 24 hours, and never the fifth heat. The [gameplay](gameplay.md#pvp-by-consent) document gives the rules.
+
+## Linked cities
+
+Each server is one city. After the Cascade, the long links between cities failed. Now operators make new links between their servers. A link carries two things:
+
+- The linked channel. In Port Ostra, it is `#longline`. It reaches the players of all linked cities, and their names end with the name of their city, for example `nyx@night-owl`.
+- The headlines of the news. The `news <city>` command shows the headlines of a linked city.
+
+Handles, credits, and files stay in their city. The `cities` command shows the linked cities and if each link is up.

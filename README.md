@@ -10,7 +10,7 @@ The website is at [collide2954.github.io/ttymud](https://collide2954.github.io/t
 
 ## Status
 
-TTYmud is in early development. Milestones M0 to M14 are complete. You can run a server and play the default city with other players over an encrypted connection. In a terminal, the client shows a HUD with status bars, an output pane, and a chat pane.
+TTYmud is in early development. Milestones M0 to M15 are complete. You can run a server and play the default city with other players over an encrypted connection. In a terminal, the client shows a HUD with status bars, an output pane, and a chat pane.
 
 You select a handle and a starter kit, and the server keeps them. Your first job is a hack into the network of a dental office. After that, fixers post new jobs each day against six corporations. The server makes a new network for each job. You earn credits, buy programs and hardware, and sell stolen data to a fence.
 
@@ -27,6 +27,8 @@ Your rig can run scripts: files of commands that you write with `echo`, as in a 
 An operator can also open an SSH port with the `ssh` feature. Then players can play with a normal SSH client, and their SSH key is their account.
 
 The client and the website have a public list of servers. You can connect to a server on the list by its name, and the client checks the key of the server.
+
+Operators can make links between their servers. The players of linked cities talk in one channel, and each city sends its headlines to the others.
 
 If the targets trace you too often, your handle burns. You can talk in channels and send private messages. Moderators and safety tools keep the chat safe, and a recovery code keeps your account safe. The [roadmap](docs/roadmap.md) gives the plan.
 

@@ -175,8 +175,9 @@ A channel section makes one chat channel. Players talk in a channel with `#<chan
 | --- | --- | --- |
 | `desc` | 1 | The description of the channel. The `channels` command shows it. |
 | `auto` | 0 or 1 | `yes` or `no`. The default is `no`. With `yes`, each new handle starts in the channel. |
+| `linked` | 0 or 1 | `yes` or `no`. The default is `no`. With `yes`, the channel also reaches the players of the linked cities. |
 
-The channel name `crew` is for crews. The `#crew` command always sends to the crew of the player.
+The channel name `crew` is for crews. The `#crew` command always sends to the crew of the player. Only one channel of a city can be linked. In Port Ostra, the linked channel is `#longline`.
 
 ## Example
 
@@ -301,8 +302,8 @@ The server checks a content file before it uses the file. It finds these errors 
 - Fixers against unknown corps, and fixers without a corp with a low budget.
 - Corps without data, data lines without a colon, data that is a script, and corps without a template for each layer.
 - Templates with the name of a host, laptop templates on a layer that is not `lan`, and vault templates without a laptop template.
-- A channel with the name `crew`.
+- A channel with the name `crew`, and a second linked channel.
 - Unknown programs in a shop, blueprints for programs without versions, bad blueprint versions, bad prices, and RAM or CPU steps that do not go up.
-- Bad values for `pay`, `max-heat`, `auto`, and `laptop`.
+- Bad values for `pay`, `max-heat`, `auto`, `linked`, and `laptop`.
 
 The server shows all errors at the same time. As a result, you can correct all of them in one step.
