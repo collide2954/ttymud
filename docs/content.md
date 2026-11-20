@@ -29,6 +29,7 @@ Each content file has one city section.
 | `home` | 0 or 1 | The host where players repair their rigs, change their RAM, and use their stash. It must be a hub host. Other players do not see a player there. |
 | `burns` | 0 or 1 | The host with the burn list, the file `burn-list.txt`. It must be a hub host. |
 | `news` | 0 or 1 | The host with the news feed, the file `news.txt`. It must be a hub host. The `news` command works without this key. |
+| `auction` | 0 or 1 | The host of the police auction. When a handle burns, the police auction the valuable items of its rig there. It must be a hub host. Without this key, the city has no auction. |
 | `contract` | 0 or 1 | The contract that each new handle gets. |
 
 ### Network
@@ -60,6 +61,8 @@ A file section puts one file on a host or on a template. The section name has th
 | Key | Count | Meaning |
 | --- | --- | --- |
 | `line` | 1 or more | One line of the file. The lines stay in their order. |
+
+A file with a name like `crack-v2.blueprint` is a blueprint. A player who reads it learns the blueprint for that version. The program must have versions, and the version must be 2 or 3.
 
 ### ICE
 
@@ -146,10 +149,11 @@ A shop section opens a shop on a hub host. The section name is the name of the h
 | Key | Count | Meaning |
 | --- | --- | --- |
 | `program` | 0 or more | A program and its price in credits, for example `program = mask 400`. |
+| `blueprint` | 0 or more | A program and the price of its blueprint for version 2, for example `blueprint = crack 600`. The program must have versions. |
 | `ram` | 0 or more | A RAM size in GB and its price, for example `ram = 12 900`. Each size must be more than the size before it. |
 | `cpu` | 0 or more | A number of cycles and its price, for example `cpu = 5 1200`. Each number must be more than the number before it. |
 
-The shop sells a program only to a handle whose account does not know it. It sells only the next RAM size and the next CPU.
+The shop sells a program only to a handle whose account does not know it. It sells a blueprint only to an account that does not have it. Players buy a blueprint by its name, for example `buy crack-v2`. The shop sells only the next RAM size and the next CPU.
 
 ### Channel
 
@@ -170,6 +174,7 @@ The channel name `crew` is for crews. The `#crew` command always sends to the cr
     home = safehouse
     burns = relay
     news = relay
+    auction = relay
     contract = first-job
 
     [host relay]
@@ -184,6 +189,7 @@ The channel name `crew` is for crews. The `#crew` command always sends to the cr
 
     [shop relay]
     program = mask 400
+    blueprint = crack 600
     ram = 12 900
 
     [channel ostra]
@@ -270,7 +276,7 @@ The server checks a content file before it uses the file. It finds these errors 
 - Routes and files on unknown hosts, and routes from a host to itself.
 - A start host that does not exist.
 - Hosts that players cannot reach from the start host.
-- A home, burns, news, fixer, or shop host that does not exist, or that is in a network.
+- A home, burns, news, auction, fixer, or shop host that does not exist, or that is in a network.
 - Networks without hosts, hosts in unknown networks, and routes between two networks.
 - Unknown security levels, budgets, and layers.
 - ICE on unknown hosts or on hub hosts, unknown ICE types, and bad versions.
@@ -282,7 +288,7 @@ The server checks a content file before it uses the file. It finds these errors 
 - Corps without data, data lines without a colon, and corps without a template for each layer.
 - Templates with the name of a host, laptop templates on a layer that is not `lan`, and vault templates without a laptop template.
 - A channel with the name `crew`.
-- Unknown programs in a shop, bad prices, and RAM or CPU steps that do not go up.
+- Unknown programs in a shop, blueprints for programs without versions, bad prices, and RAM or CPU steps that do not go up.
 - Bad values for `pay`, `max-heat`, `auto`, and `laptop`.
 
 The server shows all errors at the same time. As a result, you can correct all of them in one step.

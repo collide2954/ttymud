@@ -99,11 +99,12 @@ M9 added crew channels.
 - Vaults with bridges: the sync of a maintenance laptop, a USB drive from a tricked admin, or an old modem line.
 - The crewmates in your copy and their traces in the Status message and the HUD.
 
-### M10: Economy
+### M10: Economy (done)
 
-- Blueprints and the compile system.
-- The evidence auction.
-- Data prices with supply and demand.
+- Versions 1 to 3 for six programs, and the quiet mod.
+- Blueprints as know-how: in job targets, in heist vaults, and in shops. The `compile` command at the home host.
+- Data prices for each file name. Each sale lowers the price, and the price comes back with time.
+- The police auction of the rigs of burned handles, with `lots` and `bid`, in `auction.ini`.
 
 ### M11: PvP by consent
 

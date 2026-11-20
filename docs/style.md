@@ -92,7 +92,7 @@ The check cannot find all STE problems. A person must also read each document.
 | alert level | The state of alarm of a corporation: green, yellow, orange, or red. |
 | analyst | An NPC who works in a SOC. |
 | audit log | The file where the server writes each action of the moderators. |
-| blueprint | Know-how that lets a handle compile a program. |
+| blueprint | Know-how that lets a handle compile one version of a program. |
 | bridge | A way into a vault: the sync of a maintenance laptop, a USB drive, or an old modem line. |
 | budget | How much a corporation spends on security: low, medium, high, or top. |
 | burn list | The public list of the handles that burned on a server. |
@@ -127,7 +127,9 @@ The check cannot find all STE problems. A person must also read each document.
 | layer | One level of a target: the edge, the LAN, the core, or the vault. |
 | link code | A code for one use that adds a new device to an account. |
 | loot | Data and items that a handle takes from a target. |
+| lot | One item of the police auction. |
 | maintenance laptop, laptop | A LAN host of a heist target that syncs with the vault at times. |
+| mod | A change to a program, for example the quiet mod: 1 less noise for 1 more cycle. |
 | moderator | A player who can mute, kick, and ban other players. The operator selects the moderators. |
 | news feed, news | The public list of the latest events in a city. |
 | noise | The evidence that an action leaves in a target. Noise increases the trace. |
@@ -135,6 +137,7 @@ The check cannot find all STE problems. A person must also read each document.
 | offshore stash, stash | A store of credits and items that stays after a burn. |
 | pane | A part of the HUD that shows one type of text. |
 | pipeline | Two or more commands that the pipe character (`\|`) joins. |
+| police auction, auction | The sale of the valuable items from the rigs of burned handles. |
 | program | Software that a handle runs to do an action. |
 | recovery code | A secret code that gets an account back on a new device. |
 | report | A message to the moderators about a player. It keeps the recent chat of that player. |
@@ -156,6 +159,7 @@ The check cannot find all STE problems. A person must also read each document.
 | tick | One step of game time, about two seconds. |
 | trace | How near the SOC is to the location of a handle, from 0% to 100%. |
 | vault | The last layer of a heist target. It has no route, so a crew needs a bridge. |
+| version | The strength of a program, from v1 to v3. A higher version makes the main effect of the program stronger. |
 | weak point | A flaw of an ICE that `probe` finds. |
 | workspace | A set of Rust crates that build together. |
 | world seed | The number that sets the job board and the targets of a server. |
@@ -165,8 +169,9 @@ The check cannot find all STE problems. A person must also read each document.
 | Verb | Meaning |
 | --- | --- |
 | ban | To refuse an account on a server, and as an option its IP address. |
+| bid | To offer credits for a lot of the police auction. |
 | burn | To lose a handle permanently at maximum heat. |
-| compile | To make a program from a blueprint and parts. |
+| compile | To make the next version of a program from a blueprint, or to add a mod. |
 | crack | To break ICE or encryption. |
 | decrypt | To make encrypted data readable. |
 | encrypt | To make data unreadable without a key. |

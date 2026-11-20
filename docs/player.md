@@ -270,9 +270,11 @@ A company with a bigger budget patches after fewer uses, and its patch stays for
 
 Type `status` to see your credits. A clean exit with the goal file gets the pay of your contract. Use these commands at the Night Market:
 
-- `shop` shows the programs and the hardware that you can buy.
-- `buy <item>` buys a program, more RAM (`buy ram`), or a faster CPU (`buy cpu`).
-- `sell <file>` sells stolen data to the fence. Files from bigger companies give more credits.
+- `shop` shows the programs, the blueprints, and the hardware that you can buy.
+- `buy <item>` buys a program, a blueprint (for example `buy crack-v2`), more RAM (`buy ram`), or a faster CPU (`buy cpu`).
+- `sell <file>` sells stolen data to the fence. Files from bigger companies give more credits. Type `sell` without a file to see the prices now.
+
+The fence pays less for a file name after each sale. Each sale of a name lowers its price by 10%, to a minimum of 30% of the value. The price goes up again by 10% every 2 hours. All players share these prices, so a file that many players sell is cheap for some hours.
 
 A repair up to 50 integrity is free. Each point above 50 costs 2 cr. A burn takes your credits and your hardware.
 
@@ -287,6 +289,22 @@ Programs also make noise, and noise raises your trace. A Sentry on the host doub
 A new rig has 8 GB of RAM. A program must be in RAM before you can run it. Type `status` to see the programs in RAM. At your safehouse, use `unload <program>` and `load <program>` to change them.
 
 You can load only the programs that your account knows. A new account knows the programs of its starter kit. A shop sells the other programs. After a burn, your account also knows the programs of the next kit.
+
+## Program versions
+
+Six programs have versions: `crack`, `scrub`, `patch`, `firewall`, `mask`, and `decoy`. Version 2 and version 3 make the main effect of the program stronger. For example, `crack` does 15 damage at version 1, 20 damage at version 2, and 25 damage at version 3. The `status` command shows the version after the name, for example `crack v2`.
+
+To make a version, you need its blueprint. At your safehouse, type `compile` to see your blueprints and the versions that you can compile. Then type `compile <program>` to compile the next version. Version 2 costs 1000 cr, and version 3 costs 3000 cr.
+
+## Blueprints
+
+A blueprint is a file with a name like `crack-v2.blueprint`. Read the file to learn the blueprint. About one job target in three has a blueprint for version 2 on a core host. Each heist vault has a blueprint for version 3. The Night Market sells some blueprints for version 2. Your account keeps its blueprints after a burn.
+
+## The quiet mod
+
+The quiet mod makes a program make 1 less noise, but the program needs 1 more cycle. At your safehouse, type `compile <program> quiet` to add it for 400 cr. Type `compile <program> plain` to remove it. A program can have one mod, and a program without noise cannot have the quiet mod. The `status` command shows the mod, for example `crack v2 (quiet)`.
+
+The versions and the mods are part of your rig. A burn takes them.
 
 ## Telegraphs
 
@@ -339,7 +357,24 @@ At heat 3 or more, Sentries alert faster. At heat 4 or more, fixers keep 25% of 
 
 When your handle burns, the police seize your rig and its files. You also lose your credits and your reputation. The handle goes on the burn list, the file `burn-list.txt` on the Newsstand. Nobody can use the name again.
 
-Your account keeps its know-how and its stash. The know-how is the programs that your handles knew. After the burn, select a new handle and a starter kit.
+Your account keeps its know-how and its stash. The know-how is the programs and the blueprints that your handles knew. After the burn, select a new handle and a starter kit.
+
+## The police auction
+
+The police auction the valuable items of each burned rig at the Evidence Locker, next to the Night Market. Each item is a lot:
+
+- Each data file and each blueprint file.
+- RAM above 8 GB, and a CPU above 4 cycles.
+- Each program version and each mod.
+
+Use these commands at the Evidence Locker:
+
+- `lots` shows the lots, the top bid of each lot, and the time that is left.
+- `bid <lot> <credits>` bids on a lot. The first bid is 100 cr or more. A new bid must be 10% more than the top bid.
+
+The police hold your credits until somebody bids more. Then you get your credits back. Each lot is open for 3 days. Then the top bid wins, and the lot goes onto the rig of the winner. A won version also teaches its program. The police keep the credits.
+
+A lot without a bid goes away when its time ends. The news reports each sale, but not the name of the winner. Type `help economy` for a summary.
 
 ## The stash
 

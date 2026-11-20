@@ -166,7 +166,7 @@ The currency is the credit (cr).
 
 The price of stolen data changes with supply and demand. If many players sell medical records, the price of medical records goes down.
 
-In version 0.1, credits come from contracts and from the fence, which pays fixed prices. Credits go to repairs, programs, and hardware. Prices with supply and demand come in M10.
+In version 0.2, credits come from contracts and from the fence. The fence pays less for a file name after each sale, and the price comes back with time. Credits go to repairs, programs, blueprints, compiles, hardware, and bids at the police auction. The [gameplay](gameplay.md#money) document gives the prices.
 
 ## Crews and heists
 

@@ -195,8 +195,30 @@ mod tests {
     fn help_names_the_topics() {
         assert_eq!(
             run("help").last().map(String::as_str),
-            Some("Topics: crews, heat, ice, pipes, runs, soc. Example: help ice")
+            Some("Topics: crews, economy, heat, ice, pipes, runs, soc. Example: help ice")
         );
+    }
+
+    #[test]
+    fn help_explains_versions_blueprints_prices_and_the_auction() {
+        let economy = run("help economy");
+        assert_eq!(economy[0], "The economy");
+        for word in [
+            "blueprint",
+            "compile <program>",
+            "quiet",
+            "sale",
+            "lots",
+            "bid <lot> <credits>",
+        ] {
+            assert!(
+                economy.iter().any(|line| line.contains(word)),
+                "{word}: {economy:?}"
+            );
+        }
+        assert_eq!(run("help auction"), economy);
+        assert_eq!(run("help blueprints"), economy);
+        assert_eq!(run("help compile")[0], "compile [program] [quiet|plain]");
     }
 
     #[test]

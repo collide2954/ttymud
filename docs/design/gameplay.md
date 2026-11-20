@@ -66,14 +66,17 @@ Commands look like shell commands. Many commands have a shell name and a MUD nam
 | `repair` | | Restore integrity at your home host. A repair up to 50 integrity is free. |
 | `load <program>` | | Put a program into RAM. This command works only at your home host. |
 | `unload <program>` | | Remove a program from RAM. This command works only at your home host. |
+| `compile [program] [quiet\|plain]` | | Show your blueprints, compile the next version of a program, or add or remove the quiet mod. This command works only at your home host. |
 | `stash [file]` | | Show your stash. At your home host, move a file from your rig into the stash. |
 | `unstash <file>` | | Move a file from your stash to your rig. This command works only at your home host. |
 | `contract [drop]` | `job` | Show your contract and its next step, or stop the contract. |
 | `jobs` | | Show the jobs of the fixers on this host. |
 | `accept <number>` | | Take a job from a fixer on this host. |
 | `shop` | | Show what the shop on this host sells. |
-| `buy <item>` | | Buy a program, more RAM, or a faster CPU at a shop. |
-| `sell <file>` | | Sell stolen data to the fence of a shop. |
+| `buy <item>` | | Buy a program, a blueprint, more RAM, or a faster CPU at a shop. |
+| `sell <file>` | | Sell stolen data to the fence of a shop. Without a file, show the prices of your files. |
+| `lots` | | Show the lots of the police auction. This command works only at the auction host. |
+| `bid <lot> <credits>` | | Bid on a lot of the police auction. This command works only at the auction host. |
 
 The programs are also commands. The [programs](#programs) section gives them.
 
@@ -231,7 +234,7 @@ Three programs work against the SOC:
 
 A program is software that you run to do an action. Each program has these properties:
 
-- A name and a version, for example `crack v2.1`. A higher version is stronger.
+- A name and a version, for example `crack v2`. A higher version is stronger.
 - A RAM cost in GB. A program must be in RAM before you can run it.
 - A cycle cost. The CPU of your rig makes new cycles on each tick.
 - A noise value. Noise increases the trace.
@@ -274,6 +277,27 @@ A command line that runs programs costs 1 more cycle for the setup. If the progr
 
 If you do not have enough cycles, the command does not run. It costs nothing.
 
+### Versions and mods
+
+Six programs have versions 1 to 3. A higher version makes the main effect of the program stronger. It does not change the RAM, the cycles, or the noise.
+
+| Program | Version 1 | Version 2 | Version 3 |
+| --- | --- | --- | --- |
+| `crack` | 15 damage | 20 damage | 25 damage |
+| `scrub` | 15% less trace | 20% less trace | 25% less trace |
+| `patch` | 20 integrity | 25 integrity | 30 integrity |
+| `firewall` | 1 attack | 2 attacks | 3 attacks |
+| `mask` | 5 ticks | 6 ticks | 7 ticks |
+| `decoy` | 10 ticks | 12 ticks | 14 ticks |
+
+A version needs a blueprint. A blueprint is know-how, so the account keeps it after a burn. At the home host, `compile <program>` makes the next version, one version at a time. Version 2 costs 1000 cr, and version 3 costs 3000 cr. The `compile` command without a program shows the blueprints and the versions that you can compile.
+
+A file with a name like `crack-v2.blueprint` is a blueprint. A handle who reads it learns the blueprint. About one job target in three has a blueprint for version 2 on a core host. Each heist vault has a blueprint for version 3. A shop can also sell blueprints for version 2.
+
+The quiet mod makes a program make 1 less noise, and the program needs 1 more cycle. Type `compile <program> quiet` to add it for 400 cr, and `compile <program> plain` to remove it. A program can have one mod. A program without noise cannot have the quiet mod.
+
+The versions and the mods are part of the rig. A burn takes them, and the police auction them.
+
 ## Exploit decay
 
 A host template can give a software family, for example `Deskline OS 11`. The hosts from the template run that software, and `scan` shows it. Two templates can have the same family.
@@ -291,7 +315,7 @@ The use that gets to the limit still opens its shell. After the patch, `exploit`
 
 ## Roles
 
-TTYmud has no classes. The programs in your RAM set your role. A new handle selects one starter kit, and the kit fills the RAM with the programs for one role. A handle can load only the programs that its account knows. A shop sells the other programs. Later, handles will also compile programs.
+TTYmud has no classes. The programs in your RAM set your role. A new handle selects one starter kit, and the kit fills the RAM with the programs for one role. A handle can load only the programs that its account knows. A shop sells the other programs. At the home host, a handle can compile stronger versions of some programs.
 
 | Kit | Role | Programs |
 | --- | --- | --- |
@@ -335,8 +359,10 @@ Two programs help a crew. With a handle, `scrub` lowers the trace of a crewmate 
 The currency is the credit (cr). Each handle has its own credits, and a new handle starts with 0 cr. Type `status` to see your credits.
 
 - **Contracts pay.** The fixer pays when you make a clean exit with the goal file. The fixer keeps the goal file.
-- **The fence buys stolen data.** A data file from a LAN host gives 40 cr. A data file from a core host gives 100 cr. The budget of the company multiplies the price by 1, 2, 4, or 8. The fence buys each file one time in each job.
-- **A shop sells programs and hardware.** A program goes into the know-how of your account. A burn takes the hardware, but not the know-how.
+- **The fence buys stolen data.** A data file from a LAN host has a value of 40 cr. A data file from a core host has a value of 100 cr. The budget of the company multiplies the value by 1, 2, 4, or 8. The fence buys each file one time in each job, and its price falls after each sale.
+- **A shop sells programs, blueprints, and hardware.** A program and a blueprint go into the know-how of your account. A burn takes the hardware, but not the know-how.
+- **Compiles cost credits.** Version 2 of a program costs 1000 cr, version 3 costs 3000 cr, and the quiet mod costs 400 cr.
+- **The police auction** the valuable items of each burned rig.
 - **Repairs cost credits** above 50 integrity.
 
 The content file sets the prices of a shop. These are the prices in Port Ostra:
@@ -347,8 +373,28 @@ The content file sets the prices of a shop. These are the prices in Port Ostra:
 | `firewall`, `mask`, `pretext` | 400 cr |
 | `proxy`, `decoy` | 500 cr |
 | `exploit` | 800 cr |
+| Blueprints for `scrub` v2 and `patch` v2 | 500 cr |
+| Blueprints for `crack` v2 and `mask` v2 | 600 cr |
 | RAM: 12 GB, then 16 GB | 900 cr, then 1800 cr |
 | CPU: 5 cycles, then 6 cycles | 1200 cr, then 2400 cr |
+
+### Data prices
+
+The fence pays a price for each file name, for example `payroll.db`. The price is a percent of the value of the file. Each sale of a name lowers its price by 10%, to a minimum of 30%. The price goes up again by 10% every 2 hours, to 100%. All players share the prices, and `world.ini` keeps them. Type `sell` without a file to see the price of each file on your rig.
+
+### The police auction
+
+When a handle burns, the police auction the valuable items of its rig. The `auction` key of the city section gives the auction host. In Port Ostra, it is the Evidence Locker, next to the Night Market. Each item is a lot:
+
+- Each data file and each blueprint file.
+- RAM above 8 GB, and a CPU above 4 cycles.
+- Each program version and each mod.
+
+At the auction host, `lots` shows the lots, and `bid <lot> <credits>` bids on a lot. The first bid is 100 cr or more. A new bid must be 10% more than the top bid. The police hold the credits of the top bid. When somebody bids more, the last bidder gets the credits back, also when the bidder is offline.
+
+Each lot is open for 3 days. Then the top bid wins, and the lot goes onto the rig of the winner. A file replaces a file with the same name. RAM and a CPU replace the hardware only if they are better. A won version also teaches its program. The police keep the credits, and a lot without a bid goes away.
+
+The news reports each sale, but not the name of the winner. The server keeps the lots and the bids in `auction.ini`.
 
 ## Jobs
 
@@ -420,8 +466,8 @@ Half of the other rumors are old, and half are false.
 
 There are no levels. A handle gets stronger in three ways.
 
-1. **Rig.** Better hardware. The CPU gives more cycles, and RAM holds more programs. The NIC makes downloads faster. Storage holds more loot. In version 0.1, a shop sells RAM and CPUs.
-2. **Software.** Higher program versions and better mods. You find, buy, or compile programs. A patch increases the minor version, for example from v2.1 to v2.2. A blueprint and parts let you compile a new major version, for example v3.0.
+1. **Rig.** Better hardware. The CPU gives more cycles, and RAM holds more programs. The NIC makes downloads faster. Storage holds more loot. In version 0.2, a shop sells RAM and CPUs, and the police auction sells used hardware.
+2. **Software.** Higher program versions and better mods. Find or buy a blueprint, and then compile the next version. In version 0.2, six programs have versions 1 to 3, and the quiet mod is the only mod.
 3. **Reputation.** Each faction keeps a reputation value for your handle. Higher reputation opens harder targets, better contracts, and better vendors. In version 0.1, each fixer keeps a reputation value for your handle.
 
 ## Burn and legacy
@@ -429,14 +475,14 @@ There are no levels. A handle gets stronger in three ways.
 When the heat gets to 5, the handle burns. Then these events occur:
 
 - The handle goes on the burn list of the server. Nobody can use the name again on that server.
-- The police seize the rig and its files. Later, the items will go to the evidence auction.
+- The police seize the rig and its files. They auction the data, the blueprints, the better hardware, and the program versions and mods.
 - The handle loses its credits, its reputation with each fixer, and its contract. Later, it will also lose its contacts.
 
 The burn list is the file `burn-list.txt` on a hub host. In Port Ostra, the file is on the Newsstand. It gives each burned handle and the date of the burn.
 
 The account keeps these things:
 
-- **Know-how.** The account keeps all the programs that its handles knew. A new handle can load these programs. Later, know-how will also keep blueprints, so that the rebuild is faster.
+- **Know-how.** The account keeps all the programs and the blueprints that its handles knew. A new handle can load these programs and compile these versions, so the rebuild is faster.
 - **The offshore stash.** At your home host, the `stash` command moves a file from your rig into the stash. The stash holds 3 files. After a burn, the next handle gets the stash. Later, the stash will also hold credits, and each deposit will have a fee.
 
 Then the player makes a new handle and selects a starter kit. The new handle starts with heat 0 and a new rig.

@@ -113,7 +113,7 @@ The target generator is a pure function in the `target` module. It takes a corp,
 
 ## Storage
 
-The server keeps all data in plain text files in its data directory. Each account has its own file in `accounts/`, with its handle. The burn list is in `burns.ini`, the world seed is in `world.ini`, and the crews are in `crews.ini`. An account file keeps a job from the board as its fixer, its day, and its number, and the server makes the network again. The storage thread writes a file in three steps:
+The server keeps all data in plain text files in its data directory. Each account has its own file in `accounts/`, with its handle. The burn list is in `burns.ini`, and the world seed and the data prices are in `world.ini`. The crews are in `crews.ini`, and the police auction is in `auction.ini`. An account file keeps a job from the board as its fixer, its day, and its number, and the server makes the network again. The storage thread writes a file in three steps:
 
 1. It writes the data to a temporary file.
 2. It flushes the temporary file to the disk.

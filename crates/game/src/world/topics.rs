@@ -2,8 +2,11 @@ use ttymud_text::{Kind, Message, Style};
 
 pub(super) const TOPICS: &[&str] = &[
     "alert",
+    "auction",
+    "blueprints",
     "burn",
     "crews",
+    "economy",
     "heat",
     "heist",
     "ice",
@@ -18,6 +21,7 @@ pub(super) const TOPICS: &[&str] = &[
 pub(super) fn topic(name: &str) -> Option<Vec<Message>> {
     match name {
         "crews" | "heist" => Some(crews()),
+        "economy" | "auction" | "blueprints" => Some(economy()),
         "heat" | "burn" => Some(heat()),
         "ice" => Some(ice()),
         "pipes" | "pipelines" => Some(pipes()),
@@ -28,8 +32,37 @@ pub(super) fn topic(name: &str) -> Option<Vec<Message>> {
 }
 
 pub(super) fn index() -> Message {
-    Message::game("Topics: crews, heat, ice, pipes, runs, soc. Example: ")
+    Message::game("Topics: crews, economy, heat, ice, pipes, runs, soc. Example: ")
         .span(Style::Command, "help ice")
+}
+
+fn economy() -> Vec<Message> {
+    vec![
+        title("The economy"),
+        Message::game(
+            "Six programs have versions 1 to 3. A higher version makes the main effect stronger.",
+        ),
+        Message::game("Read a blueprint file, for example ")
+            .span(Style::File, "crack-v2.blueprint")
+            .text(", to learn it. Targets, vaults, and shops have blueprints."),
+        Message::game("At home, type ")
+            .span(Style::Command, "compile <program>")
+            .text(" to make the next version: 1000 cr for v2, and 3000 cr for v3."),
+        Message::game("Type ")
+            .span(Style::Command, "compile <program> quiet")
+            .text(" to add the quiet mod for 400 cr: 1 less noise and 1 more cycle."),
+        Message::game(
+            "Each sale of a file name lowers its price by 10%, to 30%. The price goes up 10% every 2 hours.",
+        ),
+        Message::game("The police auction the rigs of burned handles. At the auction host, type ")
+            .span(Style::Command, "lots")
+            .text(" and ")
+            .span(Style::Command, "bid <lot> <credits>")
+            .text("."),
+        Message::game(
+            "After 3 days, the top bid wins the lot. A bidder who loses the top bid gets the credits back.",
+        ),
+    ]
 }
 
 fn crews() -> Vec<Message> {

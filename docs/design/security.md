@@ -107,7 +107,7 @@ Version 0.1 has these parts of the design:
 - Connection limits: 256 in total, and 8 from each IP address. A handshake has a maximum of 10 seconds.
 - One connection for each account. A new connection to the same account replaces the old connection.
 - Handle names with the rules in the [names](#names) section.
-- Save files in plain text. The storage thread writes only the files in `accounts/` and these files: `keys.ini`, `burns.ini`, `world.ini`, `moderators.ini`, `audit.log`, `reports.ini`, and `bans.ini`. It refuses all other paths.
+- Save files in plain text. The storage thread writes only the files in `accounts/` and these files: `keys.ini`, `burns.ini`, `world.ini`, `news.ini`, `crews.ini`, `auction.ini`, `moderators.ini`, `audit.log`, `reports.ini`, and `bans.ini`. It refuses all other paths.
 - A secret world seed. The client never gets the seed, because a player with the seed can make the targets before a run.
 - Recovery codes, link codes, and key revocation, as the [identity](#identity) section tells.
 - All the tools in the [chat safety](#chat-safety) section.
