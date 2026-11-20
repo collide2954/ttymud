@@ -2,11 +2,14 @@ use ttymud_text::{Message, Style};
 
 use super::builds::Build;
 use super::rig::Rig;
+use super::save::{Text, allow, checked, number, problem};
 use super::{HostId, Output, Player, PlayerId, Step, World, lines};
-use crate::commands::{self, Verb};
-use crate::content::File;
+use crate::commands::{self, TOP_VERSION, Verb};
+use crate::content::{ContentError, File};
+use crate::ini::{self, Pair, Section};
 use crate::kits::{CYCLES, RAM};
 
+pub(super) const AUCTION: &str = "auction.ini";
 const HOUR: u64 = 3_600;
 const DAY: u64 = 24 * HOUR;
 const LENGTH: u64 = 3 * DAY;
@@ -40,6 +43,146 @@ pub(super) struct Auction {
     pub(super) host: Option<HostId>,
     pub(super) lots: Vec<Lot>,
     pub(super) next: u32,
+    pub(super) dirty: bool,
+}
+
+impl Auction {
+    pub(super) fn save(&mut self) -> Option<(String, String)> {
+        std::mem::take(&mut self.dirty).then(|| (AUCTION.to_owned(), self.text()))
+    }
+
+    fn text(&self) -> String {
+        let mut text = Text::new("# The police auction. The server writes this file.");
+        text.section("auction", "police");
+        text.pair("next", &self.next.to_string());
+        for lot in &self.lots {
+            text.section("lot", &lot.number.to_string());
+            text.pair("ends", &lot.ends.to_string());
+            match &lot.item {
+                Seized::File(file) => {
+                    text.pair("file", &file.name);
+                    if file.value > 0 {
+                        text.pair("value", &file.value.to_string());
+                    }
+                    for line in &file.lines {
+                        text.pair("line", line);
+                    }
+                }
+                Seized::Ram(size) => text.pair("ram", &size.to_string()),
+                Seized::Cpu(cycles) => text.pair("cpu", &cycles.to_string()),
+                Seized::Build(verb, build) => {
+                    let name = commands::name_of(*verb);
+                    text.pair("build", &format!("{name} {}", build.version));
+                    if build.quiet {
+                        text.pair("quiet", "yes");
+                    }
+                }
+            }
+            if let Some(bid) = &lot.bid {
+                text.pair("bid", &format!("{} {}", bid.key, bid.credits));
+            }
+        }
+        text.finish()
+    }
+
+    pub(super) fn read(&mut self, text: &str) -> Result<(), Vec<ContentError>> {
+        let (sections, mut errors) = ini::read(text);
+        let (mut next, mut lots) = (0, Vec::new());
+        for section in &sections {
+            match section.kind {
+                "auction" => {
+                    allow(section, &["next"], &mut errors);
+                    let pair = section.pairs.iter().find(|pair| pair.key == "next");
+                    next = pair.and_then(|pair| number(pair, &mut errors)).unwrap_or(0);
+                }
+                "lot" => lots.extend(read_lot(section, &mut errors)),
+                kind => errors.push(problem(
+                    section.line,
+                    format!("unknown section type: {kind}"),
+                )),
+            }
+        }
+        let (next, lots): (u32, Vec<Lot>) = checked(errors, (next, lots))?;
+        self.next = lots.iter().map(|lot| lot.number).fold(next, u32::max);
+        self.lots = lots;
+        Ok(())
+    }
+}
+
+fn read_lot(section: &Section<'_>, errors: &mut Vec<ContentError>) -> Option<Lot> {
+    let keys = [
+        "ends", "file", "value", "line", "ram", "cpu", "build", "quiet", "bid",
+    ];
+    allow(section, &keys, errors);
+    let Ok(lot) = section.id.parse::<u32>() else {
+        let id = section.id;
+        errors.push(problem(section.line, format!("bad lot number: {id}")));
+        return None;
+    };
+    let value = |key: &str| section.pairs.iter().find(|pair| pair.key == key);
+    let Some(ends) = value("ends") else {
+        errors.push(problem(section.line, format!("lot {lot} has no ends")));
+        return None;
+    };
+    let ends = number(ends, errors)?;
+    let item = if let Some(pair) = value("file") {
+        let lines = section.pairs.iter().filter(|pair| pair.key == "line");
+        let mut file = File::new(
+            pair.value,
+            lines.map(|pair| pair.value.to_owned()).collect(),
+        );
+        file.value = value("value")
+            .and_then(|pair| number(pair, errors))
+            .unwrap_or(0);
+        Some(Seized::File(file))
+    } else if let Some(pair) = value("ram") {
+        number(pair, errors).map(Seized::Ram)
+    } else if let Some(pair) = value("cpu") {
+        number(pair, errors).map(Seized::Cpu)
+    } else if let Some(pair) = value("build") {
+        build(pair, value("quiet").is_some(), errors)
+    } else {
+        errors.push(problem(section.line, format!("lot {lot} has no item")));
+        None
+    }?;
+    let bid = value("bid").and_then(|pair| {
+        let parsed = pair.value.split_once(' ').and_then(|(key, credits)| {
+            let credits = credits.trim().parse().ok()?;
+            Some(Bid {
+                key: key.to_owned(),
+                credits,
+            })
+        });
+        if parsed.is_none() {
+            let value = pair.value;
+            let message = format!("bad bid: {value} (use an account and credits)");
+            errors.push(problem(pair.line, message));
+        }
+        parsed
+    });
+    Some(Lot {
+        number: lot,
+        item,
+        ends,
+        bid,
+    })
+}
+
+fn build(pair: &Pair<'_>, quiet: bool, errors: &mut Vec<ContentError>) -> Option<Seized> {
+    let parsed = pair.value.split_once(' ').and_then(|(name, version)| {
+        let verb = commands::find(name)
+            .map(|command| command.verb)
+            .filter(|verb| verb.program().is_some())?;
+        let version = version.trim().parse().ok()?;
+        let fits = (1..=TOP_VERSION).contains(&version) && (version == 1 || verb.power().is_some());
+        fits.then_some(Seized::Build(verb, Build { version, quiet }))
+    });
+    if parsed.is_none() {
+        let value = pair.value;
+        let message = format!("bad build: {value} (use a program and a version)");
+        errors.push(problem(pair.line, message));
+    }
+    parsed
 }
 
 impl Seized {
@@ -128,6 +271,7 @@ impl World {
                 bid: None,
             });
         }
+        self.auction.dirty = true;
         let lots = if count == 1 {
             "1 lot".to_owned()
         } else {
@@ -221,6 +365,7 @@ impl World {
             state.credits -= credits;
         }
         self.touch(player);
+        self.auction.dirty = true;
         let old = self.auction.lots[index].bid.replace(Bid { key, credits });
         if let Some(old) = old {
             self.refund(&old, number);
@@ -447,6 +592,68 @@ mod tests {
         assert_eq!(
             plain(&world.command(moth, "bid 1 100")),
             ["There is no auction here. The police auction is at bazaar."]
+        );
+    }
+
+    #[test]
+    fn lots_and_bids_come_back_from_the_save() {
+        let (mut world, _) = seized();
+        let moth = bidder(&mut world, "b", "moth");
+        world.command(moth, "bid 3 150");
+        let before = plain(&world.command(moth, "lots"));
+        let saves = world.saves();
+        let text = saves
+            .iter()
+            .find(|(path, _)| path == "auction.ini")
+            .map_or_default(|(_, text)| text.clone());
+        let ends = START + 3 * 86_400;
+        for part in [
+            "\n[auction police]\nnext = 5\n".to_owned(),
+            format!("\n[lot 1]\nends = {ends}\nfile = payroll.db\nvalue = 40\nline = Pay.\n"),
+            format!("\n[lot 3]\nends = {ends}\nram = 12\nbid = b 150\n"),
+            format!("\n[lot 5]\nends = {ends}\nbuild = crack 3\nquiet = yes\n"),
+        ] {
+            assert!(text.contains(&part), "{part}\n{text}");
+        }
+        let mut fresh = crate::testing::world();
+        fresh.set_time(START);
+        for (path, text) in &saves {
+            fresh.restore(path, text).unwrap();
+        }
+        let (moth, _) = fresh.connect("b");
+        for line in ["go relay", "go bazaar"] {
+            fresh.command(moth, line);
+        }
+        assert_eq!(plain(&fresh.command(moth, "lots")), before);
+        assert_eq!(
+            fresh
+                .saves()
+                .iter()
+                .filter(|(path, _)| path == "auction.ini")
+                .count(),
+            0
+        );
+    }
+
+    #[test]
+    fn a_bad_auction_file_fails() {
+        let mut world = world();
+        let text = "[auction police]\nnext = 2\n[lot x]\nends = 5\nram = 12\n[lot 2]\nram = 12\n\
+                    [lot 3]\nends = 9\n[thing y]\n";
+        let errors: Vec<String> = world
+            .restore("auction.ini", text)
+            .unwrap_err()
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        assert_eq!(
+            errors,
+            [
+                "line 3: bad lot number: x",
+                "line 6: lot 2 has no ends",
+                "line 8: lot 3 has no item",
+                "line 10: unknown section type: thing",
+            ]
         );
     }
 

@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use super::account::{Account, Saved};
 use super::alert::CorpState;
+use super::auction::AUCTION;
 use super::bans::BANS;
 use super::builds::Build;
 use super::burns::Burn;
@@ -64,6 +65,7 @@ impl World {
             saves.push((NEWS.to_owned(), self.news_text()));
         }
         saves.extend(self.crews.save());
+        saves.extend(self.auction.save());
         saves.extend(self.moderation.save_audit());
         saves.extend(self.moderation.reports.save());
         saves.extend(self.moderation.bans.save());
@@ -104,6 +106,9 @@ impl World {
             self.crews.read(text)?;
             self.resume_heists();
             return Ok(());
+        }
+        if path == AUCTION {
+            return self.auction.read(text);
         }
         if path == BURNS {
             self.burns = parse_burns(text)?;
