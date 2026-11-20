@@ -39,7 +39,9 @@ The `ttymud-server init` command makes the static key of the server. The server 
 
 The client keeps the key of each server that it connects to, as SSH does. Before the client trusts a new server, it shows the fingerprint of the server key and asks the player. If the key of a known server changes, the client stops and shows a warning.
 
-A server operator can publish the fingerprint of the server key. In a later version, a server address will contain the fingerprint. Then the client will also check the key at the first connection.
+A server operator can publish the fingerprint and the full key of the server. The `--key` option of the client takes the full key. Then the client checks the key at the first connection, and it does not ask the player.
+
+The client also contains a public list of servers, from the file `servers.ini` in the repository. Each entry has the full key of a server. When a player connects to a server by its name, the client checks the key from the list. A change to the list needs a pull request, and the maintainers check it. A test refuses an entry with a bad key, or with control characters or hidden characters in its text.
 
 ## Identity
 

@@ -119,7 +119,7 @@ TTYmud supports screen readers.
 The first run must teach the game without a long tutorial.
 
 1. The client makes an identity key and shows its fingerprint.
-2. The client connects to the server and shows the fingerprint of the server.
+2. The client connects to the server. For a server on the public list, it checks the key from the list. For a different new server, it shows the fingerprint of the server.
 3. The player selects a handle name and a starter kit.
 4. A fixer gives a tutorial contract against a weak target: the network of a small dental office.
 5. Each step of the tutorial contract teaches one command. The game gives a hint only when the player makes no progress for some time.

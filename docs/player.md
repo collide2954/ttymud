@@ -12,30 +12,48 @@ The binary is `target/release/ttymud`. On Windows, the binary is `target\release
 
 ## Connect
 
-Use this command to connect to a server:
+The client has a public list of servers. Use this command to see the list:
+
+    ttymud servers
+
+To connect to a server on the list, use its name:
+
+    ttymud connect ostra
+
+To connect to a different server, use its address:
 
     ttymud connect ostra.example.net
 
 The default port is 7331. To use a different port, add it after a colon, for example `ostra.example.net:7400`. Put an IPv6 address in brackets, for example `[2001:db8::7]:7400`.
 
+If a server on the list has the same name as a host, the client connects to the server on the list. To connect to the host, add the port, for example `ostra:7331`.
+
+The [website](https://collide2954.github.io/ttymud/servers.html) shows the same list. A client knows only the servers that were on the list when someone built it. For a newer server, use its address and its key.
+
 ## The first connection
 
 At the first start, the client makes your identity key and shows its fingerprint. The key is your account. There is no password.
 
-When you connect to a new server, the client shows the fingerprint of the server key:
+For a server on the list, the client compares the key of the server with the key on the list. If the two keys are the same, the client keeps the key of the server. It does not ask you.
+
+When you connect to a new server that is not on the list, the client shows the fingerprint of the server key:
 
     ostra.example.net:7331 is a new server for you. Its fingerprint is 9b5b:f04a:f430:799f.
     Type yes to trust it:
 
 Compare the fingerprint with the fingerprint that the operator of the server publishes. If the two fingerprints are the same, type `yes`. The client then keeps the key of the server, and it does not ask again.
 
+The operator can also publish the full key of the server: 64 hexadecimal digits. Give the full key with the `--key` option. Then the client compares the keys, and it does not ask you:
+
+    ttymud connect ostra.example.net --key 9b5bf04af430799f0e2a6c4d8b1f3e5a7c9d2b4f6e8a0c1d3e5f7a9b2c4d6e8f
+
 The `--accept-new` option trusts a new server without a question. Use it only for tests, or for a server that you know.
 
 ## A changed server key
 
-If the key of a known server changes, the client stops and shows a warning. A changed key can mean that a different computer is between you and the server.
+If the key of a known server changes, the client stops and shows a warning. A changed key can mean that a different computer is between you and the server. The client also stops if the key of the server is not the key on the list, or not the key that you gave.
 
-Do not continue if you are not sure. Ask the operator of the server. If the operator changed the key, remove the line for that server from the file `known_servers`. Then connect again.
+Do not continue if you are not sure. Ask the operator of the server. If the operator changed the key, connect again with `--key` and the new key. The client then replaces the old key in the file `known_servers`.
 
 ## Play over SSH
 

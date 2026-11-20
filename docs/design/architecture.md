@@ -10,15 +10,18 @@ TTYmud is a Cargo workspace.
     ├── Cargo.toml       the workspace, shared lints, and shared versions
     ├── clippy.toml      clippy settings
     ├── rustfmt.toml     rustfmt settings
+    ├── servers.ini      the public list of servers
     ├── crates/
-    │   ├── text/        ttymud-text: styles, spans, messages, and the text sanitizer
+    │   ├── text/        ttymud-text: styles, spans, messages, the text sanitizer, and the ini reader
     │   ├── game/        ttymud-game: rules, world, content files, and the command parser
     │   ├── wire/        ttymud-wire: protocol messages and their encoding
     │   ├── net/         ttymud-net: keys, Noise sessions, and frames
     │   ├── server/      ttymud-server: the server binary and the default city
     │   └── client/      ttymud: the client binary and the display library
     ├── tools/
+    │   ├── site/        site: the builder of the website
     │   └── stelint/     stelint: the STE check for the documents
+    ├── site/            the pages and the styles of the website
     └── docs/            the documents, in ASD-STE100
 
 Each directory in `crates/` and `tools/` contains one package. The name before the colon is the package name.
@@ -29,6 +32,8 @@ These rules control the dependencies between crates:
 - `net` uses only `snow`. It makes keys, does the Noise handshake, and encrypts the frames.
 - `server` uses `game`, `wire`, `net`, and `text`. With the `ssh` feature, it also uses the display library of `client` for SSH players.
 - `client` uses `wire`, `net`, and `text`, but not `game`. The client does not know the game rules. As a result, a modified client cannot change the rules.
+- The client binary contains the public list of servers from `servers.ini`. It reads the list with the ini reader of `text`.
+- `site` builds the website from `site/` and two guides in `docs/`. It uses `client` to make the Servers page from the same list.
 - `stelint` is a tool for the documents. The game does not use it.
 
 ## Binaries
@@ -126,7 +131,7 @@ As a result, a crash cannot leave a damaged file. To make a backup, copy the dat
 
 ## Content files
 
-Hubs, corporations, host templates, fixers, shops, and ICE are content files. The programs and the starter kits are in the code. They use a small text format with sections and keys. The [content](../content.md) document gives the format. The save files use the same format, and the same parser reads them.
+Hubs, corporations, host templates, fixers, shops, and ICE are content files. The programs and the starter kits are in the code. They use a small text format with sections and keys. The [content](../content.md) document gives the format. The save files use the same format, and the same parser reads them. The parser is in the `text` crate, so the client can read the server list without the `game` crate.
 
 The default city, Port Ostra, is in `crates/server/content/`. The server binary contains it, so a server needs no other files. Later, an operator will put content files in the data directory. A file in the data directory will replace the default file with the same name. The `ttymud-server check` command will find errors in content files.
 

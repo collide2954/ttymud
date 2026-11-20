@@ -10,7 +10,7 @@ The website is at [collide2954.github.io/ttymud](https://collide2954.github.io/t
 
 ## Status
 
-TTYmud is in early development. Milestones M0 to M13 are complete. You can run a server and play the default city with other players over an encrypted connection. In a terminal, the client shows a HUD with status bars, an output pane, and a chat pane.
+TTYmud is in early development. Milestones M0 to M14 are complete. You can run a server and play the default city with other players over an encrypted connection. In a terminal, the client shows a HUD with status bars, an output pane, and a chat pane.
 
 You select a handle and a starter kit, and the server keeps them. Your first job is a hack into the network of a dental office. After that, fixers post new jobs each day against six corporations. The server makes a new network for each job. You earn credits, buy programs and hardware, and sell stolen data to a fence.
 
@@ -25,6 +25,8 @@ Handles can attack each other only by consent. In a darknet, other handles can c
 Your rig can run scripts: files of commands that you write with `echo`, as in a shell. A script runs one command on each tick, uses `&&` and `||`, and costs RAM and cycles.
 
 An operator can also open an SSH port with the `ssh` feature. Then players can play with a normal SSH client, and their SSH key is their account.
+
+The client and the website have a public list of servers. You can connect to a server on the list by its name, and the client checks the key of the server.
 
 If the targets trace you too often, your handle burns. You can talk in channels and send private messages. Moderators and safety tools keep the chat safe, and a recovery code keeps your account safe. The [roadmap](docs/roadmap.md) gives the plan.
 
@@ -53,6 +55,10 @@ Use these commands to make a data directory and to start a server on your comput
 Then use this command in a different terminal to connect:
 
     cargo run --release -p ttymud -- connect localhost
+
+To see the public list of servers, use this command:
+
+    cargo run --release -p ttymud -- servers
 
 The [player guide](docs/player.md) tells you how to play. The [operator guide](docs/operator.md) tells you how to run a server for other players.
 

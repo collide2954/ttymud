@@ -155,6 +155,7 @@ The check cannot find all STE problems. A person must also read each document.
 | run | One visit of a handle to a target, from entry to exit. |
 | script | A file on a rig with one command line on each line. Its name ends in `.sh`. The `sh` command runs it, one command on each tick. |
 | security level | The strength of the security of a host: low, medium, high, or top. |
+| server list, list | The public list of servers in the file `servers.ini`. The client and the website show it. |
 | shift | The time when a group of analysts works in a SOC: the day shift or the night shift. |
 | shop | A place on a hub host or in a darknet that sells programs, blueprints, and hardware. |
 | SOC | The security operations center of a corporation. |

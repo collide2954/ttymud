@@ -138,13 +138,22 @@ M9 added crew channels.
 - The same connection limits and rate limits as the Noise port, and 10 seconds for a login.
 - A client that quits even when Windows refuses to shut down its socket.
 
+## Version 0.4: many cities
+
+### M14: Public server list (done)
+
+- The file `servers.ini` in the repository, with a name, a city, an address, a full key, and one line of text for each server.
+- A test for each entry. A change to the list needs a pull request.
+- `ttymud servers` shows the list. `ttymud connect <name>` connects to a server on the list and checks the key from the list.
+- `ttymud connect <address> --key <key>` checks the full key of a different server. `ttymud-server init` and `run` show the full key.
+- A Servers page on the website, from the same list.
+- The ini reader moves to the `text` crate, so the client reads the list without the `game` crate.
+
 ## Later
 
-- A public list of servers.
 - Links between cities.
 
 ## Open questions
 
 - The final values for trace, heat, and prices.
 - The full content of Port Ostra.
-- The format of a server address with a fingerprint.

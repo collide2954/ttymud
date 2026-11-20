@@ -16,7 +16,7 @@ The server keeps its data in a data directory. Use this command to make one:
 
     ttymud-server init ostra-data
 
-The command makes the directory and a new server key in the file `server.key`. Then it shows the fingerprint of the key. If the directory already has a key, the command does not change the key. It only shows the fingerprint again.
+The command makes the directory and a new server key in the file `server.key`. Then it shows the fingerprint of the key, and the full public key on the line `Key:`. If the directory already has a key, the command does not change the key. It only shows the fingerprint and the full key again.
 
 On Unix, the key file has the permissions 0600.
 
@@ -32,13 +32,15 @@ By default, the server accepts connections on all IPv4 interfaces, on port 7331.
 
     ttymud-server run ostra-data --listen 127.0.0.1:7400
 
-When the server starts, it shows the name of the city, its address, the fingerprint of its key, and the number of accounts. To stop the server, push Ctrl+C.
+When the server starts, it shows the name of the city, its address, its key and fingerprint, and the number of accounts. To stop the server, push Ctrl+C.
 
-## Publish the fingerprint
+## Publish the key
 
 At the first connection to a server, the client shows the fingerprint of the server key. The player must compare it with a fingerprint from you. Publish the fingerprint in a place that your players trust, for example your web site.
 
-If the key of a server changes, each client that knows the server stops with a warning. Do not change the key without a good reason. If you must change the key, tell your players before you change it.
+Also publish the full key from the line `Key:`. A player can give the full key with the `--key` option. Then the client compares the keys, and it does not ask the player.
+
+If the key of a server changes, each client that knows the server stops with a warning. Do not change the key without a good reason. If you must change the key, tell your players before you change it. Give them the new full key, and change the key in the server list too.
 
 ## Open the port
 
@@ -59,6 +61,30 @@ At the first start with `--ssh`, the server makes an SSH host key in the file `s
 The SSH port accepts only public keys. The SSH key of a player is the key of an account, so the server keeps no password and no private key of a player. Open the SSH port in your firewall too.
 
 > CAUTION: Keep the file `ssh_host.key` secret. A person with this file can pretend to be your server to SSH players.
+
+## Add your server to the list
+
+The client and the [website](https://collide2954.github.io/ttymud/servers.html) have a public list of servers. A player can connect to a server on the list by its name. Then the client compares the key of the server with the key on the list.
+
+To add your server, add a section to the file [servers.ini](../servers.ini) in the repository. Then send the change in a pull request. For example:
+
+    [server ostra]
+    city = Port Ostra
+    address = ostra.example.net
+    key = 9b5bf04af430799f0e2a6c4d8b1f3e5a7c9d2b4f6e8a0c1d3e5f7a9b2c4d6e8f
+    desc = The first city. New players are welcome.
+
+| Line | Value |
+| --- | --- |
+| `[server <name>]` | The name that players type. Use 3 to 16 characters: the letters `a` to `z`, the digits, and `-`. You cannot use the name `localhost`. |
+| `city` | The name of the city on your server, with a maximum of 40 characters. |
+| `address` | The host name or the IP address of your server. If the port is not 7331, add the port after a colon. |
+| `key` | The full key of your server, from the line `Key:`. |
+| `desc` | One line about your server, with a maximum of 200 characters. |
+
+A test checks each section. The test refuses control characters and hidden characters in the text. A new version of the client contains the new list. An older client does not know your server, so publish your address and your full key too.
+
+If you change the address or the key of your server, change your section in a pull request. If you close your server, remove your section.
 
 ## Limits
 
