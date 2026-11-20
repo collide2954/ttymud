@@ -132,6 +132,55 @@ fn the_market_sells_blueprints_and_the_evidence_locker_holds_the_auction() {
 }
 
 #[test]
+fn the_undercity_is_a_darknet_under_the_night_market_with_a_better_fence() {
+    let mut world = port_ostra(0).unwrap();
+    let (player, _) = world.join("guest");
+    let mut run = |line: &str| -> Vec<String> {
+        let outputs = world.command(player, line);
+        outputs.iter().map(|out| out.message.plain()).collect()
+    };
+    run("go night-market");
+    assert_eq!(
+        run("go undercity"),
+        [
+            "The Undercity is a darknet. Other handles there can crash your rig, take your files, and tip off the police. Type go undercity again to agree."
+        ]
+    );
+    assert_eq!(
+        run("go undercity")[0],
+        "You enter the darknet The Undercity. Other handles can attack you here."
+    );
+    run("go black-market");
+    let shop = run("shop");
+    assert!(
+        shop.iter()
+            .any(|line| line.starts_with("crack-v3: 2500 cr. The blueprint for crack v3.")),
+        "{shop:?}"
+    );
+    assert!(
+        shop.iter().any(|line| line.contains("pays 50% more")),
+        "{shop:?}"
+    );
+}
+
+#[test]
+fn two_handles_can_duel_in_the_grid() {
+    let mut world = port_ostra(0).unwrap();
+    let (nyx, _) = world.join("nyx");
+    let (zer0, _) = world.join("zer0");
+    world.command(nyx, "duel zer0");
+    world.command(zer0, "duel nyx");
+    assert_eq!(
+        world.prompt(nyx).as_deref(),
+        Some("[integ 100] nyx@grid-north $ ")
+    );
+    assert_eq!(
+        world.prompt(zer0).as_deref(),
+        Some("[integ 100] zer0@grid-south $ ")
+    );
+}
+
+#[test]
 fn the_hosts_of_a_job_run_software_that_scan_shows() {
     let mut world = port_ostra(0).unwrap();
     world.set_time(20_000 * 86_400 + 12 * 3_600);
