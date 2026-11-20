@@ -24,6 +24,7 @@ pub(super) struct Reader {
     pub(super) home: Option<(String, usize)>,
     pub(super) burns: Option<(String, usize)>,
     pub(super) news: Option<(String, usize)>,
+    pub(super) auction: Option<(String, usize)>,
     pub(super) contract: Option<(String, usize)>,
     pub(super) contracts: Vec<(ContractDef, [usize; 3])>,
     pub(super) networks: Vec<(NetworkDef, usize)>,
@@ -85,7 +86,9 @@ impl Reader {
         section.id.clone_into(&mut self.city_id);
         self.allow(
             section,
-            &["name", "start", "home", "burns", "news", "contract"],
+            &[
+                "name", "start", "home", "burns", "news", "auction", "contract",
+            ],
         );
         self.check_name(section.line, section.id, Name::Plain);
         self.city_name = self.single(section, "name").map(|(name, _)| name);
@@ -93,6 +96,7 @@ impl Reader {
         self.home = self.optional(section, "home");
         self.burns = self.optional(section, "burns");
         self.news = self.optional(section, "news");
+        self.auction = self.optional(section, "auction");
         self.contract = self.optional(section, "contract");
     }
 

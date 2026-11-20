@@ -22,6 +22,7 @@ impl Reader {
             home: self.home.map(|(home, _)| home),
             burns: self.burns.map(|(host, _)| host),
             news: self.news.map(|(host, _)| host),
+            auction: self.auction.map(|(host, _)| host),
             contract: self.contract.map(|(id, _)| id),
             networks: self
                 .networks
@@ -189,6 +190,7 @@ impl Reader {
             ("home", self.home.clone()),
             ("burns", self.burns.clone()),
             ("news", self.news.clone()),
+            ("auction", self.auction.clone()),
         ]
         .into_iter()
         .chain(shops)

@@ -24,6 +24,8 @@ pub(crate) enum Verb {
     Shop,
     Buy,
     Sell,
+    Lots,
+    Bid,
     Scan,
     Probe,
     Crack,
@@ -103,6 +105,7 @@ impl Verb {
                 | Self::Jobs
                 | Self::Rumors
                 | Self::Shop
+                | Self::Lots
                 | Self::Scan
                 | Self::Patch
                 | Self::Firewall
@@ -461,6 +464,24 @@ pub(crate) const COMMANDS: &[Command] = &[
         summary: "Sell stolen data to the fence at a shop.",
         example: "inventory | grep .db | sell",
         takes: Takes::Optional(Kinds::FILES),
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Lots,
+        names: &["lots"],
+        usage: "lots",
+        summary: "Show the lots of the police auction: the data, hardware, and programs from the rigs of burned handles.",
+        example: "lots",
+        takes: Takes::Nothing,
+        gives: Gives::Items(Kinds::LINES),
+    },
+    Command {
+        verb: Verb::Bid,
+        names: &["bid"],
+        usage: "bid <lot> <credits>",
+        summary: "Bid on a lot of the police auction. The police hold your credits until someone bids more.",
+        example: "bid 3 150",
+        takes: Takes::Nothing,
         gives: Gives::Nothing,
     },
     Command {

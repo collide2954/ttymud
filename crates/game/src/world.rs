@@ -1,6 +1,7 @@
 mod access;
 mod account;
 mod alert;
+mod auction;
 mod bans;
 mod builds;
 mod burns;
@@ -56,6 +57,7 @@ use crate::target::{Level, Vault};
 
 use account::{Account, Phase, Social};
 use alert::CorpState;
+use auction::Auction;
 pub use bans::BANNED;
 use burns::Burn;
 use channels::Channel;
@@ -206,6 +208,7 @@ pub struct World {
     offer: Option<usize>,
     shops: Vec<Shop>,
     market: Market,
+    auction: Auction,
     corps: Vec<CorpDef>,
     corp_states: Vec<CorpState>,
     templates: Vec<TemplateDef>,
@@ -308,6 +311,10 @@ impl World {
             offer,
             shops,
             market: Market::default(),
+            auction: Auction {
+                host: content.auction.as_deref().map(find),
+                ..Auction::default()
+            },
             corps: content.corps,
             corp_states,
             templates: content.templates,
@@ -529,6 +536,8 @@ impl World {
             Verb::Shop => self.shop(player),
             Verb::Buy => self.buy(player, args),
             Verb::Sell => self.sell(player, args, input),
+            Verb::Lots => self.lots(player),
+            Verb::Bid => self.bid(player, args),
             Verb::Load => self.load(player, args),
             Verb::Unload => self.unload(player, args),
             Verb::Compile => self.compile(player, args),

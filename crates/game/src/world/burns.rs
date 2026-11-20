@@ -32,7 +32,7 @@ impl World {
         };
         let name = std::mem::take(&mut state.name);
         state.phase = Phase::Naming;
-        state.rig = Rig::new();
+        let rig = std::mem::replace(&mut state.rig, Rig::new());
         state.heat = 0;
         state.credits = 0;
         state.rep.clear();
@@ -63,6 +63,7 @@ impl World {
         self.publish(format!(
             "The handle {name} burns. The police seize its rig."
         ));
+        self.auction_rig(&name, rig);
         let taken = presence::named(&name, " burns. The police take the rig away.");
         self.notify(here, player, &taken);
         vec![

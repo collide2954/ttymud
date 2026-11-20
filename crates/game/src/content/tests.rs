@@ -70,6 +70,20 @@ fn the_city_can_name_a_host_for_the_news() {
 }
 
 #[test]
+fn the_city_can_name_a_host_for_the_police_auction() {
+    let text = NET.replace("start = a", "start = a\nauction = a");
+    assert_eq!(Content::parse(&text).unwrap().auction.as_deref(), Some("a"));
+    assert_eq!(
+        errors(&NET.replace("start = a", "start = a\nauction = x")),
+        ["line 4: auction is an unknown host: x"]
+    );
+    assert_eq!(
+        errors(&NET.replace("start = a", "start = a\nauction = b")),
+        ["line 4: auction is in a network: b"]
+    );
+}
+
+#[test]
 fn a_network_has_a_security_level() {
     let text = NET.replace("name = N\n", "name = N\nsecurity = high\n");
     let content = Content::parse(&text).unwrap();

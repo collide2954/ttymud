@@ -21,6 +21,7 @@ read <file>       Show the text of a file here or on your rig.
 download <file>   Copy a file from this host to your rig.
 inventory         Show the files on your rig.
 buy <item>        Buy a program or a rig upgrade at a shop.
+lots              Show the lots of the police auction: the data, hardware, and programs from the rigs of burned handles.
 > lok
 Unknown command: lok. Did you mean look?
 > xyzzy
