@@ -100,12 +100,14 @@ impl World {
         let Some(copy) = self.instance_id(player) else {
             return Vec::new();
         };
+        let crew = self.handle(player).and_then(|name| self.crews.of(name));
         self.players
             .iter()
             .filter(|&(&other, state)| {
                 other != player
                     && state.chain.last() == Some(&here)
                     && state.run.as_ref().is_some_and(|run| run.instance == copy)
+                    && crew.is_some_and(|crew| crew.has(&state.name))
             })
             .map(|(_, state)| state.name.as_str())
             .collect()

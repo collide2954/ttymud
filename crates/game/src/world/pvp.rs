@@ -355,6 +355,17 @@ mod tests {
     }
 
     #[test]
+    fn scrub_names_only_crewmates_when_strangers_share_the_copy() {
+        let (mut world, nyx, zer0) = two();
+        assert_eq!(world.complete(zer0, "scrub ").names, Vec::<String>::new());
+        assert_eq!(
+            plain(&world.command(zer0, "scrub nyx")),
+            ["No crewmate named nyx. Crew: none"]
+        );
+        assert_eq!(integrity(&world, nyx), 100);
+    }
+
+    #[test]
     fn handles_outside_a_darknet_are_no_targets() {
         let mut world = crate::testing::world();
         let (nyx, zer0) = crew(&mut world);

@@ -103,13 +103,9 @@ impl World {
         let mate = match args {
             [] => None,
             [word] => {
-                let members = self.members(id);
-                let names: Vec<&str> = members
-                    .iter()
-                    .filter(|member| member.host == here && member.player != player)
-                    .map(|member| member.name.as_str())
-                    .collect();
+                let names = self.mates_here(player);
                 let found = choose(Thing::Member, word, &names)?;
+                let members = self.members(id);
                 let mate = members.iter().find(|member| member.name == found);
                 mate.map(|member| (member.player, member.name.clone()))
             }
