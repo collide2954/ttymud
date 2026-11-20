@@ -1,18 +1,41 @@
 use ttymud_text::{Message, Style};
 
-use super::matches::{DUEL_TIME, Side};
+use super::matches::{End, Match, Mode, Outcome, Side};
 use super::presence::named;
 use super::{NetworkId, Output, PlayerId, Step, Thing, World, address, choose};
 
-const ANSWER: u64 = 60;
+pub(super) const ANSWER: u64 = 60;
 const USAGE: &str = "Usage: duel <handle> [credits].";
 
 #[derive(Debug)]
 pub(super) struct Challenge {
+    kind: Mode,
     from: PlayerId,
     to: PlayerId,
     wager: u32,
     when: u64,
+}
+
+pub(super) struct Offer<'a> {
+    pub(super) kind: Mode,
+    pub(super) from: PlayerId,
+    pub(super) to: PlayerId,
+    pub(super) wager: Option<u32>,
+    pub(super) whom: &'a str,
+    pub(super) them: &'a str,
+    pub(super) accept: String,
+    pub(super) answer: String,
+}
+
+pub(super) fn wager_of(args: &[String], usage: &str) -> Result<(String, Option<u32>), Message> {
+    match args {
+        [word] => Ok((word.clone(), None)),
+        [word, credits] => {
+            let credits = credits.parse().map_err(|_| Message::error(usage))?;
+            Ok((word.clone(), Some(credits)))
+        }
+        _ => Err(Message::error(usage)),
+    }
 }
 
 impl World {
@@ -24,99 +47,111 @@ impl World {
             .collect()
     }
 
-    pub(super) fn duel(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
+    pub(super) fn arena_for(&self, player: PlayerId, what: &str) -> Result<NetworkId, Message> {
         let Some(arena) = self.arena else {
             return Err(Message::error("This city has no arena."));
         };
         if self.running(player) {
-            return Err(Message::error(
-                "A duel starts from the city. Leave the network first.",
-            ));
+            return Err(Message::error(format!(
+                "A {what} starts from the city. Leave the network first."
+            )));
         }
-        let (word, wager) = match args {
-            [word] => (word, None),
-            [word, credits] => (
-                word,
-                Some(credits.parse().map_err(|_| Message::error(USAGE))?),
-            ),
-            _ => return Err(Message::error(USAGE)),
-        };
+        Ok(arena)
+    }
+
+    pub(super) fn duel(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
+        let arena = self.arena_for(player, "duel")?;
+        let (word, wager) = wager_of(args, USAGE)?;
         let me = self.handle(player).unwrap_or_default().to_owned();
         if word.eq_ignore_ascii_case(&me) {
             return Err(Message::error("You cannot duel yourself."));
         }
-        let online: Vec<(PlayerId, &str)> = self
-            .online()
-            .into_iter()
-            .filter(|&(other, _)| other != player)
-            .collect();
-        let names: Vec<&str> = online.iter().map(|&(_, name)| name).collect();
-        let name = choose(Thing::Handle, word, &names)?.to_owned();
-        let Some(&(rival, _)) = online.iter().find(|&&(_, known)| known == name) else {
+        let names = self.duel_names(player);
+        let name = choose(Thing::Handle, &word, &names)?.to_owned();
+        let Some((rival, _)) = self.online().into_iter().find(|&(_, known)| known == name) else {
             return Ok(Step::default());
         };
         if self.running(rival) {
             return Err(Message::error(format!("{name} is in a network now.")));
         }
+        let offer = Offer {
+            kind: Mode::Duel,
+            from: player,
+            to: rival,
+            wager,
+            whom: "you",
+            them: &name,
+            accept: format!("duel {me}"),
+            answer: format!("duel {name}"),
+        };
+        let Some(wager) = self.propose(offer)? else {
+            let stake = stake(wager.unwrap_or(0));
+            return Ok(Step::show(vec![
+                Message::game("You challenge ")
+                    .span(Style::Player, &name)
+                    .text(format!(" to a duel{stake}. "))
+                    .span(Style::Player, &name)
+                    .text(format!(" has {ANSWER} seconds to answer.")),
+            ]));
+        };
+        self.start_duel(arena, [rival, player], wager);
+        Ok(Step::default())
+    }
+
+    pub(super) fn propose(&mut self, offer: Offer<'_>) -> Result<Option<u32>, Message> {
         let now = self.now;
         self.challenges
             .retain(|challenge| now.saturating_sub(challenge.when) <= ANSWER);
         let credits =
             |world: &Self, player| world.players.get(&player).map_or(0, |state| state.credits);
-        let asked = self
-            .challenges
-            .iter()
-            .position(|challenge| challenge.from == rival && challenge.to == player);
-        if let Some(index) = asked {
-            let offered = self.challenges[index].wager;
-            if wager.is_some_and(|wager| wager != offered) {
-                return Err(Message::error(format!(
-                    "{name} challenged you for {offered} cr. Type duel {name} to accept."
-                )));
-            }
-            let have = credits(self, player);
-            if have < offered {
-                return Err(Message::error(format!("You have only {have} cr.")));
-            }
-            if credits(self, rival) < offered {
-                return Err(Message::error(format!("{name} cannot pay the stake now.")));
-            }
-            self.challenges.remove(index);
-            self.start_duel(arena, [rival, player], offered);
-            return Ok(Step::default());
+        let asked = self.challenges.iter().position(|challenge| {
+            challenge.kind == offer.kind && challenge.from == offer.to && challenge.to == offer.from
+        });
+        let wager = match asked {
+            Some(index) => self.challenges[index].wager,
+            None => offer.wager.unwrap_or(0),
+        };
+        let (them, whom) = (offer.them, offer.whom);
+        if asked.is_some() && offer.wager.is_some_and(|asked| asked != wager) {
+            let answer = &offer.answer;
+            return Err(Message::error(format!(
+                "{them} challenged {whom} for {wager} cr. Type {answer} to accept."
+            )));
         }
-        let wager = wager.unwrap_or(0);
-        let have = credits(self, player);
+        let have = credits(self, offer.from);
         if have < wager {
             return Err(Message::error(format!("You have only {have} cr.")));
         }
-        self.challenges
-            .retain(|challenge| challenge.from != player || challenge.to != rival);
+        if let Some(index) = asked {
+            if credits(self, offer.to) < wager {
+                return Err(Message::error(format!("{them} cannot pay the stake now.")));
+            }
+            self.challenges.remove(index);
+            return Ok(Some(wager));
+        }
+        self.challenges.retain(|challenge| {
+            challenge.kind != offer.kind || challenge.from != offer.from || challenge.to != offer.to
+        });
         self.challenges.push(Challenge {
-            from: player,
-            to: rival,
+            kind: offer.kind,
+            from: offer.from,
+            to: offer.to,
             wager,
             when: now,
         });
-        let stake = if wager > 0 {
-            format!(" for {wager} cr")
-        } else {
-            String::new()
-        };
-        let asks = named(&me, &format!(" challenges you to a duel{stake}. Type "))
-            .span(Style::Command, format!("duel {me}"))
-            .text(format!(" in the next {ANSWER} seconds to accept."));
+        let me = self.handle(offer.from).unwrap_or_default().to_owned();
+        let what = offer.kind.word();
+        let asks = named(
+            &me,
+            &format!(" challenges {whom} to a {what}{}. Type ", stake(wager)),
+        )
+        .span(Style::Command, offer.accept)
+        .text(format!(" in the next {ANSWER} seconds to accept."));
         self.outbox.push(Output {
-            player: rival,
+            player: offer.to,
             message: asks,
         });
-        Ok(Step::show(vec![
-            Message::game("You challenge ")
-                .span(Style::Player, &name)
-                .text(format!(" to a duel{stake}. "))
-                .span(Style::Player, &name)
-                .text(format!(" has {ANSWER} seconds to answer.")),
-        ]))
+        Ok(None)
     }
 
     fn start_duel(&mut self, arena: NetworkId, fighters: [PlayerId; 2], wager: u32) {
@@ -125,15 +160,16 @@ impl World {
             name: names[index].clone(),
             payer: fighters[index],
             fighters: self.fighter(fighters[index]).into_iter().collect(),
+            captures: 0,
         });
-        self.open_match(arena, sides, wager);
+        self.open_match(arena, Mode::Duel, sides, wager);
         let network = self.networks[arena.0].name.clone();
         let stake = if wager > 0 {
             format!(" The winner takes {wager} cr from the loser.")
         } else {
             String::new()
         };
-        let minutes = DUEL_TIME / 60;
+        let minutes = Mode::Duel.minutes();
         for (index, player) in fighters.into_iter().enumerate() {
             let other = &names[1 - index];
             let mut shown = vec![
@@ -152,6 +188,54 @@ impl World {
             self.outbox.extend(address(player, shown));
         }
     }
+}
+
+pub(super) fn stake(wager: u32) -> String {
+    if wager > 0 {
+        format!(" for {wager} cr")
+    } else {
+        String::new()
+    }
+}
+
+pub(super) fn result(game: &Match, outcome: Outcome, side: usize) -> Vec<Message> {
+    let (other, wager) = (&game.sides[1 - side].name, game.wager);
+    let player = |text: &str| Message::game(text).span(Style::Player, other);
+    let line = match outcome {
+        Outcome::Draw => player("Time is up. The duel against ").text(" is a draw."),
+        Outcome::Win(winner, end) if winner == side => {
+            let how = match end {
+                End::GiveUp => named(other, " gives up."),
+                End::Gone => named(other, " disconnects."),
+                End::Crash | End::Flags | End::Time => player("The rig of ").text(" crashes."),
+            };
+            let won = how.text(" You win the duel");
+            if wager > 0 {
+                won.text(format!(" and take {wager} cr from "))
+                    .span(Style::Player, other)
+                    .text(".")
+            } else {
+                won.text(".")
+            }
+        }
+        Outcome::Win(_, end) => {
+            let lost = match end {
+                End::GiveUp => player("You give up the duel against "),
+                End::Gone => return Vec::new(),
+                End::Crash | End::Flags | End::Time => {
+                    player("Your rig crashes. You lose the duel against ")
+                }
+            };
+            if wager > 0 {
+                lost.text(format!(" and pay {wager} cr to "))
+                    .span(Style::Player, other)
+                    .text(".")
+            } else {
+                lost.text(".")
+            }
+        }
+    };
+    vec![line]
 }
 
 #[cfg(test)]

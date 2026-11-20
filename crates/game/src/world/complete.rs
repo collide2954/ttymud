@@ -52,7 +52,7 @@ impl World {
                 .map(|file| file.name.as_str())
                 .collect(),
             (Verb::Download, _) => self
-                .files_on(here)
+                .files_on(here, player)
                 .into_iter()
                 .map(|file| file.name.as_str())
                 .collect(),
@@ -68,6 +68,7 @@ impl World {
                 .map(|(_, name)| name)
                 .collect(),
             (Verb::Duel, 1) => self.duel_names(player),
+            (Verb::Match, 1) => self.crew_names(player),
             (Verb::Crew, 2) => self.crew_choices(player, &words[1]),
             (Verb::Tell | Verb::Ignore | Verb::Block | Verb::Report, 1) => self.online_names(),
             (Verb::Unignore | Verb::Unblock, 1) => {

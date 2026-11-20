@@ -72,8 +72,8 @@ impl World {
     }
 
     pub(super) fn jackout(&mut self, player: PlayerId) -> Result<Step, Message> {
-        if self.lose(player, End::GiveUp) {
-            return Ok(Step::default());
+        if let Some(shown) = self.quit_match(player, End::GiveUp) {
+            return Ok(Step::show(shown));
         }
         let Some(state) = self.players.get_mut(&player) else {
             return Ok(Step::default());
@@ -111,8 +111,11 @@ impl World {
             return Vec::new();
         };
         state.rig.integrity = state.rig.integrity.saturating_sub(amount);
-        if state.rig.integrity > 0 || self.lose(player, End::Crash) {
+        if state.rig.integrity > 0 {
             return Vec::new();
+        }
+        if let Some(shown) = self.match_crash(player) {
+            return shown;
         }
         if let Some(shown) = self.darknet_crash(player) {
             return shown;
@@ -301,6 +304,7 @@ impl World {
                 analysts: self.staff(network),
                 logs: Vec::new(),
                 bridges: Vec::new(),
+                files: Vec::new(),
                 clock: 0,
             };
             self.open_instance(instance)

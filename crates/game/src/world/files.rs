@@ -61,7 +61,7 @@ impl World {
         input: Option<Vec<Item>>,
     ) -> Result<Step, Message> {
         let host = self.here(player);
-        let here = self.files_on(host);
+        let here = self.files_on(host, player);
         let files = match input {
             Some(_) if !args.is_empty() => {
                 return Err(Message::error("download takes a file or a pipe, not both."));
@@ -75,7 +75,8 @@ impl World {
         let mut shown = Vec::new();
         let mut allowed = Vec::new();
         for file in files {
-            match self.locked(player, &file) {
+            let refusal = self.locked(player, &file);
+            match refusal.or_else(|| self.own_flag(player, &file)) {
                 Some(refusal) => shown.push(refusal),
                 None => allowed.push(file),
             }
@@ -102,7 +103,7 @@ impl World {
             state.rig.files.push(file);
         }
         for name in &copied {
-            self.take_drop(host, name);
+            self.take_file(player, host, name);
         }
         if copied.iter().any(|name| self.is_goal(player, name)) {
             self.advance(player, Event::Download);
@@ -129,7 +130,7 @@ impl World {
     }
 
     pub(super) fn readable(&self, player: PlayerId) -> Vec<&File> {
-        let mut found = self.files_on(self.here(player));
+        let mut found = self.files_on(self.here(player), player);
         let rig: &[File] = match self.players.get(&player) {
             Some(state) => &state.rig.files,
             None => &[],
@@ -142,16 +143,17 @@ impl World {
         found
     }
 
-    pub(super) fn files_on(&self, host: HostId) -> Vec<&File> {
-        let dropped = self
-            .drops
-            .iter()
-            .filter(|&&(at, _)| at == host)
-            .map(|(_, file)| file);
+    pub(super) fn files_on(&self, host: HostId, viewer: PlayerId) -> Vec<&File> {
+        let copy = self
+            .instance(viewer)
+            .into_iter()
+            .flat_map(|instance| &instance.files);
+        let loose = self.drops.iter().chain(copy);
+        let dropped = loose.filter(|&&(at, _)| at == host).map(|(_, file)| file);
         self.hosts[host.0].files.iter().chain(dropped).collect()
     }
 
-    fn take_drop(&mut self, host: HostId, name: &str) {
+    fn take_file(&mut self, player: PlayerId, host: HostId, name: &str) {
         if self.hosts[host.0]
             .files
             .iter()
@@ -159,12 +161,13 @@ impl World {
         {
             return;
         }
-        let found = self
-            .drops
-            .iter()
-            .position(|(at, file)| *at == host && file.name == name);
-        if let Some(index) = found {
+        let here = |&(at, ref file): &(HostId, File)| at == host && file.name == name;
+        if let Some(index) = self.drops.iter().position(here) {
             self.drops.remove(index);
+        } else if let Some(instance) = self.instance_mut(player)
+            && let Some(index) = instance.files.iter().position(here)
+        {
+            instance.files.remove(index);
         }
     }
 }

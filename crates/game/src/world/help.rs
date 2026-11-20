@@ -38,6 +38,10 @@ impl World {
                 Verb::Jackout => running,
                 Verb::Tip => self.in_darknet(player),
                 Verb::Duel => self.arena.is_some() && !running,
+                Verb::Match => {
+                    let name = self.handle(player).unwrap_or_default();
+                    self.arena.is_some() && !running && self.led_crew(name).is_ok()
+                }
                 verb if verb.program().is_some() => {
                     running && state.is_some_and(|state| state.rig.loads.contains(&verb))
                 }
@@ -52,7 +56,7 @@ impl World {
                 Verb::Lots | Verb::Bid => self.auction.host == Some(here),
                 Verb::Jobs | Verb::Accept | Verb::Rumors => self.has_fixer(here),
                 Verb::Read => readable,
-                Verb::Download => !self.files_on(here).is_empty(),
+                Verb::Download => !self.files_on(here, player).is_empty(),
                 Verb::Recovery | Verb::Link | Verb::Keys | Verb::Revoke | Verb::Available => false,
                 _ => true,
             })

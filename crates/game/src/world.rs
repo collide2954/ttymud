@@ -13,6 +13,7 @@ mod crews;
 mod darknet;
 mod duels;
 mod files;
+mod flags;
 mod grep;
 mod heat;
 mod heists;
@@ -434,7 +435,7 @@ impl World {
     }
 
     pub fn leave(&mut self, player: PlayerId) -> Vec<Output> {
-        self.lose(player, End::Gone);
+        self.quit_match(player, End::Gone);
         self.settle_matches();
         let mut outputs = std::mem::take(&mut self.outbox);
         outputs.retain(|output| output.player != player);
@@ -578,6 +579,7 @@ impl World {
             Verb::Exploit => self.exploit(player),
             Verb::Tip => self.tip(player, args),
             Verb::Duel => self.duel(player, args),
+            Verb::Match => self.crew_match(player, args),
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Tell => Err(Message::error("Usage: tell <handle> <text>.")),
@@ -653,7 +655,11 @@ impl World {
             .routes(id, player)
             .into_iter()
             .map(|route| Item::Route(self.hosts[route.0].id.clone()));
-        let files = self.files_on(id).into_iter().cloned().map(Item::File);
+        let files = self
+            .files_on(id, player)
+            .into_iter()
+            .cloned()
+            .map(Item::File);
         routes.chain(files).collect()
     }
 
@@ -672,7 +678,7 @@ impl World {
             Message::game(&host.description),
             listed(Message::game("Routes: "), Style::Host, routes),
         ];
-        let files = self.files_on(id);
+        let files = self.files_on(id, viewer);
         if !files.is_empty() {
             let mut line = Message::game("Files: ");
             for (index, file) in files.into_iter().enumerate() {

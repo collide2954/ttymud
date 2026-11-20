@@ -1,4 +1,4 @@
-use ttymud_text::{Message, Style};
+use ttymud_text::Message;
 
 use super::{HostId, PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::Item;
@@ -49,10 +49,8 @@ impl World {
         }
         let leaving =
             behind.is_some_and(|behind| self.hosts[behind.0].network != self.hosts[from.0].network);
-        if leaving && self.in_match(player) {
-            return Err(Message::error("You are in a duel. Type ")
-                .span(Style::Command, "jackout")
-                .text(" to give up."));
+        if leaving && let Some(refusal) = self.stay_in_match(player) {
+            return Err(refusal);
         }
         match self.players.get_mut(&player) {
             Some(state) if state.chain.len() > 1 => {
@@ -72,6 +70,7 @@ impl World {
             self.advance(player, Event::Home);
         }
         shown.extend(self.scene(to, player));
+        self.capture(player);
         Step::show(shown)
     }
 

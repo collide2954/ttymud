@@ -1,6 +1,7 @@
 use super::ice::Ice;
 use super::soc::Analyst;
 use super::{HostId, NetworkId, Output, PlayerId, World};
+use crate::content::File;
 use ttymud_text::{Mate, Message};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -13,6 +14,7 @@ pub(super) struct Instance {
     pub(super) analysts: Vec<Analyst>,
     pub(super) logs: Vec<(HostId, PlayerId, u32)>,
     pub(super) bridges: Vec<(HostId, HostId)>,
+    pub(super) files: Vec<(HostId, File)>,
     pub(super) clock: u32,
 }
 
