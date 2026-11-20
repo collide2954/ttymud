@@ -1,6 +1,5 @@
-use ttymud_net::PublicKey;
+use ttymud_net::{PublicKey, is_address, is_server_name};
 use ttymud_text::ini::{self, Error, Section};
-use ttymud_text::{is_address, is_server_name};
 
 const LIST: &str = include_str!("../../../servers.ini");
 const KEYS: [&str; 4] = ["city", "address", "key", "desc"];

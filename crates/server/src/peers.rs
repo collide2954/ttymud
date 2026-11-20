@@ -2,9 +2,8 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-use ttymud_net::PublicKey;
+use ttymud_net::{PublicKey, is_address, is_server_name};
 use ttymud_text::ini::{self, Error, Section};
-use ttymud_text::{is_address, is_server_name};
 
 pub(crate) const LINKS: &str = "links.ini";
 const MAX_PEERS: usize = 16;

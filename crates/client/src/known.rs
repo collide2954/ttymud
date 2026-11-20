@@ -5,8 +5,6 @@ use std::path::Path;
 
 use ttymud_net::PublicKey;
 
-pub const DEFAULT_PORT: u16 = 7331;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Trust {
     Known,
@@ -17,24 +15,6 @@ pub enum Trust {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct KnownServers {
     entries: Vec<(String, PublicKey)>,
-}
-
-#[must_use]
-pub fn normalize(address: &str) -> String {
-    let address = address.trim().to_ascii_lowercase();
-    if address.starts_with('[') {
-        if address.contains("]:") {
-            address
-        } else {
-            format!("{address}:{DEFAULT_PORT}")
-        }
-    } else if address.matches(':').count() > 1 {
-        format!("[{address}]:{DEFAULT_PORT}")
-    } else if address.contains(':') {
-        address
-    } else {
-        format!("{address}:{DEFAULT_PORT}")
-    }
 }
 
 impl KnownServers {
@@ -98,27 +78,10 @@ mod tests {
 
     use ttymud_net::{Keys, PublicKey};
 
-    use super::{KnownServers, Trust, normalize};
+    use super::{KnownServers, Trust};
 
     fn key() -> PublicKey {
         Keys::generate().unwrap().public()
-    }
-
-    #[test]
-    fn addresses_get_the_default_port() {
-        assert_eq!(normalize("Ostra.Example.net"), "ostra.example.net:7331");
-        assert_eq!(normalize(" 127.0.0.1 "), "127.0.0.1:7331");
-        assert_eq!(
-            normalize("ostra.example.net:4000"),
-            "ostra.example.net:4000"
-        );
-    }
-
-    #[test]
-    fn ipv6_addresses_get_brackets_and_a_port() {
-        assert_eq!(normalize("::1"), "[::1]:7331");
-        assert_eq!(normalize("[::1]"), "[::1]:7331");
-        assert_eq!(normalize("[::1]:4000"), "[::1]:4000");
     }
 
     #[test]

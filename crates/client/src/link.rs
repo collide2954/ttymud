@@ -4,9 +4,9 @@ use std::net::{TcpStream, ToSocketAddrs};
 use std::path::Path;
 use std::time::Duration;
 
-use ttymud_net::{Keys, PublicKey, Receiver, Sender};
+use ttymud_net::{Keys, PublicKey, Receiver, Sender, normalize};
 
-use crate::known::{KnownServers, Trust, normalize};
+use crate::known::{KnownServers, Trust};
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 

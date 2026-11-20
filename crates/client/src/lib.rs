@@ -20,7 +20,7 @@ mod testing;
 mod wrap;
 
 pub use config::{Identity, config_dir, identity};
-pub use known::{DEFAULT_PORT, KnownServers, Trust, normalize};
+pub use known::{KnownServers, Trust};
 pub use line::line_mode;
 pub use link::{ConnectError, Link, connect};
 pub use remote::{Input, Remote, remote};

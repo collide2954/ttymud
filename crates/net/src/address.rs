@@ -1,3 +1,23 @@
+pub const DEFAULT_PORT: u16 = 7331;
+
+#[must_use]
+pub fn normalize(address: &str) -> String {
+    let address = address.trim().to_ascii_lowercase();
+    if address.starts_with('[') {
+        if address.contains("]:") {
+            address
+        } else {
+            format!("{address}:{DEFAULT_PORT}")
+        }
+    } else if address.matches(':').count() > 1 {
+        format!("[{address}]:{DEFAULT_PORT}")
+    } else if address.contains(':') {
+        address
+    } else {
+        format!("{address}:{DEFAULT_PORT}")
+    }
+}
+
 #[must_use]
 pub fn is_server_name(name: &str) -> bool {
     (3..=16).contains(&name.len())
@@ -17,7 +37,24 @@ pub fn is_address(text: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_address, is_server_name};
+    use super::{is_address, is_server_name, normalize};
+
+    #[test]
+    fn addresses_get_the_default_port() {
+        assert_eq!(normalize("Ostra.Example.net"), "ostra.example.net:7331");
+        assert_eq!(normalize(" 127.0.0.1 "), "127.0.0.1:7331");
+        assert_eq!(
+            normalize("ostra.example.net:4000"),
+            "ostra.example.net:4000"
+        );
+    }
+
+    #[test]
+    fn ipv6_addresses_get_brackets_and_a_port() {
+        assert_eq!(normalize("::1"), "[::1]:7331");
+        assert_eq!(normalize("[::1]"), "[::1]:7331");
+        assert_eq!(normalize("[::1]:4000"), "[::1]:4000");
+    }
 
     #[test]
     fn a_server_name_has_3_to_16_small_letters_digits_and_hyphens() {
