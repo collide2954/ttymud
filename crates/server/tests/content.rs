@@ -75,6 +75,37 @@ fn the_first_job_can_be_done() {
 }
 
 #[test]
+fn the_fixers_post_heists_and_the_shop_sells_decoy() {
+    let mut world = port_ostra(0).unwrap();
+    world.set_time(20_000 * 86_400 + 12 * 3_600);
+    let (player, _) = world.join("guest");
+    let mut run = |line: &str| -> Vec<String> {
+        let outputs = world.command(player, line);
+        outputs.iter().map(|out| out.message.plain()).collect()
+    };
+    run("go back-room");
+    let board = run("jobs");
+    let heading = board
+        .iter()
+        .position(|line| line == "Heists for crews today:");
+    let heists = heading.map_or(0, |heading| board.len() - heading - 3);
+    assert_eq!(heists, 2, "{board:?}");
+    let (ghost, _) = world.connect("a");
+    let mut ask = |line: &str| -> Vec<String> {
+        let outputs = world.command(ghost, line);
+        outputs.iter().map(|out| out.message.plain()).collect()
+    };
+    for line in ["nyx", "ghost", "go night-market"] {
+        ask(line);
+    }
+    let shop = ask("shop");
+    assert!(
+        shop.iter().any(|line| line.starts_with("decoy: 500 cr.")),
+        "{shop:?}"
+    );
+}
+
+#[test]
 fn the_hosts_of_a_job_run_software_that_scan_shows() {
     let mut world = port_ostra(0).unwrap();
     world.set_time(20_000 * 86_400 + 12 * 3_600);
