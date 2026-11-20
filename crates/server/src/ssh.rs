@@ -27,6 +27,8 @@ const HOST_KEY: &str = "ssh_host.key";
 const LOGIN: Duration = Duration::from_secs(10);
 const VARS: [&str; 5] = ["LANG", "LC_ALL", "LC_CTYPE", "COLORTERM", "NO_COLOR"];
 const WORDS: &str = "Use line, edit, color, hud, ascii, utf8, or verbose.";
+const QUEUE: usize = 64;
+const WRITE: Duration = Duration::from_secs(30);
 
 pub struct SshPort {
     listener: TcpListener,
@@ -159,7 +161,7 @@ struct Client {
     channel: Option<ChannelId>,
     terminal: Option<(String, u16, u16)>,
     vars: Vec<(String, String)>,
-    input: Option<mpsc::Sender<Input>>,
+    input: Option<tokio::sync::mpsc::Sender<Input>>,
 }
 
 impl Client {
@@ -197,7 +199,7 @@ impl Client {
         };
         session.channel_success(channel)?;
         let terminal = self.remote(choices);
-        let (input, inbox) = mpsc::channel();
+        let (input, mut inbox) = tokio::sync::mpsc::channel(QUEUE);
         self.input = Some(input);
         let connection = self.hub.connection();
         let wire = self.join(connection, digest);
@@ -205,7 +207,7 @@ impl Client {
         thread::Builder::new()
             .name(format!("ssh-{connection}"))
             .spawn(move || {
-                let _ = remote(wire, inbox, output, terminal);
+                let _ = remote(wire, move || inbox.blocking_recv(), output, terminal);
             })
             .map_err(russh::Error::IO)?;
         Ok(())
@@ -350,7 +352,7 @@ impl Handler for Client {
         ready(self.begin(channel, &String::from_utf8_lossy(data), session))
     }
 
-    fn window_change_request(
+    async fn window_change_request(
         &mut self,
         _channel: ChannelId,
         col_width: u32,
@@ -358,23 +360,26 @@ impl Handler for Client {
         _pix_width: u32,
         _pix_height: u32,
         _session: &mut Session,
-    ) -> impl Future<Output = Result<(), Self::Error>> + Send {
+    ) -> Result<(), Self::Error> {
         if let Some(input) = &self.input {
-            let _ = input.send(Input::Resize(cells(col_width, 80), cells(row_height, 24)));
+            let size = Input::Resize(cells(col_width, 80), cells(row_height, 24));
+            let _ = input.send(size).await;
         }
-        ready(Ok(()))
+        Ok(())
     }
 
-    fn data(
+    async fn data(
         &mut self,
         _channel: ChannelId,
         data: &[u8],
         _session: &mut Session,
-    ) -> impl Future<Output = Result<(), Self::Error>> + Send {
-        if let Some(input) = &self.input {
-            let _ = input.send(Input::Bytes(data.to_vec()));
+    ) -> Result<(), Self::Error> {
+        if let Some(input) = &self.input
+            && input.send(Input::Bytes(data.to_vec())).await.is_err()
+        {
+            return Err(russh::Error::Disconnect);
         }
-        ready(Ok(()))
+        Ok(())
     }
 
     fn channel_eof(
@@ -398,15 +403,20 @@ impl Handler for Client {
 
 struct Outgoing {
     buffer: Vec<u8>,
-    sender: tokio::sync::mpsc::UnboundedSender<Vec<u8>>,
+    sender: tokio::sync::mpsc::Sender<Vec<u8>>,
 }
 
 impl Outgoing {
     fn new(channel: ChannelId, handle: Handle) -> Self {
-        let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
+        let (sender, mut receiver) = tokio::sync::mpsc::channel::<Vec<u8>>(QUEUE);
         tokio::spawn(async move {
             while let Some(bytes) = receiver.recv().await {
-                if handle.data(channel, bytes).await.is_err() {
+                let sent = tokio::time::timeout(WRITE, handle.data(channel, bytes)).await;
+                if !matches!(sent, Ok(Ok(()))) {
+                    let reason = "The client stopped reading.".to_owned();
+                    let goodbye =
+                        handle.disconnect(Disconnect::ByApplication, reason, String::new());
+                    let _ = tokio::time::timeout(Duration::from_secs(1), goodbye).await;
                     return;
                 }
             }
@@ -433,7 +443,7 @@ impl Write for Outgoing {
         }
         let bytes = std::mem::take(&mut self.buffer);
         self.sender
-            .send(bytes)
+            .blocking_send(bytes)
             .map_err(|_| io::Error::from(io::ErrorKind::BrokenPipe))
     }
 }

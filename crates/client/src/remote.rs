@@ -45,7 +45,7 @@ impl Remote {
 
 pub fn remote(
     wire: impl Into<Wire>,
-    input: mpsc::Receiver<Input>,
+    mut input: impl FnMut() -> Option<Input> + Send + 'static,
     output: impl Write,
     terminal: Remote,
 ) -> io::Result<Ending> {
@@ -56,8 +56,8 @@ pub fn remote(
     } = terminal;
     let wire = wire.into();
     let reader = move |events: &mpsc::Sender<Event>| match settings.layer {
-        Layer::Line => lines(&input, events),
-        Layer::Edit | Layer::Color | Layer::Hud => keys(&input, events),
+        Layer::Line => lines(&mut input, events),
+        Layer::Edit | Layer::Color | Layer::Hud => keys(&mut input, events),
     };
     let verbose = settings.verbose;
     match settings.layer {
@@ -94,9 +94,9 @@ fn narrated(
     }
 }
 
-fn keys(input: &mpsc::Receiver<Input>, events: &mpsc::Sender<Event>) {
+fn keys(input: &mut impl FnMut() -> Option<Input>, events: &mpsc::Sender<Event>) {
     let mut decoder = Decoder::default();
-    for item in input {
+    while let Some(item) = input() {
         let batch: Vec<Event> = match item {
             Input::Bytes(bytes) => decoder.feed(&bytes).into_iter().map(Event::Key).collect(),
             Input::Resize(width, height) => vec![Event::Resize(width, height)],
@@ -110,13 +110,13 @@ fn keys(input: &mpsc::Receiver<Input>, events: &mpsc::Sender<Event>) {
     let _ = events.send(Event::InputEnded);
 }
 
-fn lines(input: &mpsc::Receiver<Input>, events: &mpsc::Sender<Event>) {
+fn lines(input: &mut impl FnMut() -> Option<Input>, events: &mpsc::Sender<Event>) {
     let mut pending = Vec::new();
     let line = |bytes: &[u8]| {
         let text = String::from_utf8_lossy(bytes);
         Event::Line(text.trim_end_matches(['\r', '\n']).to_owned())
     };
-    for item in input {
+    while let Some(item) = input() {
         let Input::Bytes(bytes) = item else {
             continue;
         };
@@ -136,8 +136,6 @@ fn lines(input: &mpsc::Receiver<Input>, events: &mpsc::Sender<Event>) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::mpsc;
-
     use super::{Input, Remote, remote};
     use crate::Ending;
     use crate::settings::{Choices, Depth, Layer};
@@ -154,14 +152,10 @@ mod tests {
         }
     }
 
-    fn session(input: &[Input], terminal: Remote) -> (Ending, String) {
-        let (sender, receiver) = mpsc::channel();
-        for item in input {
-            sender.send(item.clone()).unwrap();
-        }
-        drop(sender);
+    fn session<const N: usize>(input: [Input; N], terminal: Remote) -> (Ending, String) {
+        let mut items = input.into_iter();
         let mut screen = Vec::new();
-        let ending = remote(echo_wire(), receiver, &mut screen, terminal).unwrap();
+        let ending = remote(echo_wire(), move || items.next(), &mut screen, terminal).unwrap();
         (ending, String::from_utf8_lossy(&screen).into_owned())
     }
 
@@ -199,7 +193,7 @@ mod tests {
     fn without_a_pty_the_remote_terminal_sends_whole_lines() {
         let terminal = Remote::new(vars(&[]), None, Choices::default());
         let input = [bytes(b"lo"), bytes(b"ok\r\n"), bytes(b"quit")];
-        let (ending, text) = session(&input, terminal);
+        let (ending, text) = session(input, terminal);
         assert_eq!(ending, Ending::Quit);
         assert!(
             text.starts_with("Connected to Test City as anon-test.\n$ "),
@@ -216,7 +210,7 @@ mod tests {
         };
         let terminal = Remote::new(vars(&[("TERM", "xterm")]), Some((80, 24)), edit);
         let input = [bytes(b"ls\r"), bytes(b"\x1b[A\r"), bytes(b"\x04")];
-        let (ending, text) = session(&input, terminal);
+        let (ending, text) = session(input, terminal);
         assert_eq!(ending, Ending::Quit);
         assert_eq!(text.matches("\r\x1b[Kecho ls\r\n").count(), 2, "{text:?}");
     }
@@ -229,7 +223,7 @@ mod tests {
             Choices::default(),
         );
         let input = [bytes(b"ls\r"), Input::Resize(100, 30), bytes(b"\x04")];
-        let (ending, text) = session(&input, terminal);
+        let (ending, text) = session(input, terminal);
         assert_eq!(ending, Ending::Quit);
         assert!(text.starts_with("\x1b[?1049h"), "{text:?}");
         assert!(text.contains("echo ls"), "{text:?}");
