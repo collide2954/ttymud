@@ -1,6 +1,6 @@
 use ttymud_text::{Kind, Message, Style};
 
-use super::{PlayerId, Step, Thing, World, choose, listing, usage};
+use super::{HostId, PlayerId, Step, Thing, World, choose, listing, usage};
 use crate::commands::Item;
 use crate::content::File;
 use crate::contract::Event;
@@ -60,7 +60,8 @@ impl World {
         args: &[String],
         input: Option<Vec<Item>>,
     ) -> Result<Step, Message> {
-        let here: Vec<&File> = self.hosts[self.here(player).0].files.iter().collect();
+        let host = self.here(player);
+        let here = self.files_on(host);
         let files = match input {
             Some(_) if !args.is_empty() => {
                 return Err(Message::error("download takes a file or a pipe, not both."));
@@ -100,6 +101,9 @@ impl World {
             copied.push(file.name.clone());
             state.rig.files.push(file);
         }
+        for name in &copied {
+            self.take_drop(host, name);
+        }
         if copied.iter().any(|name| self.is_goal(player, name)) {
             self.advance(player, Event::Download);
         }
@@ -125,15 +129,43 @@ impl World {
     }
 
     pub(super) fn readable(&self, player: PlayerId) -> Vec<&File> {
-        let host = &self.hosts[self.here(player).0].files;
+        let mut found = self.files_on(self.here(player));
         let rig: &[File] = match self.players.get(&player) {
             Some(state) => &state.rig.files,
             None => &[],
         };
-        let carried = rig
+        for file in rig {
+            if !found.iter().any(|known| known.name == file.name) {
+                found.push(file);
+            }
+        }
+        found
+    }
+
+    pub(super) fn files_on(&self, host: HostId) -> Vec<&File> {
+        let dropped = self
+            .drops
             .iter()
-            .filter(|file| !host.iter().any(|known| known.name == file.name));
-        host.iter().chain(carried).collect()
+            .filter(|&&(at, _)| at == host)
+            .map(|(_, file)| file);
+        self.hosts[host.0].files.iter().chain(dropped).collect()
+    }
+
+    fn take_drop(&mut self, host: HostId, name: &str) {
+        if self.hosts[host.0]
+            .files
+            .iter()
+            .any(|file| file.name == name)
+        {
+            return;
+        }
+        let found = self
+            .drops
+            .iter()
+            .position(|(at, file)| *at == host && file.name == name);
+        if let Some(index) = found {
+            self.drops.remove(index);
+        }
     }
 }
 

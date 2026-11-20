@@ -92,6 +92,9 @@ impl World {
         if state.rig.integrity > 0 {
             return Vec::new();
         }
+        if let Some(shown) = self.darknet_crash(player) {
+            return shown;
+        }
         let mut shown = vec![Message::game(CRASH)];
         shown.extend(self.drop_link(player, true));
         shown

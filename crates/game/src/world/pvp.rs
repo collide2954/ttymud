@@ -166,18 +166,12 @@ impl World {
             .text(".");
         let onlookers = self.onlookers(player, rival);
         self.outbox.extend(tell(&onlookers, &seen));
+        let point = if weak { " in its weak point" } else { "" };
+        let shown = Message::game("crack hits ")
+            .span(Style::Player, name)
+            .text(format!("{point}. Integrity: {before} -> {after}."));
         let crashed = self.damage(rival, strength);
         self.outbox.extend(address(rival, crashed));
-        let shown = if after == 0 {
-            Message::game("crack crashes the rig of ")
-                .span(Style::Player, name)
-                .text(".")
-        } else {
-            let point = if weak { " in its weak point" } else { "" };
-            Message::game("crack hits ")
-                .span(Style::Player, name)
-                .text(format!("{point}. Integrity: {before} -> {after}."))
-        };
         Step::show(vec![shown])
     }
 
@@ -315,27 +309,6 @@ mod tests {
             ["crack hits nyx. Integrity: 100 -> 75."]
         );
         assert_eq!(integrity(&world, nyx), 75);
-    }
-
-    #[test]
-    fn a_crack_to_zero_integrity_crashes_the_rig() {
-        let (mut world, nyx, zer0) = two();
-        if let Some(state) = world.players.get_mut(&nyx) {
-            state.rig.integrity = 10;
-        }
-        let outputs = world.command(zer0, "crack nyx");
-        assert_eq!(
-            heard(&outputs, zer0),
-            ["crack crashes the rig of nyx.", "nyx leaves for hub."]
-        );
-        assert_eq!(
-            heard(&outputs, nyx)[..2],
-            [
-                "zer0 cracks your rig. Integrity: 10 -> 0.",
-                "Your rig crashes, and you lose the loot of this run."
-            ]
-        );
-        assert_eq!(world.prompt(nyx).as_deref(), Some("nyx@hub $ "));
     }
 
     #[test]

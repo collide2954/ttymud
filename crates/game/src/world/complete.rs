@@ -51,9 +51,9 @@ impl World {
                 .into_iter()
                 .map(|file| file.name.as_str())
                 .collect(),
-            (Verb::Download, _) => self.hosts[here.0]
-                .files
-                .iter()
+            (Verb::Download, _) => self
+                .files_on(here)
+                .into_iter()
                 .map(|file| file.name.as_str())
                 .collect(),
             (Verb::Probe | Verb::Crack | Verb::Pretext, _) => {

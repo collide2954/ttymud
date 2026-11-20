@@ -26,7 +26,6 @@ pub(super) fn help(args: &[String], moderator: bool) -> Result<Step, Message> {
 impl World {
     pub(super) fn available(&self, player: PlayerId) -> Step {
         let here = self.here(player);
-        let host = &self.hosts[here.0];
         let state = self.players.get(&player);
         let hops = state.map_or(0, |state| state.chain.len());
         let running = state.is_some_and(|state| state.run.is_some());
@@ -51,7 +50,7 @@ impl World {
                 Verb::Lots | Verb::Bid => self.auction.host == Some(here),
                 Verb::Jobs | Verb::Accept | Verb::Rumors => self.has_fixer(here),
                 Verb::Read => readable,
-                Verb::Download => !host.files.is_empty(),
+                Verb::Download => !self.files_on(here).is_empty(),
                 Verb::Recovery | Verb::Link | Verb::Keys | Verb::Revoke | Verb::Available => false,
                 _ => true,
             })

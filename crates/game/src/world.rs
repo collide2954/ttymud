@@ -231,6 +231,7 @@ pub struct World {
     crews: Crews,
     instances: BTreeMap<InstanceId, Instance>,
     next_instance: u64,
+    drops: Vec<(HostId, File)>,
     now: u64,
     next_player: u64,
     outbox: Vec<Output>,
@@ -342,6 +343,7 @@ impl World {
             crews: Crews::default(),
             instances: BTreeMap::new(),
             next_instance: 0,
+            drops: Vec::new(),
             now: 0,
             next_player: 0,
             outbox: Vec::new(),
@@ -637,7 +639,7 @@ impl World {
             .routes(id, player)
             .into_iter()
             .map(|route| Item::Route(self.hosts[route.0].id.clone()));
-        let files = self.hosts[id.0].files.iter().cloned().map(Item::File);
+        let files = self.files_on(id).into_iter().cloned().map(Item::File);
         routes.chain(files).collect()
     }
 
@@ -656,9 +658,10 @@ impl World {
             Message::game(&host.description),
             listed(Message::game("Routes: "), Style::Host, routes),
         ];
-        if !host.files.is_empty() {
+        let files = self.files_on(id);
+        if !files.is_empty() {
             let mut line = Message::game("Files: ");
-            for (index, file) in host.files.iter().enumerate() {
+            for (index, file) in files.into_iter().enumerate() {
                 if index > 0 {
                     line = line.text(", ");
                 }
