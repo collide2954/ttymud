@@ -150,20 +150,56 @@ impl Reader {
         for (id, line) in empty {
             self.error(line, format!("network {id} has no hosts"));
         }
+        self.check_bases();
+    }
+
+    fn check_bases(&mut self) {
+        let bases = std::mem::take(&mut self.bases);
+        let mut problems = Vec::new();
+        for (network, host, line) in &bases {
+            if self.zone_of(network) != Some(Zone::Arena) {
+                problems.push((*line, format!("only an arena has bases: {network}")));
+            } else if self.network_of(host) != Some(network.as_str()) {
+                problems.push((
+                    *line,
+                    format!("base {host} is not a host in arena {network}"),
+                ));
+            }
+        }
+        for (def, line) in self
+            .networks
+            .iter()
+            .filter(|(def, _)| def.zone == Zone::Arena)
+        {
+            let named: Vec<&str> = bases
+                .iter()
+                .filter(|(network, ..)| *network == def.id)
+                .map(|(_, host, _)| host.as_str())
+                .collect();
+            if !matches!(named.as_slice(), [one, other] if one != other) {
+                problems.push((*line, format!("arena {} needs two bases", def.id)));
+            }
+        }
+        for (line, message) in problems {
+            self.error(line, message);
+        }
     }
 
     fn check_routes(&mut self) {
         for (from, to, line) in std::mem::take(&mut self.routes) {
-            let crossing = matches!(
-                (self.network_of(&from), self.network_of(&to)),
-                (Some(a), Some(b)) if a != b
-            );
+            let (a, b) = (self.network_of(&from), self.network_of(&to));
+            let crossing = matches!((a, b), (Some(a), Some(b)) if a != b);
+            let arena = |network: Option<&str>| {
+                network.is_some_and(|network| self.zone_of(network) == Some(Zone::Arena))
+            };
             if from == to {
                 self.error(line, format!("host {from} has a route to itself"));
             } else if !self.has_host(&to) {
                 self.error(line, format!("route to an unknown host: {to}"));
             } else if crossing {
                 self.error(line, format!("route between two networks: {from} and {to}"));
+            } else if arena(a) != arena(b) {
+                self.error(line, format!("route into an arena: {from} and {to}"));
             }
         }
     }
@@ -174,7 +210,14 @@ impl Reader {
         }
         if let Some((start, line)) = self.start.clone() {
             if self.has_host(&start) {
-                for (id, line) in unreachable(&self.hosts, &start) {
+                let lost: Vec<(String, usize)> = unreachable(&self.hosts, &start)
+                    .into_iter()
+                    .filter(|(id, _)| {
+                        let network = self.network_of(id);
+                        network.and_then(|network| self.zone_of(network)) != Some(Zone::Arena)
+                    })
+                    .collect();
+                for (id, line) in lost {
                     let message = format!("host {id} cannot be reached from the start host");
                     self.error(line, message);
                 }
@@ -205,6 +248,9 @@ impl Reader {
                     self.error(line, format!("{key} is an unknown host: {host}"));
                 }
                 Some(Some(Zone::Darknet)) if key == "shop" => {}
+                Some(Some(Zone::Arena)) if key == "shop" => {
+                    self.error(line, format!("shop is in an arena: {host}"));
+                }
                 Some(_) if key == "shop" => {
                     self.error(line, format!("shop is in a target network: {host}"));
                 }

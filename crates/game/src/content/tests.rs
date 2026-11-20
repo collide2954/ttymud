@@ -729,7 +729,59 @@ fn a_network_can_be_a_darknet() {
     );
     assert_eq!(
         errors(&NET.replace("name = N\n", "name = N\nzone = jungle\n")),
-        ["line 9: unknown zone: jungle (use target or darknet)"]
+        ["line 9: unknown zone: jungle (use target, darknet, or arena)"]
+    );
+}
+
+const ARENA: &str = "\
+[city t]
+name = T
+start = a
+[host a]
+name = A
+desc = A.
+[network ring]
+name = Ring
+zone = arena
+base = west
+base = east
+[host west]
+name = West
+desc = W.
+network = ring
+route = east
+[host east]
+name = East
+desc = E.
+network = ring
+";
+
+#[test]
+fn an_arena_is_a_network_with_two_bases_and_no_route_from_the_city() {
+    assert_eq!(errors(ARENA), Vec::<String>::new());
+    assert_eq!(Content::parse(ARENA).unwrap().networks[0].zone, Zone::Arena);
+}
+
+#[test]
+fn bad_arenas_fail() {
+    let two = ["line 7: arena ring needs two bases"];
+    assert_eq!(errors(&ARENA.replace("base = east\n", "")), two);
+    assert_eq!(errors(&ARENA.replace("base = east", "base = west")), two);
+    assert_eq!(
+        errors(&ARENA.replace("base = east", "base = a")),
+        ["line 11: base a is not a host in arena ring"]
+    );
+    assert_eq!(
+        errors(&NET.replace("name = N\n", "name = N\nbase = b\n")),
+        ["line 9: only an arena has bases: n"]
+    );
+    assert_eq!(
+        errors(&ARENA.replace("route = east", "route = east\nroute = a")),
+        ["line 17: route into an arena: west and a"]
+    );
+    assert_eq!(
+        errors(&format!("{ARENA}[shop west]\n")),
+        ["line 21: shop is in an arena: west"]
     );
 }
 

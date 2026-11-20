@@ -119,6 +119,7 @@ pub(crate) struct NetworkDef {
 pub(crate) enum Zone {
     Target,
     Darknet,
+    Arena,
 }
 
 impl Zone {
@@ -126,6 +127,7 @@ impl Zone {
         match word {
             "target" => Some(Self::Target),
             "darknet" => Some(Self::Darknet),
+            "arena" => Some(Self::Arena),
             _ => None,
         }
     }

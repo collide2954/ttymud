@@ -30,6 +30,7 @@ pub(super) struct Reader {
     pub(super) networks: Vec<(NetworkDef, usize)>,
     pub(super) hosts: Vec<(HostDef, usize)>,
     pub(super) members: Vec<(String, String, usize)>,
+    pub(super) bases: Vec<(String, String, usize)>,
     pub(super) routes: Vec<(String, String, usize)>,
     pub(super) files: Vec<(String, File, usize)>,
     pub(super) ice: Vec<(String, IceDef, usize)>,
@@ -182,7 +183,7 @@ impl Reader {
             );
             return;
         }
-        self.allow(section, &["name", "security", "zone"]);
+        self.allow(section, &["name", "security", "zone", "base"]);
         self.check_name(section.line, section.id, Name::Plain);
         let name = self.single(section, "name").unwrap_or_default().0;
         let zone = match self.optional(section, "zone") {
@@ -190,11 +191,14 @@ impl Reader {
             Some((word, line)) => Zone::find(&word).unwrap_or_else(|| {
                 self.error(
                     line,
-                    format!("unknown zone: {word} (use target or darknet)"),
+                    format!("unknown zone: {word} (use target, darknet, or arena)"),
                 );
                 Zone::Target
             }),
         };
+        let bases = section.pairs.iter().filter(|pair| pair.key == "base");
+        self.bases
+            .extend(bases.map(|pair| (section.id.to_owned(), pair.value.to_owned(), pair.line)));
         let security = match self.optional(section, "security") {
             None => Security::Low,
             Some((word, line)) => Security::find(&word).unwrap_or_else(|| {
