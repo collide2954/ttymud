@@ -75,6 +75,46 @@ fn the_first_job_can_be_done() {
 }
 
 #[test]
+fn the_sample_script_breaks_the_sentry_of_the_first_job() {
+    let mut world = port_ostra(0).unwrap();
+    let (player, _) = world.join("guest");
+    let lines = [
+        "go night-market",
+        "get break.sh",
+        "back",
+        "go safehouse",
+        "unload patch",
+        "go smile-gw",
+    ];
+    for line in lines {
+        world.command(player, line);
+    }
+    let started: Vec<String> = world
+        .command(player, "sh break.sh sentry")
+        .iter()
+        .map(|out| out.message.plain())
+        .collect();
+    assert_eq!(
+        started,
+        ["break.sh starts. It runs one command on each tick."]
+    );
+    let mut seen = Vec::new();
+    for _ in 0..8 {
+        let outputs = world.tick();
+        let mine = outputs.iter().filter(|out| out.player == player);
+        seen.extend(mine.map(|out| out.message.plain()));
+    }
+    for line in [
+        "break.sh: probe sentry | crack",
+        "crack breaks sentry through its weak point.",
+        "No match for sentry.",
+        "break.sh ends.",
+    ] {
+        assert!(seen.contains(&line.to_owned()), "{line}: {seen:?}");
+    }
+}
+
+#[test]
 fn the_fixers_post_heists_and_the_shop_sells_decoy() {
     let mut world = port_ostra(0).unwrap();
     world.set_time(20_000 * 86_400 + 12 * 3_600);
