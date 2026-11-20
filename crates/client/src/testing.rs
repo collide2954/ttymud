@@ -1,13 +1,15 @@
 use std::fs;
+use std::io;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
+use std::sync::mpsc;
 use std::thread;
 
 use ttymud_net::{Keys, PublicKey, Receiver, Sender};
 use ttymud_text::Message;
 use ttymud_wire::{ClientMessage, ServerMessage};
 
-use crate::Link;
+use crate::{Link, Wire};
 
 type Handler = fn(Receiver<TcpStream>, Sender<TcpStream>);
 
@@ -74,6 +76,32 @@ pub(crate) fn ticker(mut receiver: Receiver<TcpStream>, mut sender: Sender<TcpSt
         );
         send(&mut sender, &ServerMessage::Prompt("$ ".to_owned()));
     }
+}
+
+pub(crate) fn echo_wire() -> Wire {
+    let (to_client, from_server) = mpsc::channel();
+    let (to_server, from_client) = mpsc::channel();
+    let welcome = ServerMessage::Welcome {
+        city: "Test City".to_owned(),
+        name: "anon-test".to_owned(),
+    };
+    for message in [welcome, ServerMessage::Prompt("$ ".to_owned())] {
+        let _ = to_client.send(message);
+    }
+    thread::spawn(move || {
+        for message in from_client {
+            if let ClientMessage::Command(line) = message {
+                let echo = Message::game(format!("echo {line}"));
+                let _ = to_client.send(ServerMessage::Text(echo));
+                let _ = to_client.send(ServerMessage::Prompt("$ ".to_owned()));
+            }
+        }
+    });
+    Wire::new(
+        move || from_server.recv().ok(),
+        move |message| to_server.send(message).map_err(io::Error::other),
+        || {},
+    )
 }
 
 pub(crate) fn echo(mut receiver: Receiver<TcpStream>, mut sender: Sender<TcpStream>) {

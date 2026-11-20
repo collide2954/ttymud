@@ -4,7 +4,7 @@ use std::sync::mpsc;
 use crossterm::event::{self, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use crossterm::terminal;
 
-use crate::editor::Key;
+use crate::editor::{Key, control_key};
 use crate::hud::Hud;
 use crate::narrate::Narrated;
 use crate::screen::Screen;
@@ -106,26 +106,6 @@ fn to_key(event: KeyEvent) -> Option<Key> {
         KeyCode::PageUp => Key::PageUp,
         KeyCode::PageDown => Key::PageDown,
         KeyCode::Tab => Key::Tab,
-        _ => return None,
-    };
-    Some(key)
-}
-
-fn control_key(c: char) -> Option<Key> {
-    let key = match c.to_ascii_lowercase() {
-        'a' => Key::Home,
-        'b' => Key::Left,
-        'c' => Key::Cancel,
-        'd' => Key::EndOfInput,
-        'e' => Key::End,
-        'f' => Key::Right,
-        'h' => Key::Backspace,
-        'j' | 'm' => Key::Enter,
-        'k' => Key::DeleteToEnd,
-        'n' => Key::Down,
-        'p' => Key::Up,
-        'u' => Key::DeleteToStart,
-        'w' => Key::DeleteWord,
         _ => return None,
     };
     Some(key)

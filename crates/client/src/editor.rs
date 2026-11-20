@@ -20,6 +20,26 @@ pub(crate) enum Key {
     EndOfInput,
 }
 
+pub(crate) fn control_key(c: char) -> Option<Key> {
+    let key = match c.to_ascii_lowercase() {
+        'a' => Key::Home,
+        'b' => Key::Left,
+        'c' => Key::Cancel,
+        'd' => Key::EndOfInput,
+        'e' => Key::End,
+        'f' => Key::Right,
+        'h' => Key::Backspace,
+        'j' | 'm' => Key::Enter,
+        'k' => Key::DeleteToEnd,
+        'n' => Key::Down,
+        'p' => Key::Up,
+        'u' => Key::DeleteToStart,
+        'w' => Key::DeleteWord,
+        _ => return None,
+    };
+    Some(key)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Action {
     Nothing,

@@ -11,10 +11,7 @@ pub fn line_mode(
     output: impl Write,
     verbose: bool,
 ) -> io::Result<Ending> {
-    let mut plain = Plain {
-        output,
-        open: false,
-    };
+    let mut plain = Plain::new(output);
     let reader = move |events: &mpsc::Sender<Event>| read(input, events);
     if verbose {
         run(wire.into(), reader, &mut Narrated::new(plain))
@@ -23,7 +20,7 @@ pub fn line_mode(
     }
 }
 
-struct Plain<W> {
+pub(crate) struct Plain<W> {
     output: W,
     open: bool,
 }
@@ -48,6 +45,13 @@ impl<W: Write> View for Plain<W> {
 }
 
 impl<W: Write> Plain<W> {
+    pub(crate) fn new(output: W) -> Self {
+        Self {
+            output,
+            open: false,
+        }
+    }
+
     fn line(&mut self, text: &str) -> io::Result<()> {
         if std::mem::take(&mut self.open) {
             writeln!(self.output)?;
@@ -70,18 +74,15 @@ fn read(input: impl BufRead, events: &mpsc::Sender<Event>) {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{self, Cursor};
+    use std::io::Cursor;
     use std::net::{TcpListener, TcpStream};
     use std::sync::mpsc;
     use std::thread;
     use std::time::Duration;
 
-    use ttymud_text::Message;
-    use ttymud_wire::{ClientMessage, ServerMessage};
-
     use super::line_mode;
-    use crate::testing::{echo, link, ticker};
-    use crate::{Ending, Wire};
+    use crate::Ending;
+    use crate::testing::{echo, echo_wire, link, ticker};
 
     fn session(input: &str) -> (Ending, String) {
         let input = Cursor::new(input.as_bytes().to_vec());
@@ -145,32 +146,9 @@ mod tests {
 
     #[test]
     fn a_session_runs_over_a_wire_of_channels() {
-        let (to_client, from_server) = mpsc::channel();
-        let (to_server, from_client) = mpsc::channel();
-        let welcome = ServerMessage::Welcome {
-            city: "Test City".to_owned(),
-            name: "anon-test".to_owned(),
-        };
-        for message in [welcome, ServerMessage::Prompt("$ ".to_owned())] {
-            to_client.send(message).unwrap();
-        }
-        thread::spawn(move || {
-            for message in from_client {
-                if let ClientMessage::Command(line) = message {
-                    let echo = Message::game(format!("echo {line}"));
-                    let _ = to_client.send(ServerMessage::Text(echo));
-                    let _ = to_client.send(ServerMessage::Prompt("$ ".to_owned()));
-                }
-            }
-        });
-        let wire = Wire::new(
-            move || from_server.recv().ok(),
-            move |message| to_server.send(message).map_err(io::Error::other),
-            || {},
-        );
         let input = Cursor::new(b"look\nquit\n".to_vec());
         let mut screen = Vec::new();
-        let ending = line_mode(wire, input, &mut screen, false).unwrap();
+        let ending = line_mode(echo_wire(), input, &mut screen, false).unwrap();
         assert_eq!(ending, Ending::Quit);
         let text = String::from_utf8_lossy(&screen);
         assert!(
