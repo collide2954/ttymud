@@ -99,6 +99,8 @@ The `game` crate is a pure state machine. It does not read the clock, and it doe
 
 Each output has a player and a styled message. A command checks all stages of a pipeline before it runs the first stage. The `prompt` function gives the prompt of a player.
 
+A running script is part of the rig in memory, and the server does not save it. On each tick, `tick` runs the next command of each script. The outputs of the command go to the player of the script, as for a typed command.
+
 The `connect` function starts the session of an account. For a new account, the first two commands give the name of the handle and the starter kit. Tests can use `join`, which makes a handle that is ready at once and knows all programs.
 
 The world does not read the clock. Before each input and each tick, the caller gives the time in seconds with `set_time`. Heat cools with this time, and the burn list shows its dates.

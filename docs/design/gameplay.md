@@ -77,6 +77,12 @@ Commands look like shell commands. Many commands have a shell name and a MUD nam
 | `sell <file>` | | Sell stolen data to the fence of a shop. Without a file, show the prices of your files. |
 | `lots` | | Show the lots of the police auction. This command works only at the auction host. |
 | `bid <lot> <credits>` | | Bid on a lot of the police auction. This command works only at the auction host. |
+| `echo <text> [> script]` | | Show the text. With `>` or `>>`, write it to a script on your rig. |
+| `rm <script>` | | Delete a script from your rig. |
+| `sh <script> [words]` | | Run a script from your rig. The [scripts](#scripts) section gives the rules. |
+| `ps` | | Show the script that runs on your rig. |
+| `kill` | | Stop the script that runs on your rig. |
+| `wait [ticks]` | | In a script, wait for 1 to 30 ticks. |
 
 The programs are also commands. The [programs](#programs) section gives them.
 
@@ -85,7 +91,7 @@ If a command has an error, the game tells you the cause. It also gives the most 
     > crak sentry
     Unknown command: crak. Did you mean crack?
 
-In edit mode, the Tab key completes commands, routes, files, programs, ICE, analysts, handles, crewmates, channels, and help topics.
+In edit mode, the Tab key completes commands, routes, files, scripts, programs, ICE, analysts, handles, crewmates, channels, and help topics.
 
 ## Pipelines
 
@@ -108,7 +114,26 @@ The server checks a pipeline before it runs the pipeline. If the output of a com
     > ls | crack
     crack needs ICE, but ls gives routes and files.
 
-Each command gives one or more kinds of items: routes, files, lines, or ICE. The `grep` command gives the same kinds of items that it gets.
+Each command gives one or more kinds of items: routes, files, lines, or ICE. The `grep` command gives the same kinds of items that it gets. If nothing matches, `grep` fails, and the pipeline stops.
+
+## Scripts
+
+A script is a file on the rig with one command line on each line. Its name ends in `.sh`. A player writes a script with `echo <text> > <script>` and `echo <text> >> <script>`. The player runs it with `sh <script> [words]`, and the words go into `$1` to `$9`.
+
+| Rule | Value |
+| --- | --- |
+| Speed | One command on each tick. A command can be a pipeline. |
+| Cycles | A command waits until the rig has its cycles. A command that needs more cycles than the CPU holds fails. |
+| RAM | 1 GB while the script runs. Only one script runs at a time. |
+| Size | 20 lines in a script, and 10 scripts on a rig. |
+| Wait | `wait [ticks]` lets 1 to 30 ticks go by. |
+| Notes | A line that starts with `#`. |
+
+A line can join pipelines with `&&` and `||`, as in a shell. `&&` runs the next pipeline only if the last pipeline worked, and `||` runs it only if the last pipeline failed. A pipeline fails when one of its commands gives an error. As in a shell with `set -e`, the script stops when the last pipeline of a line runs and fails. At the prompt, `&&` and `||` give an error.
+
+Before a script starts, the server checks each line: the syntax, the command names, and the pipelines. A script cannot use the commands that send messages to other handles or to the moderators: `say`, `tell`, `reply`, `report`, `crew`, `duel`, and `match`. It also cannot use the moderator commands, the account commands, or `sh`. As a result, a script cannot fill the chat with messages, and it cannot start a loop.
+
+A crash, a trace, a burn, or a disconnect stops the script. The `kill` command also stops it, and `ps` shows its line. The server does not save a running script. After a restart, the script file is still on the rig, but it does not run.
 
 ## Danger
 

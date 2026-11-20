@@ -74,6 +74,8 @@ A file section puts one file on a host or on a template. The section name has th
 
 A file with a name like `crack-v2.blueprint` is a blueprint. A player who reads it learns the blueprint for that version. The program must have versions, and the version must be 2 or 3.
 
+A file with a name that ends in `.sh` is a script. A player who downloads it can run it with `sh`. Each line is one command line of the script, and a line that starts with `#` is a note. Players can also write scripts. As a result, a script cannot be the data of a corp or the goal of a contract.
+
 ### ICE
 
 An ICE section puts one ICE on a host. The section name has the form `<host>/<name>`, for example `[ice smile-gw/sentry]`. The host must be in a network. Players type the name to probe or crack the ICE.
@@ -293,11 +295,11 @@ The server checks a content file before it uses the file. It finds these errors 
 - Unknown security levels, budgets, and layers.
 - ICE on unknown hosts or on hub hosts, unknown ICE types, and bad versions.
 - Wardens without a `guards` key, other ICE with a `guards` key, and wardens that guard no route.
-- Contracts with an unknown fixer or for an unknown network, and goals that are not files in the network.
+- Contracts with an unknown fixer or for an unknown network, goals that are not files in the network, and goals that are scripts.
 - Unknown events and steps without a hint.
 - A `contract` key in the city section that names an unknown contract.
 - Fixers against unknown corps, and fixers without a corp with a low budget.
-- Corps without data, data lines without a colon, and corps without a template for each layer.
+- Corps without data, data lines without a colon, data that is a script, and corps without a template for each layer.
 - Templates with the name of a host, laptop templates on a layer that is not `lan`, and vault templates without a laptop template.
 - A channel with the name `crew`.
 - Unknown programs in a shop, blueprints for programs without versions, bad blueprint versions, bad prices, and RAM or CPU steps that do not go up.

@@ -63,7 +63,8 @@ This table records the main design decisions. When a decision changes, change th
 | Progression | No levels. Rig hardware, program versions, and faction reputation. |
 | Roles | No classes. The programs in RAM set the role. Starter kits help new players. |
 | PvP | PvE first. PvP only by consent: duels, matches, and lawless zones. |
-| Core mechanics | Pipelines as combos, exploit decay, defense in depth, and player scripts (later). |
+| Core mechanics | Pipelines as combos, exploit decay, defense in depth, and player scripts. |
+| Scripts | Files on the rig that end in `.sh`. One command on each tick, 1 GB of RAM while a script runs, and `&&` and `\|\|` as in a shell. |
 | World features | Heist crews, SOC shifts, auctions of seized rigs, and a news feed with rumors. |
 | Chat | IRC style: same-host chat, public channels, crew channels, and private messages. |
 | Chat security | Encrypted traffic, sanitized text, rate limits, ignore, block, and moderator tools. No end-to-end encryption. |

@@ -116,16 +116,26 @@ M9 added crew channels.
 - Arena networks with two bases, duels with wagers, and capture-the-flag matches between crews.
 - The Undercity darknet and the Grid arena in Port Ostra.
 
-## Version 0.3 and later
+## Version 0.3: the rig works for you
 
-- **M12: Player scripts.** A small language like a shell, with the same commands and pipelines. Scripts run on the rig and use its RAM and cycles.
+### M12: Player scripts (done)
+
+- Scripts as files on the rig that end in `.sh`, with `echo` and the `>` and `>>` arrows, `cat`, and `rm`.
+- `sh <script> [words]`, with the words in `$1` to `$9`. A script runs one command on each tick and waits for the cycles of each command.
+- `&&` and `||` between pipelines, `wait [ticks]`, and notes that start with `#`. The script stops when the last command of a line fails.
+- 1 GB of RAM while a script runs, one script at a time, and `ps` and `kill`.
+- A check of each line before the script starts. A script cannot chat, send challenges, or start a script.
+- A crash, a trace, a burn, or a disconnect stops the script.
+- The sample script `break.sh` at the Night Market of Port Ostra.
+
+## Later
+
 - An SSH gateway as an optional Cargo feature.
 - A public list of servers.
 - Links between cities.
 
 ## Open questions
 
-- The syntax of the script language.
 - The final values for trace, heat, and prices.
 - The full content of Port Ostra.
 - The format of a server address with a fingerprint.

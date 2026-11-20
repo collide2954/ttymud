@@ -428,3 +428,34 @@ All crewmates who are online and in the city join the match. Each crew starts on
 If your rig crashes in a match, you wake up at your base with full integrity and 0 cycles. A flag that you carry goes back to its base. The first crew with 3 captures wins. After 15 minutes, the crew with more captures wins, and a tie is a draw.
 
 A crewmate who jacks out or disconnects leaves the match. If the leader leaves, the crew loses the match. The leader of the winning crew takes the wager from the other leader.
+
+## Scripts
+
+A script is a file on your rig with one command line on each line. Your rig runs the commands for you, one after the other. The name of a script ends in `.sh`, for example `sweep.sh`. Type `help scripts` for a summary.
+
+Use `echo` to write a script:
+
+    echo 'scan' > sweep.sh
+    echo 'probe $1 | crack' >> sweep.sh
+    echo 'scan | grep $1 && crack $1' >> sweep.sh
+
+The `>` arrow makes the script, or replaces all its lines with one line. The `>>` arrow adds a line at the end. Put the text in single quotes when it has `|`, `&&`, `||`, or double quotes. Type `cat sweep.sh` to see the script, and type `rm sweep.sh` to delete it. A script has a maximum of 20 lines, and your rig holds a maximum of 10 scripts.
+
+To run the script, type `sh sweep.sh sentry`. The words after the name of the script go into `$1` to `$9`. In this example, `$1` is `sentry`. Before the script starts, the game checks all its lines. If a line has an error, the script does not start, and the game shows the line.
+
+A script runs in the background, so you can type other commands at the same time. It runs one command on each tick. If a command needs more cycles than your rig has, the script waits for the cycles. A command from a script costs the same cycles and makes the same noise as the command that you type.
+
+A running script uses 1 GB of RAM. A starter kit fills all the RAM of a new rig. Before you run a script, unload a program at your safehouse, or buy more RAM. Only one script runs at a time. Type `ps` to see the script and its line, and type `kill` to stop it.
+
+These parts of a line control the script:
+
+- `&&` runs the next command only if the last command worked.
+- `||` runs the next command only if the last command failed.
+- `wait 3` makes the script wait for 3 ticks. A `wait` line has no other commands.
+- A line that starts with `#` is a note. The script does not run it.
+
+If the last command of a line fails, the script stops. The `grep` command fails when nothing matches. For example, `scan | grep sentry && crack sentry` cracks the Sentry only if the Sentry is on the host. A crash, a trace, a burn, or a disconnect also stops the script.
+
+A script cannot chat, and it cannot use `report`, `crew`, `duel`, or `match`. It also cannot use the moderator commands or the commands for keys and recovery codes. A script cannot start a different script. At the prompt, `&&` and `||` do not work. Use them only in scripts.
+
+The Night Market of Port Ostra has a sample script, `break.sh`. Download it, and read it. Then run it in a target, for example `sh break.sh sentry`.
