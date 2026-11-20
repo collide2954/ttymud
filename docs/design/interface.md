@@ -33,7 +33,7 @@ When the input and the output are terminals, the client edits the input line loc
 - Tab to complete commands, routes, files, programs, ICE, shop items, help topics, channels, and handles.
 - Ctrl+C to clear the line, and Ctrl+D to delete a character. On an empty line, these keys quit.
 
-A long input line moves to the side, so that the cursor stays on the screen. The `--line` option selects line mode in a terminal. The [player guide](../player.md) gives all the keys.
+A long input line moves to the side, so that the cursor stays on the screen. The line holds a maximum of 400 characters, as many as the server reads, and the history keeps the last 100 lines. The `--line` option selects line mode in a terminal. The [player guide](../player.md) gives all the keys.
 
 ## Color mode
 

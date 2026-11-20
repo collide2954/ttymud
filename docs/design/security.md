@@ -116,5 +116,6 @@ Version 0.1 has these parts of the design:
 - Recovery codes, link codes, and key revocation, as the [identity](#identity) section tells.
 - All the tools in the [chat safety](#chat-safety) section.
 - The SSH port of the `ssh` feature, with public keys only. SSH connections have the same connection limits and rate limits as Noise connections, and a login has a maximum of 10 seconds.
+- For each SSH session, the server keeps a short queue of input and a short queue of output. If a client stops reading for 30 seconds, the server disconnects it. The line editor on the server holds a maximum of 400 characters and 100 lines of history.
 
 Until a player selects a handle, the Welcome message gives the name `anon-` and the first eight hexadecimal characters of the public key. Other players do not see a player without a handle. The server always uses the full key to identify an account.

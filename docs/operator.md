@@ -67,6 +67,7 @@ The server has these limits:
 - A maximum of 256 connections at the same time. SSH connections count too.
 - A maximum of 8 connections from one IP address.
 - A maximum of 10 seconds for each handshake, and for each SSH login.
+- A maximum of 30 seconds for an SSH client that does not read. Then the server disconnects it.
 - Rate limits for commands and chat. The [protocol](protocol.md) document gives the values.
 
 ## Moderators
