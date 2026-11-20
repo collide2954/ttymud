@@ -4,7 +4,7 @@ use std::str::FromStr;
 use super::account::{Account, Saved};
 use super::alert::CorpState;
 use super::bans::BANS;
-use super::builds::{Build, TOP_VERSION, versioned};
+use super::builds::Build;
 use super::burns::Burn;
 use super::contract::Job;
 use super::crews::CREWS;
@@ -13,7 +13,7 @@ use super::news::NEWS;
 use super::reports::REPORTS;
 use super::rig::MAX_INTEGRITY;
 use super::{PlayerId, World};
-use crate::commands::{self, Verb};
+use crate::commands::{self, TOP_VERSION, Verb};
 use crate::content::{ContentError, File};
 use crate::heat::MAX_HEAT;
 use crate::ini::{self, Pair, Section};
@@ -427,7 +427,7 @@ fn program_version(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<(V
     let parsed = pair.value.split_once(' ').and_then(|(name, version)| {
         let verb = commands::find(name)
             .map(|command| command.verb)
-            .filter(|&verb| versioned(verb))?;
+            .filter(|verb| verb.power().is_some())?;
         let version = version.trim().parse().ok()?;
         (2..=TOP_VERSION)
             .contains(&version)

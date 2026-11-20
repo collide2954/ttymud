@@ -1,3 +1,4 @@
+use crate::commands::{self, Verb};
 use crate::content::{CorpDef, File, IceDef, TemplateDef};
 use crate::heat::Security;
 use crate::ice::IceKind;
@@ -5,6 +6,7 @@ use crate::names::person;
 use crate::random::{Random, mix};
 
 const HEIST_SALT: u64 = 0x7661;
+const BLUEPRINT_SALT: u64 = 0x6270;
 const LAN_VALUE: u32 = 40;
 const CORE_VALUE: u32 = 100;
 const WORDS: [&str; 12] = [
@@ -136,6 +138,9 @@ pub(crate) fn generate(corp: &CorpDef, templates: &[TemplateDef], seed: u64) -> 
     target.link(&mut random);
     target.deploy(&mut random);
     target.fill(corp, &mut random);
+    if Random::new(mix(&[seed, BLUEPRINT_SALT])).below(3) == 0 {
+        target.plant(seed, Layer::Core, 2);
+    }
     target.lock();
     target.leak(&mut random);
     target
@@ -185,6 +190,7 @@ pub(crate) fn generate_heist(
         })
         .collect();
     target.hosts[safe].files.extend(moved);
+    target.plant(seed, Layer::Vault, 3);
     target.lock();
     let bridge = if random.below(2) == 0 {
         let host = pick(&mut random, &lan);
@@ -370,6 +376,18 @@ impl Target {
             };
             self.hosts[host].files.push(file);
         }
+    }
+
+    fn plant(&mut self, seed: u64, layer: Layer, version: u32) {
+        let hosts = self.layer(layer);
+        let programs: Vec<Verb> = commands::versioned().collect();
+        if hosts.is_empty() || programs.is_empty() {
+            return;
+        }
+        let mut random = Random::new(mix(&[seed, BLUEPRINT_SALT, u64::from(version)]));
+        let verb = programs[random.below(programs.len())];
+        let host = hosts[random.below(hosts.len())];
+        self.hosts[host].files.push(File::blueprint(verb, version));
     }
 
     fn lock(&mut self) {
@@ -567,6 +585,49 @@ mod tests {
             .cloned()
             .collect();
         assert_eq!(generate_heist(corp, &templates, 1), None);
+    }
+
+    #[test]
+    fn about_one_job_target_in_three_has_a_v2_blueprint_on_a_core_host() {
+        let mut programs = std::collections::BTreeSet::new();
+        let mut planted = 0;
+        for seed in 0..300 {
+            let target = target(seed);
+            for host in &target.hosts {
+                for file in &host.files {
+                    let Some((verb, version)) = file.teaches() else {
+                        continue;
+                    };
+                    planted += 1;
+                    programs.insert(format!("{verb:?}"));
+                    assert_eq!(
+                        (host.layer, file.lock, version),
+                        (Layer::Core, Level::Admin, 2),
+                        "{seed}"
+                    );
+                }
+            }
+        }
+        assert!((70..=130).contains(&planted), "{planted}");
+        assert!(programs.len() > 3, "{programs:?}");
+    }
+
+    #[test]
+    fn every_heist_vault_has_a_v3_blueprint() {
+        let content = Content::parse(CITY).unwrap();
+        for seed in 0..30 {
+            let heist = generate_heist(&content.corps[0], &content.templates, seed).unwrap();
+            let vault = heist.vault.as_ref().map_or(0, |vault| vault.host);
+            let safe = &heist.hosts[vault];
+            let taught: Vec<u32> = safe
+                .files
+                .iter()
+                .filter_map(File::teaches)
+                .map(|(_, version)| version)
+                .collect();
+            assert_eq!(taught, [3], "{seed}");
+            assert!(safe.files.iter().all(|file| file.lock == Level::Admin));
+        }
     }
 
     #[test]

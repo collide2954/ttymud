@@ -68,12 +68,19 @@ pub(crate) enum Verb {
 
 const SETUP: u32 = 1;
 const CONNECTION: u32 = 1;
+pub(crate) const TOP_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Program {
     pub(crate) ram: u32,
     pub(crate) cycles: u32,
     pub(crate) noise: u32,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Power {
+    pub(crate) base: u32,
+    pub(crate) step: u32,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -139,6 +146,18 @@ impl Verb {
             _ => return None,
         };
         Some(Program { ram, cycles, noise })
+    }
+
+    pub(crate) fn power(self) -> Option<Power> {
+        let (base, step) = match self {
+            Self::Crack | Self::Scrub => (15, 5),
+            Self::Patch => (20, 5),
+            Self::Decoy => (10, 2),
+            Self::Mask => (5, 1),
+            Self::Firewall => (1, 1),
+            _ => return None,
+        };
+        Some(Power { base, step })
     }
 }
 
@@ -817,6 +836,13 @@ pub(crate) fn programs() -> impl Iterator<Item = (&'static Command, Program)> {
         .iter()
         .filter_map(|command| command.verb.program().map(|program| (command, program)))
 }
+
+pub(crate) fn versioned() -> impl Iterator<Item = Verb> {
+    programs()
+        .map(|(command, _)| command.verb)
+        .filter(|verb| verb.power().is_some())
+}
+
 pub(crate) fn name_of(verb: Verb) -> &'static str {
     COMMANDS
         .iter()

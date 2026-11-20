@@ -270,7 +270,10 @@ mod tests {
             ));
             state.rig.files.push(payroll);
         }
-        assert_eq!(world.complete(player, "buy ").names, ["ram", "cpu"]);
+        assert_eq!(
+            world.complete(player, "buy ").names,
+            ["crack-v2", "ram", "cpu"]
+        );
         assert_eq!(world.complete(player, "sell ").names, ["payroll.db"]);
         assert_eq!(complete(&[], "buy ").names, Vec::<String>::new());
     }

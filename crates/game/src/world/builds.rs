@@ -3,9 +3,9 @@ use ttymud_text::{Message, Style};
 use super::ram::named_error;
 use super::rig::Rig;
 use super::{Player, PlayerId, Step, World, lines, listed};
-use crate::commands::{self, Program, Verb};
+use crate::commands::{self, Program, TOP_VERSION, Verb};
+use crate::content::File;
 
-pub(super) const TOP_VERSION: u32 = 3;
 const QUIET_PRICE: u32 = 400;
 const USAGE: &str = "Usage: compile [program] [quiet|plain].";
 
@@ -26,26 +26,17 @@ impl Default for Build {
     }
 }
 
-fn base_and_step(verb: Verb) -> Option<(u32, u32)> {
-    match verb {
-        Verb::Crack | Verb::Scrub => Some((15, 5)),
-        Verb::Patch => Some((20, 5)),
-        Verb::Decoy => Some((10, 2)),
-        Verb::Mask => Some((5, 1)),
-        Verb::Firewall => Some((1, 1)),
-        _ => None,
-    }
-}
-
-pub(super) fn versioned(verb: Verb) -> bool {
-    base_and_step(verb).is_some()
+fn power_at(verb: Verb, version: u32) -> u32 {
+    verb.power()
+        .map_or(0, |power| power.base + power.step * (version - 1))
 }
 
 fn price(version: u32) -> u32 {
     if version == 2 { 1_000 } else { 3_000 }
 }
 
-fn effect(verb: Verb, power: u32) -> String {
+pub(super) fn effect(verb: Verb, version: u32) -> String {
+    let power = power_at(verb, version);
     match verb {
         Verb::Crack => format!("It does {power} damage."),
         Verb::Scrub => format!("It lowers a trace by {power}%."),
@@ -71,8 +62,7 @@ impl Rig {
     }
 
     pub(super) fn power(&self, verb: Verb) -> u32 {
-        let version = self.build(verb).version;
-        base_and_step(verb).map_or(0, |(base, step)| base + step * (version - 1))
+        power_at(verb, self.build(verb).version)
     }
 
     pub(super) fn program(&self, verb: Verb) -> Option<Program> {
@@ -103,6 +93,32 @@ impl World {
         state.map_or(0, |state| state.rig.power(verb))
     }
 
+    pub(super) fn study(&mut self, player: PlayerId, files: &[File]) -> Vec<Message> {
+        let home = self.home.map(|home| self.hosts[home.0].id.clone());
+        let Some(state) = self.players.get_mut(&player) else {
+            return Vec::new();
+        };
+        let mut shown = Vec::new();
+        for blueprint in files.iter().filter_map(File::teaches) {
+            if state.blueprints.contains(&blueprint) {
+                continue;
+            }
+            state.blueprints.push(blueprint);
+            let (verb, version) = blueprint;
+            let learned = Message::game("You learn the blueprint for ")
+                .span(Style::Command, commands::name_of(verb))
+                .text(format!(" v{version}."));
+            shown.push(match &home {
+                Some(home) => learned
+                    .text(" Compile it at ")
+                    .span(Style::Host, home)
+                    .text("."),
+                None => learned,
+            });
+        }
+        shown
+    }
+
     pub(super) fn compile(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
         self.at_home(player, "compile programs")?;
         let (word, change): (&String, Change) = match args {
@@ -123,8 +139,8 @@ impl World {
         let Some(state) = self.players.get(&player) else {
             return Step::default();
         };
-        let owned: Vec<(Verb, u32)> = commands::programs()
-            .flat_map(|(command, _)| (2..=TOP_VERSION).map(move |version| (command.verb, version)))
+        let owned: Vec<(Verb, u32)> = commands::versioned()
+            .flat_map(|verb| (2..=TOP_VERSION).map(move |version| (verb, version)))
             .filter(|blueprint| state.blueprints.contains(blueprint))
             .collect();
         let label =
@@ -168,7 +184,7 @@ impl World {
 
 impl Player {
     fn next_version(&mut self, verb: Verb, name: &str) -> Result<Message, Message> {
-        if !versioned(verb) {
+        if verb.power().is_none() {
             return Err(named_error(name, " has no versions."));
         }
         let mut build = self.rig.build(verb);
@@ -191,7 +207,7 @@ impl Player {
         }
         self.credits -= price;
         self.rig.set_build(verb, build);
-        let effect = effect(verb, self.rig.power(verb));
+        let effect = effect(verb, version);
         Ok(Message::game("You compile ")
             .span(Style::Command, name)
             .text(format!(" v{version} for {price} cr. {effect}")))
@@ -238,6 +254,7 @@ impl Player {
 mod tests {
     use super::Build;
     use crate::commands::Verb;
+    use crate::content::File;
     use crate::testing::{joined, plain};
     use crate::{PlayerId, World};
 
@@ -453,6 +470,27 @@ mod tests {
         assert_eq!(
             said(&mut world, player, "compile crack loud"),
             ["Usage: compile [program] [quiet|plain]."]
+        );
+    }
+
+    #[test]
+    fn reading_a_blueprint_file_teaches_the_blueprint() {
+        let (mut world, player) = at_home(0, &[]);
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.files.push(File::blueprint(Verb::Crack, 2));
+        }
+        let notes = "The source code and build notes for crack v2.";
+        assert_eq!(
+            said(&mut world, player, "read crack-v2.blueprint"),
+            [
+                notes,
+                "You learn the blueprint for crack v2. Compile it at back-room."
+            ]
+        );
+        assert_eq!(said(&mut world, player, "read crack-v2.blueprint"), [notes]);
+        assert_eq!(
+            said(&mut world, player, "compile")[0],
+            "Blueprints: crack v2"
         );
     }
 

@@ -50,6 +50,7 @@ impl World {
             }
         }
         shown.extend(self.learn(player, &files));
+        shown.extend(self.study(player, &files));
         Ok(Step { shown, items })
     }
 

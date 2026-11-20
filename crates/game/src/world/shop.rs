@@ -1,13 +1,17 @@
 use ttymud_text::{Message, Style};
 
+use super::builds::effect;
 use super::{HostId, Player, PlayerId, Step, Thing, World, choose, lines, listed, usage};
 use crate::commands::{self, Item, Verb};
-use crate::content::{File, ShopDef};
+use crate::content::{File, ShopDef, blueprint_name};
+
+const SHOP_VERSION: u32 = 2;
 
 #[derive(Debug)]
 pub(super) struct Shop {
     pub(super) host: HostId,
     pub(super) programs: Vec<(Verb, u32)>,
+    pub(super) blueprints: Vec<(Verb, String, u32)>,
     pub(super) ram: Vec<(u32, u32)>,
     pub(super) cpu: Vec<(u32, u32)>,
 }
@@ -17,6 +21,11 @@ pub(super) fn shops(defs: Vec<ShopDef>, find: impl Fn(&str) -> HostId) -> Vec<Sh
         .map(|def| Shop {
             host: find(&def.host),
             programs: def.programs,
+            blueprints: def
+                .blueprints
+                .into_iter()
+                .map(|(verb, price)| (verb, blueprint_name(verb, SHOP_VERSION), price))
+                .collect(),
             ram: def.ram,
             cpu: def.cpu,
         })
@@ -26,6 +35,7 @@ pub(super) fn shops(defs: Vec<ShopDef>, find: impl Fn(&str) -> HostId) -> Vec<Sh
 #[derive(Debug, Clone, Copy)]
 enum Ware {
     Program(Verb),
+    Blueprint(Verb),
     Ram(u32),
     Cpu(u32),
 }
@@ -37,6 +47,11 @@ impl Shop {
             .iter()
             .filter(|(verb, _)| !state.know.contains(verb))
             .map(|&(verb, price)| (Ware::Program(verb), price));
+        let blueprints = self
+            .blueprints
+            .iter()
+            .filter(|&&(verb, ..)| !state.blueprints.contains(&(verb, SHOP_VERSION)))
+            .map(|&(verb, _, price)| (Ware::Blueprint(verb), price));
         let ram = self
             .ram
             .iter()
@@ -47,14 +62,47 @@ impl Shop {
             .iter()
             .find(|&&(cycles, _)| cycles > state.rig.cpu)
             .map(|&(cycles, price)| (Ware::Cpu(cycles), price));
-        programs.chain(ram).chain(cpu).collect()
+        programs.chain(blueprints).chain(ram).chain(cpu).collect()
+    }
+
+    fn refusal(&self, state: &Player, word: &str, names: &[&str]) -> Option<String> {
+        let known = self
+            .programs
+            .iter()
+            .any(|&(verb, _)| commands::name_of(verb) == word && state.know.contains(&verb));
+        if known {
+            return Some(format!("You already know {word}."));
+        }
+        let owned = self.blueprints.iter().find(|(verb, name, _)| {
+            name == word && state.blueprints.contains(&(*verb, SHOP_VERSION))
+        });
+        if let Some(&(verb, ..)) = owned {
+            let name = commands::name_of(verb);
+            return Some(format!(
+                "You already have the blueprint for {name} v{SHOP_VERSION}."
+            ));
+        }
+        match word {
+            "ram" if !names.contains(&"ram") => {
+                Some("Your rig has all the RAM that this shop sells.".to_owned())
+            }
+            "cpu" if !names.contains(&"cpu") => {
+                Some("Your rig has the fastest CPU that this shop sells.".to_owned())
+            }
+            _ => None,
+        }
     }
 }
 
 impl Ware {
-    fn name(self) -> &'static str {
+    fn name(self, shop: &Shop) -> &str {
         match self {
             Self::Program(verb) => commands::name_of(verb),
+            Self::Blueprint(verb) => shop
+                .blueprints
+                .iter()
+                .find(|&&(known, ..)| known == verb)
+                .map_or("", |(_, name, _)| name),
             Self::Ram(_) => "ram",
             Self::Cpu(_) => "cpu",
         }
@@ -63,6 +111,10 @@ impl Ware {
     fn describe(self, state: &Player) -> String {
         match self {
             Self::Program(verb) => commands::summary_of(verb).to_owned(),
+            Self::Blueprint(verb) => {
+                let (name, effect) = (commands::name_of(verb), effect(verb, SHOP_VERSION));
+                format!("The blueprint for {name} v{SHOP_VERSION}. {effect}")
+            }
             Self::Ram(size) => format!("{size} GB of RAM, not {} GB.", state.rig.ram),
             Self::Cpu(cycles) => format!("{cycles} cycles, not {}.", state.rig.cpu),
         }
@@ -74,13 +126,13 @@ impl World {
         self.shops.iter().any(|shop| shop.host == host)
     }
 
-    pub(super) fn ware_names(&self, player: PlayerId) -> Vec<&'static str> {
+    pub(super) fn ware_names(&self, player: PlayerId) -> Vec<&str> {
         let (Ok(shop), Some(state)) = (self.shop_here(player), self.players.get(&player)) else {
             return Vec::new();
         };
         shop.wares(state)
             .into_iter()
-            .map(|(ware, _)| ware.name())
+            .map(|(ware, _)| ware.name(shop))
             .collect()
     }
 
@@ -113,7 +165,7 @@ impl World {
             let rest = format!(": {price} cr. {}", ware.describe(state));
             shown.push(
                 Message::game("")
-                    .span(Style::Command, ware.name())
+                    .span(Style::Command, ware.name(shop))
                     .text(rest),
             );
         }
@@ -196,26 +248,12 @@ impl World {
             return Ok(Step::default());
         };
         let wares = shop.wares(state);
-        let names: Vec<&str> = wares.iter().map(|(ware, _)| ware.name()).collect();
+        let names: Vec<&str> = wares.iter().map(|(ware, _)| ware.name(shop)).collect();
         let [word] = args else {
             return Err(usage("buy <item>", Thing::Ware, &names));
         };
         let word = word.to_lowercase();
-        let known = shop
-            .programs
-            .iter()
-            .any(|&(verb, _)| commands::name_of(verb) == word && state.know.contains(&verb));
-        let refusal = match word.as_str() {
-            _ if known => Some(format!("You already know {word}.")),
-            "ram" if !names.contains(&"ram") => {
-                Some("Your rig has all the RAM that this shop sells.".to_owned())
-            }
-            "cpu" if !names.contains(&"cpu") => {
-                Some("Your rig has the fastest CPU that this shop sells.".to_owned())
-            }
-            _ => None,
-        };
-        if let Some(refusal) = refusal {
+        if let Some(refusal) = shop.refusal(state, &word, &names) {
             return Err(Message::error(refusal));
         }
         let name = choose(Thing::Ware, &word, &names)?;
@@ -227,19 +265,24 @@ impl World {
                 "{name} costs {price} cr. You have {credits} cr."
             )));
         }
+        let bought = format!("You buy {name} for {price} cr.");
         let home = self.home.map(|home| self.hosts[home.0].id.clone());
+        let follow_up = |action: &str| match &home {
+            Some(home) => format!("{bought} {action} it at {home}."),
+            None => bought.clone(),
+        };
         let Some(state) = self.players.get_mut(&player) else {
             return Ok(Step::default());
         };
         state.credits -= price;
-        let bought = format!("You buy {name} for {price} cr.");
         let message = match ware {
             Ware::Program(verb) => {
                 state.know.push(verb);
-                match home {
-                    Some(home) => format!("{bought} Load it at {home}."),
-                    None => bought,
-                }
+                follow_up("Load")
+            }
+            Ware::Blueprint(verb) => {
+                state.blueprints.push((verb, SHOP_VERSION));
+                follow_up("Compile")
             }
             Ware::Ram(size) => {
                 state.rig.ram = size;
@@ -297,6 +340,7 @@ mod tests {
                 "patch: 300 cr. Repair some integrity during a run.",
                 "firewall: 400 cr. Stop the next attack on your integrity.",
                 "exploit: 800 cr. Raise your access on this host by one level. It makes much noise. A corp patches software that gets many exploits.",
+                "crack-v2: 600 cr. The blueprint for crack v2. It does 20 damage.",
                 "ram: 900 cr. 12 GB of RAM, not 8 GB.",
                 "cpu: 1200 cr. 5 cycles, not 4.",
                 "The fence buys stolen data. Type sell <file>.",
@@ -311,6 +355,7 @@ mod tests {
         if let Some(state) = world.players.get_mut(&player) {
             state.know.push(crate::commands::Verb::Mask);
             state.know.push(crate::commands::Verb::Exploit);
+            state.blueprints.push((crate::commands::Verb::Crack, 2));
             state.rig.ram = 16;
             state.rig.cpu = 5;
         }
@@ -355,6 +400,30 @@ mod tests {
         assert_eq!(
             plain(&world.command(player, "status | grep credits")),
             ["Credits: 100 cr"]
+        );
+    }
+
+    #[test]
+    fn a_bought_blueprint_joins_the_account() {
+        let (mut world, player) = rich("ghost", 700);
+        assert_eq!(
+            plain(&world.command(player, "buy crack-v2")),
+            ["You buy crack-v2 for 600 cr. Compile it at back-room."]
+        );
+        assert_eq!(
+            plain(&world.command(player, "buy crack-v2")),
+            ["You already have the blueprint for crack v2."]
+        );
+        assert_eq!(
+            plain(&world.command(player, "shop | grep v2")),
+            ["No match for v2."]
+        );
+        for line in ["back", "go back-room"] {
+            world.command(player, line);
+        }
+        assert_eq!(
+            plain(&world.command(player, "compile"))[0],
+            "Blueprints: crack v2"
         );
     }
 
@@ -465,7 +534,7 @@ mod tests {
     #[test]
     fn buy_names_what_the_shop_sells() {
         let (mut world, player) = rich("ghost", 0);
-        let wares = "patch, firewall, exploit, ram, cpu";
+        let wares = "patch, firewall, exploit, crack-v2, ram, cpu";
         assert_eq!(
             plain(&world.command(player, "buy nuke")),
             [format!("The shop does not sell nuke. For sale: {wares}")]

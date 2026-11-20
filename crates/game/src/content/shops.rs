@@ -14,17 +14,19 @@ impl Reader {
             );
             return;
         }
-        self.allow(section, &["program", "ram", "cpu"]);
+        self.allow(section, &["program", "blueprint", "ram", "cpu"]);
         self.check_name(section.line, host, Name::Plain);
         let mut shop = ShopDef {
             host: host.to_owned(),
             programs: Vec::new(),
+            blueprints: Vec::new(),
             ram: Vec::new(),
             cpu: Vec::new(),
         };
         for pair in &section.pairs {
             match pair.key {
                 "program" => shop.programs.extend(self.program_price(pair)),
+                "blueprint" => shop.blueprints.extend(self.blueprint_price(pair)),
                 "ram" => {
                     let last = shop.ram.last().map_or(RAM, |&(size, _)| size);
                     shop.ram.extend(self.step_price(pair, last, "GB", "a size"));
@@ -63,6 +65,21 @@ impl Reader {
             .filter(|verb| verb.program().is_some());
         if verb.is_none() {
             self.error(pair.line, format!("unknown program: {name}"));
+        }
+        Some((verb?, price))
+    }
+
+    fn blueprint_price(&mut self, pair: &Pair<'_>) -> Option<(Verb, u32)> {
+        let (name, price) = self.priced(pair, "a program", "crack 600")?;
+        let verb = commands::find(name)
+            .map(|command| command.verb)
+            .filter(|verb| verb.power().is_some());
+        if verb.is_none() {
+            let names: Vec<&str> = commands::versioned().map(commands::name_of).collect();
+            let (last, rest) = names.split_last().unwrap_or((&"", &[]));
+            let names = rest.join(", ");
+            let message = format!("bad blueprint: {name} (use {names}, or {last})");
+            self.error(pair.line, message);
         }
         Some((verb?, price))
     }

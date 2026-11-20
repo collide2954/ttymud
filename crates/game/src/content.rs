@@ -10,7 +10,7 @@ use std::fmt;
 
 use reader::Reader;
 
-use crate::commands::Verb;
+use crate::commands::{self, TOP_VERSION, Verb};
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::ice::IceKind;
@@ -90,6 +90,7 @@ pub(crate) struct TemplateDef {
 pub(crate) struct ShopDef {
     pub(crate) host: String,
     pub(crate) programs: Vec<(Verb, u32)>,
+    pub(crate) blueprints: Vec<(Verb, u32)>,
     pub(crate) ram: Vec<(u32, u32)>,
     pub(crate) cpu: Vec<(u32, u32)>,
 }
@@ -150,6 +151,30 @@ impl File {
             key: None,
         }
     }
+
+    pub(crate) fn blueprint(verb: Verb, version: u32) -> Self {
+        let name = commands::name_of(verb);
+        Self::new(
+            format!("{}{BLUEPRINT}", blueprint_name(verb, version)),
+            vec![format!(
+                "The source code and build notes for {name} v{version}."
+            )],
+        )
+    }
+
+    pub(crate) fn teaches(&self) -> Option<(Verb, u32)> {
+        let (program, version) = self.name.strip_suffix(BLUEPRINT)?.rsplit_once("-v")?;
+        let verb = commands::find(program)?.verb;
+        let version = version.parse().ok()?;
+        let known = verb.power().is_some() && (2..=TOP_VERSION).contains(&version);
+        known.then_some((verb, version))
+    }
+}
+
+const BLUEPRINT: &str = ".blueprint";
+
+pub(crate) fn blueprint_name(verb: Verb, version: u32) -> String {
+    format!("{}-v{version}", commands::name_of(verb))
 }
 
 impl Content {

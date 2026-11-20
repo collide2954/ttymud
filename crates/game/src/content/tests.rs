@@ -118,11 +118,13 @@ fn a_channel_has_a_description_and_can_be_automatic() {
 
 #[test]
 fn a_shop_sells_programs_and_hardware() {
-    let text =
-        format!("{NET}[shop a]\nprogram = mask 400\nram = 12 900\nram = 16 1800\ncpu = 5 1200\n");
+    let text = format!(
+        "{NET}[shop a]\nprogram = mask 400\nblueprint = crack 600\nram = 12 900\nram = 16 1800\ncpu = 5 1200\n"
+    );
     let shop = ShopDef {
         host: "a".to_owned(),
         programs: vec![(Verb::Mask, 400)],
+        blueprints: vec![(Verb::Crack, 600)],
         ram: vec![(12, 900), (16, 1800)],
         cpu: vec![(5, 1200)],
     };
@@ -133,7 +135,7 @@ fn a_shop_sells_programs_and_hardware() {
 fn bad_shops_fail() {
     let text = format!(
         "{NET}[shop x]\n[shop b]\n[shop a]\nprogram = nuke 5\nprogram = mask\n\
-         ram = 6 100\ncpu = 5 lots\n[shop a]\n"
+         ram = 6 100\ncpu = 5 lots\nblueprint = scan 600\nblueprint = crack\n[shop a]\n"
     );
     assert_eq!(
         errors(&text),
@@ -144,9 +146,31 @@ fn bad_shops_fail() {
             "line 23: program needs a name and a price, for example program = mask 400",
             "line 24: each ram step must be more than 8 GB: 6",
             "line 25: bad price: lots (use a number of credits)",
-            "line 26: shop a is defined more than once",
+            "line 26: bad blueprint: scan (use crack, scrub, patch, firewall, decoy, or mask)",
+            "line 27: blueprint needs a program and a price, for example blueprint = crack 600",
+            "line 28: shop a is defined more than once",
         ]
     );
+}
+
+#[test]
+fn a_blueprint_file_names_its_program_and_version() {
+    let teaches = |name: &str| File::new(name, Vec::new()).teaches();
+    assert_eq!(teaches("crack-v2.blueprint"), Some((Verb::Crack, 2)));
+    let mask = File::blueprint(Verb::Mask, 3);
+    assert_eq!(
+        (mask.name.as_str(), mask.teaches()),
+        ("mask-v3.blueprint", Some((Verb::Mask, 3)))
+    );
+    for name in [
+        "scan-v2.blueprint",
+        "crack-v1.blueprint",
+        "crack-v4.blueprint",
+        "crack.blueprint",
+        "crack-v2.txt",
+    ] {
+        assert_eq!(teaches(name), None, "{name}");
+    }
 }
 
 const TEMPLATES: &str = "\
