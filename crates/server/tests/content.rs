@@ -106,6 +106,32 @@ fn the_fixers_post_heists_and_the_shop_sells_decoy() {
 }
 
 #[test]
+fn the_market_sells_blueprints_and_the_evidence_locker_holds_the_auction() {
+    let mut world = port_ostra(0).unwrap();
+    let (player, _) = world.join("guest");
+    let mut run = |line: &str| -> Vec<String> {
+        let outputs = world.command(player, line);
+        outputs.iter().map(|out| out.message.plain()).collect()
+    };
+    run("go night-market");
+    let shop = run("shop");
+    assert!(
+        shop.iter()
+            .any(|line| line.starts_with("crack-v2: 600 cr. The blueprint for crack v2.")),
+        "{shop:?}"
+    );
+    run("go evidence-locker");
+    assert_eq!(run("lots"), ["The police have no lots for auction now."]);
+    let notice = run("read notice.txt");
+    assert!(
+        notice
+            .iter()
+            .any(|line| line.contains("bid <lot> <credits>")),
+        "{notice:?}"
+    );
+}
+
+#[test]
 fn the_hosts_of_a_job_run_software_that_scan_shows() {
     let mut world = port_ostra(0).unwrap();
     world.set_time(20_000 * 86_400 + 12 * 3_600);
