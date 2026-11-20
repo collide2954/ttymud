@@ -521,6 +521,14 @@ impl World {
                 Ok(step) => {
                     let rig = self.players.get(&player).map(|state| &state.rig);
                     ran.extend(rig.and_then(|rig| rig.program(command.verb)));
+                    if command.verb.program().is_some()
+                        && let Some(run) = self
+                            .players
+                            .get_mut(&player)
+                            .and_then(|state| state.run.as_mut())
+                    {
+                        run.last = Some(command.verb);
+                    }
                     if let Some(event) = Event::of(command.verb) {
                         self.advance(player, event);
                     }

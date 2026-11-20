@@ -6,6 +6,7 @@ use super::ice::deploy;
 use super::instance::{Instance, InstanceId, decoy_on, name_of, witnesses};
 use super::matches::End;
 use super::{HostId, NetworkId, Output, PlayerId, Step, World};
+use crate::commands::Verb;
 use crate::content::Zone;
 use crate::contract::Event;
 use crate::heat::MAX_HEAT;
@@ -30,6 +31,8 @@ pub(super) struct Run {
     pub(super) proxy: bool,
     pub(super) access: Level,
     pub(super) shells: Vec<(HostId, Level)>,
+    pub(super) last: Option<Verb>,
+    pub(super) frozen: Option<(Verb, u32)>,
 }
 
 impl Run {
@@ -46,6 +49,8 @@ impl Run {
             proxy: false,
             access: Level::Guest,
             shells: Vec::new(),
+            last: None,
+            frozen: None,
         }
     }
 }
@@ -197,7 +202,7 @@ impl World {
                         }
                     }
                 }
-                IceKind::Scorch if !ice.awake => {
+                kind if kind.local() && !ice.awake => {
                     ice.target = Some(target);
                     let woke = ice.wake();
                     told.extend(present.iter().map(|&other| (other, woke.clone())));

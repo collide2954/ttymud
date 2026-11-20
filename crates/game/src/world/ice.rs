@@ -4,6 +4,7 @@ use super::alert::MAX_VERSION;
 use super::instance::{InstanceId, decoy_on, host_of, name_of, tell, witnesses};
 use super::run::MAX_TRACE;
 use super::{Host, HostId, NetworkId, Output, PlayerId, World, address};
+use crate::commands;
 use crate::ice::{Action, Effect, IceKind};
 
 const ALERT_TRACE: u32 = 10;
@@ -141,6 +142,15 @@ impl World {
                 }
             }
         }
+        if let Some((verb, left)) = run.frozen {
+            if left > 1 {
+                run.frozen = Some((verb, left - 1));
+            } else {
+                run.frozen = None;
+                let name = commands::name_of(verb);
+                shown.push(Message::game(format!("Your {name} works again.")));
+            }
+        }
         shown
     }
 
@@ -176,7 +186,7 @@ impl World {
                     message: ice.named().text(" follows you."),
                 });
             }
-            if ice.kind == IceKind::Scorch && ice.intent.is_some() && at != Some(ice.host) {
+            if ice.kind.local() && ice.intent.is_some() && at != Some(ice.host) {
                 ice.intent = None;
                 if let Some(target) = ice.target.take() {
                     let message = ice.named().text(" loses your signal.");
@@ -195,7 +205,7 @@ impl World {
                 }
                 continue;
             }
-            if ice.kind == IceKind::Scorch && ice.awake && at != Some(ice.host) {
+            if ice.kind.local() && ice.awake && at != Some(ice.host) {
                 let near = members.iter().find(|member| member.host == ice.host);
                 ice.target = near.map(|member| member.player);
             }
@@ -292,10 +302,32 @@ impl World {
                 };
                 (shown, fired(format!(" at {name}.")))
             }
+            Effect::Drain => {
+                let rig = self.players.get_mut(&player).map(|state| &mut state.rig);
+                let before = rig.map_or(0, |rig| std::mem::take(&mut rig.cycles));
+                let shown = fired(format!(". Cycles: {before} -> 0."));
+                (vec![shown], fired(format!(" at {name}.")))
+            }
+            Effect::Freeze(ticks) => {
+                let shown = match self.freeze(player, ticks) {
+                    Some(program) => fired(format!(". Your {program} freezes for {ticks} ticks.")),
+                    None => fired(". It finds no program to bite.".to_owned()),
+                };
+                (vec![shown], fired(format!(" at {name}.")))
+            }
         };
         let mut outputs = address(player, shown);
         outputs.extend(tell(&witnesses(&members, host, player), &seen));
         outputs
+    }
+
+    fn freeze(&mut self, player: PlayerId, ticks: u32) -> Option<&'static str> {
+        let state = self.players.get_mut(&player)?;
+        let first = state.rig.loads.first().copied();
+        let run = state.run.as_mut()?;
+        let verb = run.last.or(first)?;
+        run.frozen = Some((verb, ticks));
+        Some(commands::name_of(verb))
     }
 
     fn damage_hit(&mut self, player: PlayerId, line: Message, amount: u32) -> Vec<Message> {
@@ -424,6 +456,70 @@ mod tests {
         assert_eq!(
             at_archive(&["scan", "~", "go core", "~"]),
             ["scorch loses your signal."]
+        );
+    }
+
+    const PIT: &str = "[city lab]\nname = Lab\nstart = hub\n[host hub]\nname = Hub\ndesc = A hub.\n\
+                       [network net]\nname = Net\n[host gate]\nname = Gate\ndesc = A gate.\n\
+                       network = net\nroute = hub\nroute = core\n[host core]\nname = Core\n\
+                       desc = A core.\nnetwork = net\n[ice gate/tarpit]\ntype = tarpit\n\
+                       [ice gate/lockjaw]\ntype = lockjaw\n";
+
+    fn in_the_pit(lines: &[&str]) -> Vec<String> {
+        let content = crate::Content::parse(PIT).unwrap();
+        let mut world = crate::World::new(content, 0);
+        let (player, _) = world.join("ghost");
+        let mut last = Vec::new();
+        for line in [&["go gate"][..], lines].concat() {
+            last = plain(&step(&mut world, player, line));
+        }
+        last
+    }
+
+    #[test]
+    fn noise_wakes_a_tarpit_and_a_lockjaw_and_they_telegraph() {
+        assert_eq!(
+            in_the_pit(&["scan"])[2..],
+            ["tarpit wakes up.", "lockjaw wakes up."]
+        );
+        assert_eq!(
+            in_the_pit(&["scan", "~"]),
+            [
+                "tarpit starts to compile TAR (2 ticks).",
+                "lockjaw starts to compile BITE (2 ticks)."
+            ]
+        );
+    }
+
+    #[test]
+    fn tar_takes_the_cycles_and_bite_freezes_the_last_program() {
+        let fired = ["scan", "~2", "~"];
+        assert_eq!(
+            in_the_pit(&fired),
+            [
+                "tarpit fires TAR. Cycles: 4 -> 0.",
+                "lockjaw fires BITE. Your scan freezes for 6 ticks."
+            ]
+        );
+        assert_eq!(
+            in_the_pit(&[&fired[..], &["scan"]].concat()),
+            ["Your scan is frozen for 6 more ticks."]
+        );
+        assert_eq!(
+            in_the_pit(&[&fired[..], &["go core", "~5", "scan"]].concat()),
+            ["Your scan is frozen for 1 more tick."]
+        );
+        assert_eq!(
+            in_the_pit(&[&fired[..], &["go core", "~6"]].concat()),
+            ["Your scan works again."]
+        );
+    }
+
+    #[test]
+    fn leaving_the_host_stops_a_tarpit_and_a_lockjaw() {
+        assert_eq!(
+            in_the_pit(&["scan", "~", "go core", "~"]),
+            ["tarpit loses your signal.", "lockjaw loses your signal."]
         );
     }
 

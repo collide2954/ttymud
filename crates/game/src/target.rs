@@ -7,6 +7,7 @@ use crate::random::{Random, mix};
 
 const HEIST_SALT: u64 = 0x7661;
 const BLUEPRINT_SALT: u64 = 0x6270;
+const ICE_SALT: u64 = 0x6963;
 const LAN_VALUE: u32 = 40;
 const CORE_VALUE: u32 = 100;
 const WORDS: [&str; 12] = [
@@ -137,6 +138,7 @@ pub(crate) fn generate(corp: &CorpDef, templates: &[TemplateDef], seed: u64) -> 
     }
     target.link(&mut random);
     target.deploy(&mut random);
+    target.reinforce(seed);
     target.fill(corp, &mut random);
     if Random::new(mix(&[seed, BLUEPRINT_SALT])).below(3) == 0 {
         target.plant(seed, Layer::Core, 2);
@@ -354,6 +356,27 @@ impl Target {
                     .ice
                     .push(ice(IceKind::Scorch, security, None));
             }
+        }
+    }
+
+    fn reinforce(&mut self, seed: u64) {
+        let mut random = Random::new(mix(&[seed, ICE_SALT]));
+        let extra = [
+            (Layer::Lan, Security::Medium, IceKind::Lockjaw),
+            (Layer::Core, Security::High, IceKind::Tarpit),
+        ];
+        for (layer, least, kind) in extra {
+            let hosts: Vec<usize> = self
+                .layer(layer)
+                .into_iter()
+                .filter(|&host| self.hosts[host].security >= least)
+                .collect();
+            if hosts.is_empty() {
+                continue;
+            }
+            let host = hosts[random.below(hosts.len())];
+            let security = self.hosts[host].security;
+            self.hosts[host].ice.push(ice_def(kind, security, None));
         }
     }
 
@@ -731,6 +754,34 @@ mod tests {
                 "{seed}"
             );
         }
+    }
+
+    #[test]
+    fn a_medium_budget_adds_a_lockjaw_to_the_lan_and_a_tarpit_to_the_core() {
+        let content = Content::parse(CITY).unwrap();
+        let (low, medium) = (&content.corps[0], &content.corps[1]);
+        let count = |target: &Target, place: Layer, kind: IceKind| {
+            let hosts = layer(target, place).into_iter();
+            hosts
+                .flat_map(|index| &target.hosts[index].ice)
+                .filter(|ice| ice.kind == kind)
+                .count()
+        };
+        let mut places = std::collections::BTreeSet::new();
+        for seed in 0..20 {
+            let plain = generate(low, &content.templates, seed);
+            assert_eq!(count(&plain, Layer::Lan, IceKind::Lockjaw), 0, "{seed}");
+            assert_eq!(count(&plain, Layer::Core, IceKind::Tarpit), 0, "{seed}");
+            let hard = generate(medium, &content.templates, seed);
+            assert_eq!(count(&hard, Layer::Lan, IceKind::Lockjaw), 1, "{seed}");
+            assert_eq!(count(&hard, Layer::Core, IceKind::Tarpit), 1, "{seed}");
+            let holder = hard
+                .hosts
+                .iter()
+                .find(|host| host.ice.iter().any(|ice| ice.kind == IceKind::Tarpit));
+            places.extend(holder.map(|host| host.id.clone()));
+        }
+        assert!(places.len() > 1, "{places:?}");
     }
 
     #[test]

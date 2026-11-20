@@ -249,6 +249,14 @@ fn ice() -> Vec<Message> {
             "scorch",
             "Noise wakes it. It attacks your integrity. Leave its host to stop the attack.",
         ),
+        kind(
+            "tarpit",
+            "Noise wakes it. Its TAR takes all your cycles. Leave its host to stop it.",
+        ),
+        kind(
+            "lockjaw",
+            "Noise wakes it. Its BITE freezes the program that you used last, for 6 ticks.",
+        ),
         Message::game("A crack after a probe in the same pipeline hits the weak point: ")
             .span(Style::Command, "probe sentry | crack"),
     ]

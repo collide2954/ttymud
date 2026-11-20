@@ -49,10 +49,21 @@ impl World {
         if let Some(command) = missing {
             return Err(self.not_loaded(command.name()));
         }
-        if state.run.is_none() {
+        let Some(run) = &state.run else {
             let first = first.name();
             return Err(Message::error(format!(
                 "{first} works only in a target network."
+            )));
+        };
+        if let Some((verb, left)) = run.frozen
+            && found.iter().any(|command| command.verb == verb)
+        {
+            let (name, unit) = (
+                commands::name_of(verb),
+                if left == 1 { "tick" } else { "ticks" },
+            );
+            return Err(Message::error(format!(
+                "Your {name} is frozen for {left} more {unit}."
             )));
         }
         Ok(())
