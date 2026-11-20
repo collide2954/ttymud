@@ -58,8 +58,9 @@ A Status message has these fields, in this order:
 3. Only during a run: Text: the network. Text: the access. Number: the trace. Text: the alert level of the corporation.
 4. Numbers: the integrity, the heat, the maximum heat, the RAM in use, the RAM in total, the cycles, the maximum cycles, and the credits.
 5. Text: the latest headline of the news.
+6. List: the crewmates in the same copy of the network. Each item is a text, the handle, and then a number, the trace.
 
-The alert level is green, yellow, orange, or red. If no corporation owns the network, the alert level is an empty text. If there is no news, the headline is an empty text.
+The alert level is green, yellow, orange, or red. If no corporation owns the network, the alert level is an empty text. If there is no news, the headline is an empty text. Outside a run, the list of crewmates is empty.
 
 A different run byte is not valid. Each number in a Status message must be smaller than 4294967296.
 

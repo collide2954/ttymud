@@ -1,4 +1,4 @@
-use ttymud_text::{Kind, Message, RunStatus, Span, Status, Style};
+use ttymud_text::{Kind, Mate, Message, RunStatus, Span, Status, Style};
 
 use crate::codec::{DecodeError, Reader, Writer};
 
@@ -146,6 +146,11 @@ fn write_status(writer: &mut Writer, status: &Status) {
         writer.number(u64::from(number));
     }
     writer.text(&status.headline);
+    writer.number(u64::try_from(status.crew.len()).unwrap_or(u64::MAX));
+    for mate in &status.crew {
+        writer.text(&mate.name);
+        writer.number(u64::from(mate.trace));
+    }
 }
 
 fn read_status(reader: &mut Reader<'_>) -> Result<Status, DecodeError> {
@@ -172,7 +177,20 @@ fn read_status(reader: &mut Reader<'_>) -> Result<Status, DecodeError> {
         cycles_max: small(reader)?,
         credits: small(reader)?,
         headline: reader.text()?,
+        crew: read_crew(reader)?,
     })
+}
+
+fn read_crew(reader: &mut Reader<'_>) -> Result<Vec<Mate>, DecodeError> {
+    let count = reader.count()?;
+    (0..count)
+        .map(|_| {
+            Ok(Mate {
+                name: reader.text()?,
+                trace: small(reader)?,
+            })
+        })
+        .collect()
 }
 
 fn small(reader: &mut Reader<'_>) -> Result<u32, DecodeError> {
@@ -255,7 +273,7 @@ fn style_from(tag: u8) -> Result<Style, DecodeError> {
 
 #[cfg(test)]
 mod tests {
-    use ttymud_text::{Kind, Message, RunStatus, Status, Style};
+    use ttymud_text::{Kind, Mate, Message, RunStatus, Status, Style};
 
     use super::{ClientMessage, ServerMessage};
     use crate::codec::DecodeError;
@@ -347,6 +365,7 @@ mod tests {
             cycles_max: 4,
             credits: 1_250,
             headline: "Arcadia Bank raises its alert to red.".to_owned(),
+            crew: Vec::new(),
         }
     }
 
@@ -359,7 +378,18 @@ mod tests {
             trace: 31,
             alert: "orange".to_owned(),
         };
-        server_round_trip(&ServerMessage::Status(status(Some(run))));
+        let mut crewed = status(Some(run));
+        crewed.crew = vec![
+            Mate {
+                name: "nyx".to_owned(),
+                trace: 34,
+            },
+            Mate {
+                name: "zer0".to_owned(),
+                trace: 0,
+            },
+        ];
+        server_round_trip(&ServerMessage::Status(crewed));
         server_round_trip(&ServerMessage::Status(Status::default()));
     }
 

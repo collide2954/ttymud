@@ -1,7 +1,7 @@
 use super::ice::Ice;
 use super::soc::Analyst;
 use super::{HostId, NetworkId, Output, PlayerId, World};
-use ttymud_text::Message;
+use ttymud_text::{Mate, Message};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) struct InstanceId(u64);
@@ -73,6 +73,20 @@ impl World {
                     trace: run.trace,
                     decoy: run.decoy > 0,
                 })
+            })
+            .collect()
+    }
+
+    pub(super) fn mates(&self, player: PlayerId) -> Vec<Mate> {
+        let Some(id) = self.instance_id(player) else {
+            return Vec::new();
+        };
+        self.members(id)
+            .into_iter()
+            .filter(|member| member.player != player)
+            .map(|member| Mate {
+                name: member.name,
+                trace: member.trace,
             })
             .collect()
     }

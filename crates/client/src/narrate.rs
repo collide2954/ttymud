@@ -82,6 +82,13 @@ fn changes(last: &Status, next: &Status) -> Vec<String> {
     if last.headline != next.headline && !next.headline.is_empty() {
         lines.push(format!("News: {}", next.headline));
     }
+    let named = |status: &Status, name: &str| status.crew.iter().any(|mate| mate.name == name);
+    for mate in next.crew.iter().filter(|mate| !named(last, &mate.name)) {
+        lines.push(format!("{} is in your run now.", mate.name));
+    }
+    for mate in last.crew.iter().filter(|mate| !named(next, &mate.name)) {
+        lines.push(format!("{} left your run.", mate.name));
+    }
     lines
 }
 
@@ -176,6 +183,27 @@ mod tests {
             told("yellow", "Acme Corp patches a hole in Gatekeep VPN."),
             ["News: Acme Corp patches a hole in Gatekeep VPN."]
         );
+    }
+
+    #[test]
+    fn verbose_tells_when_a_crewmate_joins_or_leaves_your_run() {
+        let mut narrated = Narrated::new(Record::default());
+        let mut told = |names: &[&str]| {
+            let mut next = status(Some(0), 100, 0);
+            next.crew = names
+                .iter()
+                .map(|name| ttymud_text::Mate {
+                    name: (*name).to_owned(),
+                    trace: 0,
+                })
+                .collect();
+            narrated.show(Shown::Status(next)).unwrap();
+            lines(&mut narrated)
+        };
+        told(&[]);
+        assert_eq!(told(&["nyx"]), ["nyx is in your run now."]);
+        assert_eq!(told(&["nyx"]), Vec::<String>::new());
+        assert_eq!(told(&[]), ["nyx left your run."]);
     }
 
     #[test]

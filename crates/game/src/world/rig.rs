@@ -174,6 +174,7 @@ impl World {
             cycles_max: rig.cpu,
             credits: state.credits,
             headline: self.headline(),
+            crew: self.mates(player),
         })
     }
 }
@@ -203,6 +204,7 @@ mod tests {
             cycles_max: 4,
             credits: 0,
             headline: String::new(),
+            crew: Vec::new(),
         };
         assert_eq!(world.status_of(player), Some(expected));
         for line in ["go back-room", "go gate"] {
@@ -228,6 +230,31 @@ mod tests {
         let status = world.status_of(player).unwrap_or_default();
         assert_eq!(status.run.map(|run| run.alert).as_deref(), Some("orange"));
         assert_eq!(status.headline, "New news.");
+    }
+
+    #[test]
+    fn status_of_lists_the_crewmates_in_your_copy_and_their_traces() {
+        use ttymud_text::Mate;
+        let mut world = crate::testing::world();
+        let (nyx, _) = world.join("nyx");
+        let (zer0, _) = world.join("zer0");
+        world.command(nyx, "crew create Moths");
+        world.command(nyx, "crew invite zer0");
+        world.command(zer0, "crew join moths");
+        for player in [nyx, zer0] {
+            for line in ["go back-room", "go gate"] {
+                world.command(player, line);
+            }
+        }
+        world.command(zer0, "scan");
+        let crew = world.status_of(nyx).map(|status| status.crew);
+        let mate = Mate {
+            name: "zer0".to_owned(),
+            trace: 4,
+        };
+        assert_eq!(crew, Some(vec![mate]));
+        let lone = world.status_of(zer0).map(|status| status.crew.len());
+        assert_eq!(lone, Some(1));
     }
 
     #[test]

@@ -11,6 +11,13 @@ pub struct Status {
     pub cycles_max: u32,
     pub credits: u32,
     pub headline: String,
+    pub crew: Vec<Mate>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Mate {
+    pub name: String,
+    pub trace: u32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

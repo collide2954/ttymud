@@ -1,4 +1,4 @@
-use ttymud_text::{Message, RunStatus, Span, Status, clean};
+use ttymud_text::{Mate, Message, RunStatus, Span, Status, clean};
 use ttymud_wire::ServerMessage;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,6 +45,14 @@ pub fn render(message: &ServerMessage) -> Shown {
                 alert: clean(&run.alert),
             }),
             headline: clean(&status.headline),
+            crew: status
+                .crew
+                .iter()
+                .map(|mate| Mate {
+                    name: clean(&mate.name),
+                    trace: mate.trace,
+                })
+                .collect(),
             ..status.clone()
         }),
     }
@@ -52,7 +60,7 @@ pub fn render(message: &ServerMessage) -> Shown {
 
 #[cfg(test)]
 mod tests {
-    use ttymud_text::{Message, RunStatus, Status, Style};
+    use ttymud_text::{Mate, Message, RunStatus, Status, Style};
     use ttymud_wire::ServerMessage;
 
     use super::{Shown, render};
@@ -113,16 +121,22 @@ mod tests {
             trace: 31,
             alert: alert.to_owned(),
         };
+        let mate = |name: &str| Mate {
+            name: name.to_owned(),
+            trace: 34,
+        };
         let status = Status {
             host: "arc\u{1b}adia".to_owned(),
             run: Some(run("Arcadia\u{202e} Health", "red\u{1b}[2J")),
             headline: "Bad\u{1b}]52;c;x\u{7} news.".to_owned(),
+            crew: vec![mate("ny\u{1b}x")],
             ..Status::default()
         };
         let clean = Status {
             host: "arcadia".to_owned(),
             run: Some(run("Arcadia Health", "red[2J")),
             headline: "Bad]52;c;x news.".to_owned(),
+            crew: vec![mate("nyx")],
             ..Status::default()
         };
         assert_eq!(render(&ServerMessage::Status(status)), Shown::Status(clean));

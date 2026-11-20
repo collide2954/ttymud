@@ -206,13 +206,33 @@ impl<W: Write> Hud<W> {
                 .filter(|message| message.kind == Kind::Chat);
             pane(canvas, layout, talk, layout.output + 2, layout.chat, 0);
         }
-        let mut more = Vec::new();
+        let mut more = self.crew_marks();
         if self.scroll > 0 {
             let down = self.glyphs.down;
             more.push((format!(" {down} more below (PgDn) "), Ink::Strong));
         }
         bar(canvas, layout, layout.output + 1, &label, &more);
         self.input(canvas, layout)
+    }
+
+    fn crew_marks(&self) -> Vec<(String, Ink)> {
+        let crew = self.status.iter().flat_map(|status| &status.crew);
+        let mut marks = Vec::new();
+        for (index, mate) in crew.enumerate() {
+            let gap = if index == 0 {
+                " ".to_owned()
+            } else {
+                format!(" {} ", self.glyphs.dot)
+            };
+            let trace = mate.trace.min(100);
+            marks.push((gap, Ink::Dim));
+            marks.push((format!("{} ", mate.name), Ink::Plain));
+            marks.push((format!("{trace}%"), Ink::Level(trace)));
+        }
+        if !marks.is_empty() {
+            marks.push((" ".to_owned(), Ink::Plain));
+        }
+        marks
     }
 
     fn frame(&self, canvas: &mut Canvas, layout: Layout) {
@@ -496,7 +516,7 @@ fn symbols(on: char, off: char, count: u32, total: u32) -> String {
 
 #[cfg(test)]
 mod tests {
-    use ttymud_text::{Kind, Message, RunStatus, Status, Style};
+    use ttymud_text::{Kind, Mate, Message, RunStatus, Status, Style};
 
     use super::Hud;
     use crate::Shown;
@@ -543,7 +563,29 @@ mod tests {
             cycles_max: 4,
             credits: 1250,
             headline: String::new(),
+            crew: Vec::new(),
         }
+    }
+
+    #[test]
+    fn the_chat_rule_shows_the_crewmates_in_the_run_and_their_traces() {
+        let mut hud = hud(70, 20);
+        let mut status = run_status();
+        status.crew = vec![
+            Mate {
+                name: "nyx".to_owned(),
+                trace: 34,
+            },
+            Mate {
+                name: "zer0".to_owned(),
+                trace: 0,
+            },
+        ];
+        hud.show(Shown::Status(status)).unwrap();
+        let rows = hud.rows();
+        let right = " nyx 34% · zer0 0% ┤";
+        assert!(rows[12].starts_with("├ chat ─"), "{}", rows[12]);
+        assert!(rows[12].ends_with(right), "{}", rows[12]);
     }
 
     #[test]
