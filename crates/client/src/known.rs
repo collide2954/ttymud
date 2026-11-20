@@ -63,6 +63,11 @@ impl KnownServers {
         self.entries.push((address.to_owned(), key));
     }
 
+    pub fn set(&mut self, address: &str, key: PublicKey) {
+        self.entries.retain(|(known, _)| known != address);
+        self.add(address, key);
+    }
+
     #[must_use]
     pub fn to_text(&self) -> String {
         let mut text = String::new();

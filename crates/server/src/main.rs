@@ -130,14 +130,15 @@ fn main() -> ExitCode {
 
 fn init(dir: &Path) -> io::Result<()> {
     let created = ttymud_server::init(dir)?;
-    let fingerprint = ttymud_server::load_keys(dir)?.public().fingerprint();
+    let public = ttymud_server::load_keys(dir)?.public();
     let place = dir.display();
     if created {
         println!("Created a server key in {place}.");
     } else {
         println!("{place} already has a server key.");
     }
-    println!("Fingerprint: {fingerprint}");
+    println!("Fingerprint: {}", public.fingerprint());
+    println!("Key: {}", public.to_hex());
     Ok(())
 }
 
@@ -153,6 +154,7 @@ fn run(dir: &Path, listen: &str, ssh: Option<&str>) -> io::Result<()> {
     let listener = TcpListener::bind(listen)?;
     println!("{} is open on {}.", world.city(), listener.local_addr()?);
     println!("Fingerprint: {}", keys.public().fingerprint());
+    println!("Key: {}", keys.public().to_hex());
     println!("Accounts: {}", world.account_count());
     #[cfg(feature = "ssh")]
     if let Some(address) = ssh {

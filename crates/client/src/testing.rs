@@ -48,7 +48,7 @@ pub(crate) fn link(handle: Handler) -> Link {
         address.port()
     ));
     let keys = Keys::generate().unwrap();
-    let link = crate::connect(&address.to_string(), &keys, &known, |_, _| Ok(true)).unwrap();
+    let link = crate::connect(&address.to_string(), &keys, &known, None, |_, _| Ok(true)).unwrap();
     let _ = std::fs::remove_file(&known);
     link
 }

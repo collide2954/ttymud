@@ -28,10 +28,11 @@ fn ttymud_with_input(args: &[&str], input: &str) -> io::Result<Output> {
     child.wait_with_output()
 }
 
-fn echo_server() -> String {
+fn echo_server() -> (String, String) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap().to_string();
     let keys = Keys::generate().unwrap();
+    let key = keys.public().to_hex();
     thread::spawn(move || {
         for mut stream in listener.incoming().flatten() {
             let Ok(session) = ttymud_net::accept(&mut stream, &keys) else {
@@ -55,7 +56,7 @@ fn echo_server() -> String {
             }
         }
     });
-    address
+    (address, key)
 }
 
 fn scratch(name: &str) -> String {
@@ -95,7 +96,7 @@ fn unknown_argument_fails_with_a_hint() -> io::Result<()> {
 
 #[test]
 fn connect_plays_on_a_server() -> io::Result<()> {
-    let address = echo_server();
+    let (address, _) = echo_server();
     let config = scratch("play");
     let args = ["connect", &address, "--accept-new", "--config", &config];
     let output = ttymud_with_input(&args, "look\nquit\n")?;
@@ -113,8 +114,39 @@ fn connect_plays_on_a_server() -> io::Result<()> {
 }
 
 #[test]
+fn a_given_key_connects_without_a_question() -> io::Result<()> {
+    let (address, key) = echo_server();
+    let config = scratch("key");
+    let args = ["connect", &address, "--key", &key, "--config", &config];
+    let output = ttymud_with_input(&args, "look\nquit\n")?;
+    let _ = std::fs::remove_dir_all(&config);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "{stdout}");
+    assert!(!stdout.contains("is a new server for you"), "{stdout}");
+    assert!(stdout.contains("echo look"), "{stdout}");
+    Ok(())
+}
+
+#[test]
+fn a_wrong_given_key_stops_with_a_warning() -> io::Result<()> {
+    let (address, _) = echo_server();
+    let config = scratch("wrong-key");
+    let other = Keys::generate().unwrap().public().to_hex();
+    let args = ["connect", &address, "--key", &other, "--config", &config];
+    let output = ttymud_with_input(&args, "")?;
+    let _ = std::fs::remove_dir_all(&config);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("WARNING: the key of") && stderr.contains("is not the key that you gave"),
+        "{stderr}"
+    );
+    Ok(())
+}
+
+#[test]
 fn a_new_server_needs_a_yes() -> io::Result<()> {
-    let address = echo_server();
+    let (address, _) = echo_server();
     let config = scratch("refuse");
     let output = ttymud_with_input(&["connect", &address, "--config", &config], "no\n")?;
     let _ = std::fs::remove_dir_all(&config);

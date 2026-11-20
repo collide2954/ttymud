@@ -8,13 +8,15 @@ use ttymud_net::PublicKey;
 
 const USAGE: &str = "\
 Usage: ttymud [OPTION]
-       ttymud connect <ADDRESS> [--accept-new] [--config DIR] [--layer LAYER]
-                      [--color DEPTH] [--ascii] [--verbose]
+       ttymud connect <ADDRESS> [--key KEY] [--accept-new] [--config DIR]
+                      [--layer LAYER] [--color DEPTH] [--ascii] [--verbose]
 
 Commands:
   connect <ADDRESS>  Connect to a server. The default port is 7331.
 
 Options:
+  --key KEY        Check that the server has this key: the 64 hexadecimal
+                   digits that its operator publishes.
   --accept-new     Trust a new server without a question.
   --config DIR     Keep your identity, known servers, and settings in DIR.
   --layer LAYER    Use line, edit, color, or hud. The default is the best
@@ -37,6 +39,7 @@ enum Cli {
 #[derive(Debug, Default, PartialEq, Eq)]
 struct Options {
     address: String,
+    key: Option<PublicKey>,
     accept_new: bool,
     config: Option<PathBuf>,
     choices: Choices,
@@ -65,6 +68,11 @@ fn parse_connect(args: &[OsString]) -> Result<Cli, String> {
         };
         let choices = &mut options.choices;
         match arg.to_str() {
+            Some("--key") => {
+                let key = PublicKey::from_hex(value("--key")?.trim())
+                    .ok_or("--key needs the 64 hexadecimal digits of the server key")?;
+                options.key = Some(key);
+            }
             Some("--accept-new") => options.accept_new = true,
             Some("--line") => choices.layer = Some(Layer::Line),
             Some("--layer") => choices.layer = Some(value("--layer")?.parse()?),
@@ -133,9 +141,13 @@ fn connect(options: &Options) -> Result<Ending, String> {
         );
     }
     let known = dir.join("known_servers");
-    let link = ttymud::connect(&options.address, &identity.keys, &known, |address, key| {
-        trust(address, key, options.accept_new)
-    })
+    let link = ttymud::connect(
+        &options.address,
+        &identity.keys,
+        &known,
+        options.key,
+        |address, key| trust(address, key, options.accept_new),
+    )
     .map_err(|error| explain(&error, &known))?;
     let ending = match settings.layer {
         Layer::Line => {
@@ -170,21 +182,35 @@ fn trust(address: &str, key: PublicKey, accept_new: bool) -> io::Result<bool> {
 }
 
 fn explain(error: &ConnectError, known: &Path) -> String {
-    let ConnectError::KeyChanged {
+    let (ConnectError::KeyChanged {
         address,
         expected,
         found,
-    } = error
+    }
+    | ConnectError::WrongKey {
+        address,
+        expected,
+        found,
+    }) = error
     else {
         return error.to_string();
     };
-    let (expected, found, file) = (expected.fingerprint(), found.fingerprint(), known.display());
+    let (expected, found) = (expected.fingerprint(), found.fingerprint());
+    let advice = match error {
+        ConnectError::WrongKey { .. } => {
+            "Check the key with the operator of the server.".to_owned()
+        }
+        _ => format!(
+            "If the operator changed the key, connect with --key and the new key, or remove the line for {address} from {}.",
+            known.display()
+        ),
+    };
     format!(
-        "WARNING: the key of {address} changed.\n\
+        "WARNING: {error}.\n\
          Expected fingerprint: {expected}\n\
          Found fingerprint:    {found}\n\
          Someone can be between you and the server. Do not continue if you are not sure.\n\
-         If the operator changed the key, remove the line for {address} from {file}."
+         {advice}"
     )
 }
 
@@ -242,8 +268,30 @@ mod tests {
                 address: "a.example".to_owned(),
                 accept_new: true,
                 config: Some("dir".into()),
-                choices: Choices::default(),
+                ..Options::default()
             }))
+        );
+    }
+
+    #[test]
+    fn connect_takes_the_full_key_of_the_server() {
+        let key = ttymud_net::Keys::generate().unwrap().public();
+        assert_eq!(
+            parse(&args(&["connect", "a.example", "--key", &key.to_hex()])),
+            Ok(Cli::Connect(Options {
+                address: "a.example".to_owned(),
+                key: Some(key),
+                ..Options::default()
+            }))
+        );
+        assert_eq!(
+            parse(&args(&[
+                "connect",
+                "a.example",
+                "--key",
+                &key.fingerprint()
+            ])),
+            Err("--key needs the 64 hexadecimal digits of the server key".to_owned())
         );
     }
 

@@ -26,6 +26,11 @@ pub enum ConnectError {
         expected: PublicKey,
         found: PublicKey,
     },
+    WrongKey {
+        address: String,
+        expected: PublicKey,
+        found: PublicKey,
+    },
 }
 
 impl fmt::Display for ConnectError {
@@ -34,6 +39,9 @@ impl fmt::Display for ConnectError {
             Self::Io(error) => write!(f, "{error}"),
             Self::NotTrusted => f.write_str("you did not trust the server"),
             Self::KeyChanged { address, .. } => write!(f, "the key of {address} changed"),
+            Self::WrongKey { address, .. } => {
+                write!(f, "the key of {address} is not the key that you gave")
+            }
         }
     }
 }
@@ -56,6 +64,7 @@ pub fn connect(
     address: &str,
     keys: &Keys,
     known_servers: &Path,
+    given: Option<PublicKey>,
     ask: impl FnOnce(&str, PublicKey) -> io::Result<bool>,
 ) -> Result<Link, ConnectError> {
     let address = normalize(address);
@@ -65,16 +74,27 @@ pub fn connect(
     stream.set_read_timeout(None)?;
     let server = session.peer();
     let mut known = KnownServers::load(known_servers)?;
-    match known.check(&address, server) {
-        Trust::Known => {}
-        Trust::New => {
+    match (given, known.check(&address, server)) {
+        (Some(expected), _) if expected != server => {
+            return Err(ConnectError::WrongKey {
+                address,
+                expected,
+                found: server,
+            });
+        }
+        (_, Trust::Known) => {}
+        (Some(_), _) => {
+            known.set(&address, server);
+            known.save(known_servers)?;
+        }
+        (None, Trust::New) => {
             if !ask(&address, server)? {
                 return Err(ConnectError::NotTrusted);
             }
             known.add(&address, server);
             known.save(known_servers)?;
         }
-        Trust::Changed(expected) => {
+        (None, Trust::Changed(expected)) => {
             return Err(ConnectError::KeyChanged {
                 address,
                 expected,
@@ -144,7 +164,7 @@ mod tests {
         let (address, server_key) = server();
         let path = scratch("yes");
         let asked = Cell::new(0);
-        let link = connect(&address.to_string(), &keys(), &path, |_, key| {
+        let link = connect(&address.to_string(), &keys(), &path, None, |_, key| {
             asked.set(asked.get() + 1);
             assert_eq!(key, server_key);
             Ok(true)
@@ -164,7 +184,7 @@ mod tests {
         let (address, _) = server();
         let path = scratch("localhost");
         let name = format!("localhost:{}", address.port());
-        let link = connect(&name, &keys(), &path, |_, _| Ok(true));
+        let link = connect(&name, &keys(), &path, None, |_, _| Ok(true));
         let _ = fs::remove_file(&path);
         link.unwrap();
     }
@@ -174,8 +194,8 @@ mod tests {
         let (address, _) = server();
         let path = scratch("known");
         let keys = keys();
-        connect(&address.to_string(), &keys, &path, |_, _| Ok(true)).unwrap();
-        let second = connect(&address.to_string(), &keys, &path, |_, _| {
+        connect(&address.to_string(), &keys, &path, None, |_, _| Ok(true)).unwrap();
+        let second = connect(&address.to_string(), &keys, &path, None, |_, _| {
             panic!("asked twice")
         });
         let _ = fs::remove_file(&path);
@@ -186,7 +206,7 @@ mod tests {
     fn a_no_refuses_the_server_and_saves_nothing() {
         let (address, _) = server();
         let path = scratch("no");
-        let result = connect(&address.to_string(), &keys(), &path, |_, _| Ok(false));
+        let result = connect(&address.to_string(), &keys(), &path, None, |_, _| Ok(false));
         let saved = path.exists();
         assert!(matches!(result, Err(ConnectError::NotTrusted)));
         assert!(!saved);
@@ -200,7 +220,7 @@ mod tests {
         let mut known = KnownServers::default();
         known.add(&address.to_string(), old);
         known.save(&path).unwrap();
-        let result = connect(&address.to_string(), &keys(), &path, |_, _| {
+        let result = connect(&address.to_string(), &keys(), &path, None, |_, _| {
             panic!("asked about a changed key")
         });
         let kept = KnownServers::load(&path).unwrap();
@@ -217,10 +237,72 @@ mod tests {
     }
 
     #[test]
+    fn a_given_key_is_checked_and_trusted_without_a_question() {
+        let (address, server_key) = server();
+        let path = scratch("given");
+        let link = connect(
+            &address.to_string(),
+            &keys(),
+            &path,
+            Some(server_key),
+            |_, _| panic!("asked about a given key"),
+        );
+        let known = KnownServers::load(&path).unwrap();
+        let _ = fs::remove_file(&path);
+        assert!(link.is_ok());
+        assert_eq!(
+            known.check(&address.to_string(), server_key),
+            crate::Trust::Known
+        );
+    }
+
+    #[test]
+    fn a_wrong_given_key_stops_the_connection_and_saves_nothing() {
+        let (address, server_key) = server();
+        let path = scratch("wrong");
+        let other = Keys::generate().unwrap().public();
+        let result = connect(&address.to_string(), &keys(), &path, Some(other), |_, _| {
+            panic!("asked about a given key")
+        });
+        let saved = path.exists();
+        match result {
+            Err(ConnectError::WrongKey {
+                expected, found, ..
+            }) => assert_eq!((expected, found), (other, server_key)),
+            other => panic!("expected a wrong key, got {:?}", other.err()),
+        }
+        assert!(!saved);
+    }
+
+    #[test]
+    fn a_given_key_replaces_an_old_key_of_the_address() {
+        let (address, server_key) = server();
+        let path = scratch("rotated");
+        let mut known = KnownServers::default();
+        known.add(&address.to_string(), Keys::generate().unwrap().public());
+        known.save(&path).unwrap();
+        let link = connect(
+            &address.to_string(),
+            &keys(),
+            &path,
+            Some(server_key),
+            |_, _| panic!("asked about a given key"),
+        );
+        let kept = KnownServers::load(&path).unwrap();
+        let _ = fs::remove_file(&path);
+        assert!(link.is_ok());
+        assert_eq!(
+            kept.check(&address.to_string(), server_key),
+            crate::Trust::Known
+        );
+    }
+
+    #[test]
     fn the_link_carries_server_messages() {
         let (address, _) = server();
         let path = scratch("messages");
-        let mut link = connect(&address.to_string(), &keys(), &path, |_, _| Ok(true)).unwrap();
+        let mut link =
+            connect(&address.to_string(), &keys(), &path, None, |_, _| Ok(true)).unwrap();
         let _ = fs::remove_file(&path);
         let message = ServerMessage::decode(&link.receiver.receive().unwrap()).unwrap();
         assert_eq!(message, ServerMessage::Prompt("$ ".to_owned()));

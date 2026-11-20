@@ -60,13 +60,23 @@ fn init_shows_the_fingerprint_and_keeps_the_key() -> io::Result<()> {
     let second = String::from_utf8_lossy(&second.stdout);
     assert!(first.contains("Created a server key"));
     assert!(second.contains("already has a server key"));
-    let fingerprint = |text: &str| {
+    let line = |text: &str, start: &str| {
         text.lines()
-            .find(|line| line.starts_with("Fingerprint: "))
+            .find_map(|line| line.strip_prefix(start))
             .map(str::to_owned)
     };
-    assert!(fingerprint(&first).is_some());
-    assert_eq!(fingerprint(&first), fingerprint(&second));
+    assert!(line(&first, "Fingerprint: ").is_some());
+    assert_eq!(
+        line(&first, "Fingerprint: "),
+        line(&second, "Fingerprint: ")
+    );
+    let key = line(&first, "Key: ").unwrap_or_default();
+    let public = ttymud_net::PublicKey::from_hex(&key);
+    assert_eq!(
+        public.map(|key| key.fingerprint()),
+        line(&first, "Fingerprint: ")
+    );
+    assert_eq!(line(&second, "Key: "), Some(key));
     Ok(())
 }
 
