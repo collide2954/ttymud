@@ -3,8 +3,8 @@ use ttymud_text::{Message, Style};
 use super::alert::{Alert, TRACE_ALERT};
 use super::heat::FAST_HEAT;
 use super::ice::deploy;
-use super::instance::{Instance, InstanceId, tell, witnesses};
-use super::{HostId, NetworkId, PlayerId, Step, World};
+use super::instance::{Instance, InstanceId, decoy_on, name_of, witnesses};
+use super::{HostId, NetworkId, Output, PlayerId, Step, World};
 use crate::contract::Event;
 use crate::heat::MAX_HEAT;
 use crate::ice::{Action, IceKind};
@@ -24,6 +24,7 @@ pub(super) struct Run {
     pub(super) loot: Vec<String>,
     pub(super) firewall: bool,
     pub(super) mask: u32,
+    pub(super) decoy: u32,
     pub(super) proxy: bool,
     pub(super) access: Level,
     pub(super) shells: Vec<(HostId, Level)>,
@@ -119,12 +120,16 @@ impl World {
         let Some(id) = self.instance_id(player) else {
             return Vec::new();
         };
-        let Some(state) = self.players.get(&player) else {
-            return Vec::new();
-        };
-        let masked = state.run.as_ref().is_some_and(|run| run.mask > 0);
-        let name = state.name.clone();
-        let others = witnesses(&self.members(id), here, player);
+        let masked = self
+            .players
+            .get(&player)
+            .and_then(|state| state.run.as_ref())
+            .is_some_and(|run| run.mask > 0);
+        let members = self.members(id);
+        let target = decoy_on(&members, here).unwrap_or(player);
+        let name = name_of(&members, target).to_owned();
+        let mut present = witnesses(&members, here, target);
+        present.push(target);
         let Some(instance) = self.instances.get_mut(&id) else {
             return Vec::new();
         };
@@ -138,7 +143,7 @@ impl World {
                 None => instance.logs.push((here, player, noise)),
             }
         }
-        let (mut shown, mut seen) = (Vec::new(), Vec::new());
+        let mut told = Vec::new();
         let mut watched = false;
         for ice in instance
             .ice
@@ -149,22 +154,33 @@ impl World {
                 IceKind::Sentry => {
                     watched = true;
                     if ice.intent.is_none() {
-                        ice.target = Some(player);
-                        shown.push(ice.compile_in(Action::Alert, alert));
-                        seen.push(ice.telegraph(Some(&name)));
+                        ice.target = Some(target);
+                        let mine = ice.compile_in(Action::Alert, alert);
+                        let theirs = ice.telegraph(Some(&name));
+                        for &other in &present {
+                            let message = if other == target { &mine } else { &theirs };
+                            told.push((other, message.clone()));
+                        }
                     }
                 }
                 IceKind::Scorch if !ice.awake => {
-                    ice.target = Some(player);
+                    ice.target = Some(target);
                     let woke = ice.wake();
-                    seen.push(woke.clone());
-                    shown.push(woke);
+                    told.extend(present.iter().map(|&other| (other, woke.clone())));
                 }
                 _ => {}
             }
         }
-        for message in &seen {
-            self.outbox.extend(tell(&others, message));
+        let mut shown = Vec::new();
+        for (other, message) in told {
+            if other == player {
+                shown.push(message);
+            } else {
+                self.outbox.push(Output {
+                    player: other,
+                    message,
+                });
+            }
         }
         let gain = match (masked, watched) {
             (true, _) => noise / 2,
@@ -264,6 +280,7 @@ impl World {
             loot: Vec::new(),
             firewall: false,
             mask: 0,
+            decoy: 0,
             proxy: false,
             access: Level::Guest,
             shells: Vec::new(),

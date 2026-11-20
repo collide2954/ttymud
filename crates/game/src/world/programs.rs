@@ -1,6 +1,8 @@
 use ttymud_text::{Kind, Message, Style};
 
-use super::{PlayerId, Step, Thing, World, choose, usage};
+use super::instance::InstanceId;
+use super::presence::named;
+use super::{HostId, Output, PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::{self, Command, Item, Program};
 
 const CRACK: u32 = 15;
@@ -85,18 +87,55 @@ impl World {
         Ok(step)
     }
 
-    pub(super) fn scrub(&mut self, player: PlayerId) -> Result<Step, Message> {
+    pub(super) fn scrub(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
         let here = self.here(player);
-        let (Some(id), Some(run)) = (
-            self.instance_id(player),
-            self.players
-                .get_mut(&player)
-                .and_then(|state| state.run.as_mut()),
-        ) else {
+        let Some(id) = self.instance_id(player) else {
             return Ok(Step::default());
         };
+        let mate = match args {
+            [] => None,
+            [word] => {
+                let members = self.members(id);
+                let names: Vec<&str> = members
+                    .iter()
+                    .filter(|member| member.host == here && member.player != player)
+                    .map(|member| member.name.as_str())
+                    .collect();
+                let found = choose(Thing::Member, word, &names)?;
+                let mate = members.iter().find(|member| member.name == found);
+                mate.map(|member| (member.player, member.name.clone()))
+            }
+            _ => return Err(Message::error("Usage: scrub [handle].")),
+        };
+        let whom = mate.as_ref().map_or(player, |&(mate, _)| mate);
+        let Some((before, after)) = self.wipe(id, here, whom) else {
+            return Err(Message::error(match &mate {
+                None => "There is no trace to scrub.".to_owned(),
+                Some((_, name)) => format!("{name} has no trace to scrub."),
+            }));
+        };
+        let Some((mate, name)) = mate else {
+            return Ok(Step::show(vec![Message::game(format!(
+                "scrub deletes your log lines. Trace: {before}% -> {after}%."
+            ))]));
+        };
+        let me = self.handle(player).unwrap_or_default().to_owned();
+        let told = format!(" scrubs your log lines. Trace: {before}% -> {after}%.");
+        self.outbox.push(Output {
+            player: mate,
+            message: named(&me, &told),
+        });
+        Ok(Step::show(vec![
+            Message::game("scrub deletes the log lines of ")
+                .span(Style::Player, &name)
+                .text(format!(". Trace of {name}: {before}% -> {after}%.")),
+        ]))
+    }
+
+    fn wipe(&mut self, id: InstanceId, here: HostId, whom: PlayerId) -> Option<(u32, u32)> {
+        let run = self.players.get_mut(&whom)?.run.as_mut()?;
         if run.trace == 0 {
-            return Err(Message::error("There is no trace to scrub."));
+            return None;
         }
         let before = run.trace;
         run.trace = before.saturating_sub(SCRUB);
@@ -104,11 +143,9 @@ impl World {
         if let Some(instance) = self.instances.get_mut(&id) {
             instance
                 .logs
-                .retain(|&(host, owner, _)| host != here || owner != player);
+                .retain(|&(host, owner, _)| host != here || owner != whom);
         }
-        Ok(Step::show(vec![Message::game(format!(
-            "scrub deletes your log lines. Trace: {before}% -> {after}%."
-        ))]))
+        Some((before, after))
     }
 
     pub(super) fn crack(

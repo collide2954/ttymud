@@ -374,7 +374,7 @@ impl World {
             if let Some(state) = self.players.get_mut(&player) {
                 state.rig.tick();
             }
-            outputs.extend(address(player, self.tick_mask(player)));
+            outputs.extend(address(player, self.tick_run(player)));
         }
         let copies: Vec<InstanceId> = self.instances.keys().copied().collect();
         for id in copies {
@@ -523,9 +523,10 @@ impl World {
             Verb::Scan => self.scan(player),
             Verb::Probe => self.probe(player, args, input),
             Verb::Crack => self.crack(player, args, input),
-            Verb::Scrub => self.scrub(player),
+            Verb::Scrub => self.scrub(player, args),
             Verb::Patch => self.patch(player),
             Verb::Firewall => self.firewall(player),
+            Verb::Decoy => Ok(self.decoy(player)),
             Verb::Mask => Ok(self.mask(player)),
             Verb::Proxy => self.proxy(player),
             Verb::Pretext => self.pretext(player, args, input),

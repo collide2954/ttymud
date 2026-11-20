@@ -1,7 +1,7 @@
 use ttymud_text::{Kind, Message, Style};
 
 use super::alert::MAX_VERSION;
-use super::instance::{InstanceId, host_of, name_of, tell, witnesses};
+use super::instance::{InstanceId, decoy_on, host_of, name_of, tell, witnesses};
 use super::run::MAX_TRACE;
 use super::{Host, HostId, NetworkId, Output, PlayerId, World, address};
 use crate::ice::{Action, Effect, IceKind};
@@ -121,20 +121,27 @@ pub(super) fn deploy(hosts: &[Host], network: NetworkId, bonus: u32) -> Vec<Ice>
 }
 
 impl World {
-    pub(super) fn tick_mask(&mut self, player: PlayerId) -> Vec<Message> {
+    pub(super) fn tick_run(&mut self, player: PlayerId) -> Vec<Message> {
         let Some(run) = self
             .players
             .get_mut(&player)
             .and_then(|state| state.run.as_mut())
-            .filter(|run| run.mask > 0)
         else {
             return Vec::new();
         };
-        run.mask -= 1;
-        if run.mask > 0 {
-            return Vec::new();
+        let mut shown = Vec::new();
+        for (left, ends) in [
+            (&mut run.mask, "Your mask drops."),
+            (&mut run.decoy, "Your decoy fades."),
+        ] {
+            if *left > 0 {
+                *left -= 1;
+                if *left == 0 {
+                    shown.push(Message::game(ends));
+                }
+            }
         }
-        vec![Message::game("Your mask drops.")]
+        shown
     }
 
     pub(super) fn tick_ice(&mut self, id: InstanceId) -> Vec<Output> {
@@ -153,6 +160,9 @@ impl World {
                 .is_some_and(|target| host_of(&members, target).is_none())
             {
                 ice.target = None;
+            }
+            if let Some(decoy) = decoy_on(&members, ice.host) {
+                ice.target = Some(decoy);
             }
             let at = ice.target.and_then(|target| host_of(&members, target));
             if ice.kind == IceKind::Hound

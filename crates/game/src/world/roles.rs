@@ -1,11 +1,14 @@
 use ttymud_text::{Kind, Message, Style};
 
+use super::instance::{name_of, tell, witnesses};
+use super::presence::named;
 use super::run::Run;
 use super::{PlayerId, Step, World};
 use crate::commands::Item;
 use crate::ice::IceKind;
 
 const MASK_TICKS: u32 = 5;
+const DECOY_TICKS: u32 = 10;
 
 impl World {
     fn run_mut(&mut self, player: PlayerId) -> Option<&mut Run> {
@@ -32,6 +35,35 @@ impl World {
         run.mask = MASK_TICKS;
         Step::show(vec![Message::game(format!(
             "mask hides your noise for {MASK_TICKS} ticks."
+        ))])
+    }
+
+    pub(super) fn decoy(&mut self, player: PlayerId) -> Step {
+        let here = self.here(player);
+        let Some(id) = self.instance_id(player) else {
+            return Step::default();
+        };
+        if let Some(run) = self.run_mut(player) {
+            run.decoy = DECOY_TICKS;
+        }
+        let members = self.members(id);
+        let name = name_of(&members, player).to_owned();
+        let others = witnesses(&members, here, player);
+        if let Some(instance) = self.instances.get_mut(&id) {
+            for ice in instance
+                .ice
+                .iter_mut()
+                .filter(|ice| ice.host == here && !ice.broken())
+            {
+                ice.target = Some(player);
+            }
+        }
+        let turns = named(&name, " runs a decoy. The ICE on this host turns to ")
+            .span(Style::Player, &name)
+            .text(".");
+        self.outbox.extend(tell(&others, &turns));
+        Step::show(vec![Message::game(format!(
+            "decoy draws the ICE on this host to you for {DECOY_TICKS} ticks."
         ))])
     }
 

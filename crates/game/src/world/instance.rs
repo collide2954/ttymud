@@ -20,6 +20,14 @@ pub(super) struct Member {
     pub(super) host: HostId,
     pub(super) name: String,
     pub(super) trace: u32,
+    pub(super) decoy: bool,
+}
+
+pub(super) fn decoy_on(members: &[Member], host: HostId) -> Option<PlayerId> {
+    let found = members
+        .iter()
+        .find(|member| member.host == host && member.decoy);
+    found.map(|member| member.player)
 }
 
 pub(super) fn host_of(members: &[Member], player: PlayerId) -> Option<HostId> {
@@ -61,8 +69,25 @@ impl World {
                     host: *state.chain.last()?,
                     name: state.name.clone(),
                     trace: run.trace,
+                    decoy: run.decoy > 0,
                 })
             })
+            .collect()
+    }
+
+    pub(super) fn mates_here(&self, player: PlayerId) -> Vec<&str> {
+        let here = self.here(player);
+        let Some(copy) = self.instance_id(player) else {
+            return Vec::new();
+        };
+        self.players
+            .iter()
+            .filter(|&(&other, state)| {
+                other != player
+                    && state.chain.last() == Some(&here)
+                    && state.run.as_ref().is_some_and(|run| run.instance == copy)
+            })
+            .map(|(_, state)| state.name.as_str())
             .collect()
     }
 
@@ -249,6 +274,68 @@ mod tests {
                     && !line.contains(" against ")),
             "{told:?}"
         );
+    }
+
+    #[test]
+    fn scrub_with_a_handle_cleans_up_after_a_crewmate_on_your_host() {
+        let (mut world, nyx, zer0) = lab_crew();
+        world.command(zer0, "go gate");
+        world.command(nyx, "scan");
+        let outputs = world.command(zer0, "scrub nyx");
+        assert_eq!(
+            heard(&outputs, zer0),
+            ["scrub deletes the log lines of nyx. Trace of nyx: 4% -> 0%."]
+        );
+        assert_eq!(
+            heard(&outputs, nyx),
+            ["zer0 scrubs your log lines. Trace: 4% -> 0%."]
+        );
+        let logs = world
+            .instance(nyx)
+            .map_or(0, |instance| instance.logs.len());
+        assert_eq!(logs, 0);
+        assert_eq!(
+            plain(&world.command(zer0, "scrub nyx")),
+            ["nyx has no trace to scrub."]
+        );
+        assert_eq!(
+            plain(&world.command(zer0, "scrub ghost")),
+            ["No crewmate named ghost. Crew: nyx"]
+        );
+        assert_eq!(world.complete(zer0, "scrub ").names, ["nyx"]);
+    }
+
+    #[test]
+    fn a_decoy_draws_the_ice_on_its_host_away_from_the_crew() {
+        let (mut world, nyx, zer0) = lab_crew();
+        world.command(zer0, "go gate");
+        for player in [nyx, zer0] {
+            for line in ["go core", "go archive"] {
+                world.command(player, line);
+            }
+        }
+        if let Some(state) = world.players.get_mut(&zer0) {
+            state.rig.loads.push(crate::commands::Verb::Decoy);
+        }
+        world.command(nyx, "scan");
+        world.tick();
+        let outputs = world.command(zer0, "decoy");
+        assert_eq!(
+            heard(&outputs, zer0)[0],
+            "decoy draws the ICE on this host to you for 10 ticks."
+        );
+        assert_eq!(
+            heard(&outputs, nyx),
+            ["zer0 runs a decoy. The ICE on this host turns to zer0."]
+        );
+        let mut faded = false;
+        for _ in 0..10 {
+            let outputs = world.tick();
+            faded |= heard(&outputs, zer0).contains(&"Your decoy fades.".to_owned());
+        }
+        assert!(faded);
+        assert_eq!(integrity(&world, nyx), 100);
+        assert!(integrity(&world, zer0) < 100);
     }
 
     #[test]

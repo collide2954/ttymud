@@ -29,6 +29,7 @@ pub(crate) enum Verb {
     Scrub,
     Patch,
     Firewall,
+    Decoy,
     Mask,
     Proxy,
     Pretext,
@@ -95,9 +96,9 @@ impl Verb {
                 | Self::Rumors
                 | Self::Shop
                 | Self::Scan
-                | Self::Scrub
                 | Self::Patch
                 | Self::Firewall
+                | Self::Decoy
                 | Self::Mask
                 | Self::Proxy
                 | Self::Exploit
@@ -131,6 +132,7 @@ impl Verb {
             Self::Scan | Self::Probe => (1, 1, 1),
             Self::Crack | Self::Pretext => (2, 2, 2),
             Self::Scrub | Self::Patch | Self::Firewall | Self::Mask => (2, 2, 0),
+            Self::Decoy => (2, 2, 1),
             Self::Proxy => (2, 3, 1),
             Self::Exploit => (2, 3, 3),
             _ => return None,
@@ -462,9 +464,9 @@ pub(crate) const COMMANDS: &[Command] = &[
     Command {
         verb: Verb::Scrub,
         names: &["scrub"],
-        usage: "scrub",
-        summary: "Delete your log lines to lower the trace.",
-        example: "scrub",
+        usage: "scrub [handle]",
+        summary: "Delete your log lines to lower the trace. With a handle, do it for a crewmate on this host.",
+        example: "scrub nyx",
         takes: Takes::Nothing,
         gives: Gives::Nothing,
     },
@@ -483,6 +485,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "firewall",
         summary: "Stop the next attack on your integrity.",
         example: "firewall",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Decoy,
+        names: &["decoy"],
+        usage: "decoy",
+        summary: "For 10 ticks, the ICE on this host attacks you before your crewmates.",
+        example: "decoy",
         takes: Takes::Nothing,
         gives: Gives::Nothing,
     },

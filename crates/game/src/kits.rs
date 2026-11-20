@@ -9,6 +9,7 @@ pub(crate) struct Kit {
     pub(crate) id: &'static str,
     pub(crate) summary: &'static str,
     pub(crate) loads: [Verb; 5],
+    pub(crate) knows: &'static [Verb],
 }
 
 pub(crate) const KITS: [Kit; 4] = [
@@ -22,6 +23,7 @@ pub(crate) const KITS: [Kit; 4] = [
             Verb::Patch,
             Verb::Firewall,
         ],
+        knows: &[Verb::Decoy],
     },
     Kit {
         id: "ghost",
@@ -33,6 +35,7 @@ pub(crate) const KITS: [Kit; 4] = [
             Verb::Scrub,
             Verb::Mask,
         ],
+        knows: &[],
     },
     Kit {
         id: "phreak",
@@ -44,6 +47,7 @@ pub(crate) const KITS: [Kit; 4] = [
             Verb::Scrub,
             Verb::Proxy,
         ],
+        knows: &[],
     },
     Kit {
         id: "face",
@@ -55,6 +59,7 @@ pub(crate) const KITS: [Kit; 4] = [
             Verb::Patch,
             Verb::Pretext,
         ],
+        knows: &[],
     },
 ];
 

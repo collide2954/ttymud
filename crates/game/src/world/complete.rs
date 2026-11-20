@@ -61,6 +61,7 @@ impl World {
             }
             (Verb::Contract, 1) => vec!["drop"],
             (Verb::Crew, 1) => ACTIONS.to_vec(),
+            (Verb::Scrub, 1) => self.mates_here(player),
             (Verb::Crew, 2) => self.crew_choices(player, &words[1]),
             (Verb::Tell | Verb::Ignore | Verb::Block | Verb::Report, 1) => self.online_names(),
             (Verb::Unignore | Verb::Unblock, 1) => {

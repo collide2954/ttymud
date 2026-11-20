@@ -91,6 +91,7 @@ impl World {
             self.resume_posting(fixer, *day, *slot).map(Job::new)
         });
         state.know = know;
+        learn(&mut state.know, saved.kit.knows);
         state.stash = stash;
         let player = self.add(state);
         let name = &saved.name;
@@ -191,11 +192,8 @@ impl World {
         state.phase = Phase::Playing;
         state.channels = channels;
         state.rig.loads = kit.loads.to_vec();
-        for verb in kit.loads {
-            if !state.know.contains(&verb) {
-                state.know.push(verb);
-            }
-        }
+        learn(&mut state.know, &kit.loads);
+        learn(&mut state.know, kit.knows);
         state.contract = offer.map(Job::new);
         state.chain = vec![start];
         self.keep(player);
@@ -260,6 +258,14 @@ impl World {
     }
 }
 
+fn learn(know: &mut Vec<Verb>, verbs: &[Verb]) {
+    for &verb in verbs {
+        if !know.contains(&verb) {
+            know.push(verb);
+        }
+    }
+}
+
 pub(super) fn good_name(name: &str) -> bool {
     (3..=16).contains(&name.len())
         && name
@@ -274,7 +280,12 @@ fn menu() -> Vec<Message> {
             .span(Style::Command, kit.id)
             .text(format!(": {} Programs: ", kit.summary));
         let programs = kit.loads.iter().map(|&verb| commands::name_of(verb));
-        listed(line, Style::Command, programs)
+        let line = listed(line, Style::Command, programs);
+        if kit.knows.is_empty() {
+            return line;
+        }
+        let extra = kit.knows.iter().map(|&verb| commands::name_of(verb));
+        listed(line.text(". It also knows "), Style::Command, extra).text(".")
     }));
     shown
 }
@@ -375,6 +386,26 @@ mod tests {
             plain(&world.command(player, "load mask")),
             ["No program named mask. Programs: scan, probe, crack, patch, pretext"]
         );
+    }
+
+    #[test]
+    fn a_breaker_also_knows_decoy_and_so_does_an_older_breaker() {
+        let mut world = world();
+        let player = hacker(&mut world, "a", "nyx", "breaker");
+        world.command(player, "go back-room");
+        world.command(player, "unload patch");
+        assert_eq!(
+            plain(&world.command(player, "load decoy")),
+            ["You load decoy. RAM: 8/8 GB."]
+        );
+        let text = "[account b]\nknow = scan\n[handle zer0]\nkit = breaker\nheat = 0\ncooled = 0\nintegrity = 100\n";
+        world.restore("accounts/b.ini", text).unwrap();
+        let (older, _) = world.connect("b");
+        let knows = world
+            .players
+            .get(&older)
+            .is_some_and(|state| state.know.contains(&crate::commands::Verb::Decoy));
+        assert!(knows);
     }
 
     #[test]
