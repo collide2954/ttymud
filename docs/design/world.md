@@ -57,8 +57,10 @@ The server makes each target from the corp sections and the template sections of
 - 2 or 3 LAN hosts, and a Hound on one of them. Above low security, a second LAN host has a Sentry.
 - 2 or 3 core hosts, each with a Scorch. A Warden guards one route from the LAN into the core.
 - ICE of version 1, 2, 3, or 4 for the security levels low, medium, high, and top.
+- For a corporation with a medium or higher budget, a Lockjaw on one LAN host and a Tarpit on one core host.
 - The data files of the corporation on the LAN hosts and the core hosts. The goal of the job is on a core host.
 - Two credentials files. The first gives user access, and the second gives admin access.
+- One honeypot: a bait file on a LAN host or a core host.
 
 For a heist, the server adds these parts to the target:
 
@@ -95,7 +97,7 @@ Fixers give contracts. A contract has a target, an objective, a payment, and a t
 
 Higher reputation with a fixer opens contracts against deeper layers and stronger corporations.
 
-In version 0.1, the only objective is to steal a file, and a contract has no time limit. Each clean contract adds 1 reputation with its fixer. The [gameplay](gameplay.md#jobs) document gives the pay and the necessary reputation for each budget.
+A job from the board has one of three objectives: a theft, a wipe, or a plant. A wipe deletes a record, and a plant puts a false file on a host. About one job in three is a wipe or a plant. A contract has no time limit. Each clean contract adds 1 reputation with its fixer. The [gameplay](gameplay.md#jobs) document gives the pay and the necessary reputation for each budget.
 
 ## Corporations
 
@@ -116,7 +118,7 @@ In Port Ostra, two fixers work in the Back Room. Pell works against Mosaic Media
 
 Each corporation has a security operations center (SOC). Analysts are NPCs who work in the SOC. They work in shifts on the server clock. The day shift has more analysts. The night shift has fewer analysts, but the automatic ICE is stronger.
 
-Analysts act like people. They read logs and lock stolen accounts. Later, they will also reset passwords and cut routes between hosts. Each analyst has a habit: careful, lazy, or strict. The game shows their actions as log lines:
+Analysts act like people. They read logs, lock stolen accounts, and reset the stolen passwords. A strict analyst can also cut a route between hosts. Each analyst has a habit: careful, lazy, or strict. The game shows their actions as log lines:
 
     [SOC] Analyst m.ortiz reads the logs of mail-gw and finds your trail. Trace: 12% -> 20%.
 

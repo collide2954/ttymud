@@ -56,6 +56,7 @@ Commands look like shell commands. Many commands have a shell name and a MUD nam
 | `back` | `exit`, `cd ..` | Move back one hop. |
 | `read <file>` | `cat` | Show the text of a file here or on your rig. |
 | `download <file>` | `get` | Copy a file from this host to your rig. |
+| `upload <file>` | | Copy a file from your rig to this host in a target network. |
 | `inventory` | `inv`, `i` | Show the files on your rig. |
 | `grep <pattern>` | | Keep only the items that contain the pattern. |
 | `help [command]` | `man` | Show help for all commands or for one command. |
@@ -78,7 +79,7 @@ Commands look like shell commands. Many commands have a shell name and a MUD nam
 | `lots` | | Show the lots of the police auction. This command works only at the auction host. |
 | `bid <lot> <credits>` | | Bid on a lot of the police auction. This command works only at the auction host. |
 | `echo <text> [> script]` | | Show the text. With `>` or `>>`, write it to a script on your rig. |
-| `rm <script>` | | Delete a script from your rig. |
+| `rm <file>` | | Delete a script from your rig, or a file on this host in a target network. |
 | `sh <script> [words]` | | Run a script from your rig. The [scripts](#scripts) section gives the rules. |
 | `ps` | | Show the script that runs on your rig. |
 | `kill` | | Stop the script that runs on your rig. |
@@ -186,9 +187,9 @@ ICE is hostile security software. Each ICE has a type, a version, an integrity v
 | Warden | A firewall. It blocks a service or a route. |
 | Hound | A tracker. It attacks the trace directly. |
 | Scorch | Black ICE. It attacks the integrity of your rig. |
-| Tarpit | It makes your actions slower. |
+| Tarpit | It takes your cycles, so your actions are slower. |
 | Lockjaw | It freezes one of your programs for some ticks. |
-| Honeypot | A false host or file. If you touch it, the trace increases quickly. The `probe` program can find it. |
+| Honeypot | A false file. If you touch it, the trace increases quickly. The `probe` program can find it. |
 
 Before each action, an ICE selects the action from its set and shows it. This message is a telegraph:
 
@@ -196,9 +197,9 @@ Before each action, an ICE selects the action from its set and shows it. This me
 
 The telegraph gives you time to answer. You can crack the Hound before it acts. You can add a proxy so that the attack does less. You can also scrub logs after the attack. Each ICE has a different set of actions and a different order. As a result, a fight is fair but not predictable.
 
-### ICE in version 0.1
+### ICE types
 
-Version 0.1 has four types of ICE. Tarpit, Lockjaw, and Honeypot come later. Each version above 1 adds 10 integrity.
+The game has six types of ICE, and honeypot files. Each version above 1 adds 10 integrity.
 
 | Type | Integrity | Behavior | Actions |
 | --- | --- | --- | --- |
@@ -206,8 +207,14 @@ Version 0.1 has four types of ICE. Tarpit, Lockjaw, and Honeypot come later. Eac
 | Warden | 40 | It blocks one route until it breaks. | None. |
 | Hound | 30 | An alert wakes it. Then it follows you from host to host. | TRACE BURST (2 ticks) adds 8% trace. DEEP TRACE (4 ticks) adds 20% trace. |
 | Scorch | 30 | Noise on its host wakes it. It attacks only while you are on its host. | BURN (2 ticks) does 20 damage. SPIKE (1 tick) does 8 damage. |
+| Tarpit | 25 | The same as Scorch. | TAR (2 ticks) takes all your cycles. |
+| Lockjaw | 30 | The same as Scorch. | BITE (2 ticks) freezes the program that you used last. For 6 ticks, you cannot run that program. |
 
-An awake ICE selects its next action at random from its set. The seed of the server sets the random numbers. If you leave the host of a Scorch, its attack stops.
+An awake ICE selects its next action at random from its set. The seed of the server sets the random numbers. If you leave the host of a Scorch, a Tarpit, or a Lockjaw, its attack stops.
+
+A target of a company with a medium or higher budget has a Lockjaw on one LAN host and a Tarpit on one core host.
+
+Each target also has one honeypot: a bait file on a LAN host or a core host, with a name such as `passwords.txt`. If you read or download it, the trace increases by 30%. Type `probe` and the name of a file to find out if it is a honeypot. The `ls | probe` pipeline checks all files on the host.
 
 You do not know the ICE on a host before you scan the host. The `look` command shows only the number of ICE programs that you do not know. A telegraph from an ICE that you do not know starts with "Unknown ICE".
 
@@ -247,7 +254,9 @@ The noise of your actions goes into the logs of the host. Each analyst reads the
 | Strict | The host where you are. | 6 ticks |
 | Lazy | A random host of the network. | 12 ticks |
 
-If the analyst finds your noise, the trace increases by 5% and by the noise in the logs. Then the logs of that host are empty. If your access comes from stolen credentials, a careful or a strict analyst also locks the account. Your access in the network goes back to guest, but a shell from `exploit` stays open.
+If the analyst finds your noise, the trace increases by 5% and by the noise in the logs. Then the logs of that host are empty. If your access comes from stolen credentials, a careful or a strict analyst also locks the account. Your access in the network goes back to guest, but a shell from `exploit` stays open. The analyst also resets the stolen password. Until the next day of UTC time, those credentials do not work in that network.
+
+A strict analyst who finds your noise can also cut one route from that host to a host that is deeper in the network. A telegraph comes 2 ticks before the cut. The cut stops movement to the deeper host until the copy of the network ends. The routes back to the entry stay open. Each analyst cuts one route at most in each copy.
 
 Three programs work against the SOC:
 
@@ -285,7 +294,7 @@ In version 0.1, a new rig has 8 GB of RAM, and its CPU holds 4 cycles. A shop se
 | Program | RAM | Cycles | Noise | Action |
 | --- | --- | --- | --- | --- |
 | `scan` | 1 GB | 1 | 1 | It shows the ICE and the software of this host, and the analysts on shift. After the scan, you know the names of the ICE. |
-| `probe` | 1 GB | 1 | 1 | It shows the weak point of an ICE. |
+| `probe` | 1 GB | 1 | 1 | It shows the weak point of an ICE, or if a file is a honeypot. |
 | `crack` | 2 GB | 2 | 2 | It does 15 damage to an ICE. After a probe in the same pipeline, it does 30 damage. |
 | `scrub` | 2 GB | 2 | 0 | It decreases the trace by 15% and deletes your logs on this host. With a handle, it does this for a crewmate on your host. |
 | `patch` | 2 GB | 2 | 0 | It repairs 20 integrity. |
@@ -435,6 +444,16 @@ Type `jobs` on the host of a fixer to see the board. Type `accept <number>` to t
 | Top | About 3000 cr | 9 |
 
 The pay of a job can be up to 20% more or less. Each clean contract adds 1 reputation with its fixer. The first job of each fixer is always against its company with the lowest budget. As a result, a new handle can always find work.
+
+A job has one of three goals. The first job of each fixer is always a theft. About one job in three is a wipe or a plant.
+
+| Goal | What you do | When the job is complete |
+| --- | --- | --- |
+| Theft | Download the goal file. | You make a clean exit with the file on your rig. The fixer keeps the file. |
+| Wipe | Type `rm <file>` on the host of the goal file. You need the access that the file needs. | You make a clean exit in the same copy of the network. |
+| Plant | The fixer gives you a file. Type `upload <file>` on the host that the job names. You need the access that the files of that host need. | You make a clean exit in the same copy of the network. |
+
+A wipe or a plant changes only your copy of the network. If you jack out, the next copy has the old files again. An upload copies the file, so you still have it for the next run. When a job is complete, the fixer takes the file of the job from your rig, if you have it. As a result, you cannot sell a copy of a file that you wiped.
 
 ## Heists
 

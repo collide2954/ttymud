@@ -157,6 +157,17 @@ M9 added crew channels.
 - `cities`, and `news <city>` for the headlines of a linked city.
 - `ignore`, `block`, `report`, and `mute` for handles of linked cities. Private messages stay in their city.
 
+## Version 0.5: deeper runs
+
+### M16: New ICE, smarter analysts, and new jobs (done)
+
+- Tarpit and Lockjaw ICE. The TAR of a Tarpit takes all cycles. The BITE of a Lockjaw freezes the last program for 6 ticks.
+- A honeypot file in each target. `probe <file>` and `ls | probe` find it.
+- An analyst who locks a stolen account also resets its password until the next day.
+- A strict analyst who finds your trail can cut one route that leads deeper, with a telegraph 2 ticks before.
+- Wipe jobs with `rm <file>`, and plant jobs with `upload <file>`. About one job in three is a wipe or a plant.
+- The command `ttymud-server delete` deletes an account and its data. The records of the moderators stay.
+
 ## Later
 
 - Travel between linked cities.

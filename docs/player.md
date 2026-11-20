@@ -275,6 +275,14 @@ After the first job, go to the Back Room: `go back-room`. Type `jobs` to see the
 
 When you take a job, your safehouse gets routes into the network of the target. Each target has an edge, a LAN, and a core. The goal file is on a core host. Each clean job adds 1 reputation with its fixer. Jobs against bigger companies pay more, but they need more reputation.
 
+A job has one of three goals. The board and the `contract` command show it:
+
+- **Get** a file: download it, and then leave with a clean exit.
+- **Wipe** a file: delete it with `rm <file>` on its host, and then leave with a clean exit.
+- **Plant** a file: the fixer gives you the file. Copy it to the named host with `upload <file>`, and then leave with a clean exit.
+
+A wipe or a plant counts only if you leave clean in the same run. If you jack out, the next run has the old files again. You still have the file to plant, so you can upload it again.
+
 ## News and rumors
 
 Type `news` on any host to see the 10 newest headlines of the city. The news reports breaches, traces, burns, patches, and changes of alert levels. It never gives the name of a handle, except for a burn. The Newsstand has the same headlines in the file `news.txt`.
@@ -365,6 +373,16 @@ ICE acts on its own time. Before an ICE acts, it shows its next action in a tele
 
 In this example, you have two ticks to answer. You can crack the ICE, leave the host, or scrub after the attack. Type `help ice` to see what each type of ICE does.
 
+Bigger companies use two more types of ICE. The TAR of a Tarpit takes all your cycles. The BITE of a Lockjaw freezes the program that you used last, for 6 ticks. Both stop when you leave their host.
+
+## Honeypots
+
+Each target has a honeypot: a bait file with a name such as `passwords.txt`. If you read or download it, your trace goes up by 30%. Before you touch a file, probe it:
+
+    probe passwords.txt
+
+The `ls | probe` pipeline checks all files on the host.
+
 ## The SOC
 
 Each company has a security operations center (SOC). Its analysts read the logs of your run. The day shift, from 08:00 to 20:00 UTC, has two analysts. The night shift has one analyst, but the ICE is one version stronger. Type `scan` to see the analysts on shift and their habits.
@@ -375,7 +393,11 @@ Before an analyst reads the logs of a host, a telegraph shows it:
 
 Two ticks later, the analyst reads the logs. If your noise is in the logs of that host, your trace goes up. A careful analyst reads the host with the most noise. A strict analyst reads the host where you are. A lazy analyst reads a random host, and reads less often.
 
-If you have access from stolen credentials, a careful or a strict analyst who finds your noise locks the account. Then your access in the network is guest again. These actions help you against the SOC:
+If you have access from stolen credentials, a careful or a strict analyst who finds your noise locks the account. Then your access in the network is guest again. The analyst also resets the password, so those credentials do not work until the next day.
+
+A strict analyst who finds your noise can also cut one route that leads deeper into the network. A telegraph comes two ticks before the cut. The cut lasts until the run ends, but the way back out stays open.
+
+These actions help you against the SOC:
 
 - `scrub` deletes your logs on the host where you are.
 - While `mask` is up, your noise does not go into the logs, and an analyst finds nothing.

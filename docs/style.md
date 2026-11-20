@@ -122,6 +122,7 @@ The check cannot find all STE problems. A person must also read each document.
 | hint | A help text for the next step of a contract. |
 | hole | A weakness in a software family. The `exploit` program uses it until the corporation patches the family. |
 | home host | The private hub host where a handle repairs the rig, changes the RAM, and uses the stash. |
+| honeypot | A bait file in a target. A read or a download of it raises the trace. |
 | host key | The SSH key of a server. An SSH client shows its fingerprint at the first connection. |
 | host | A computer in the game world. It is the TTYmud equivalent of a room. |
 | hub | A safe zone that an author makes by hand. |
@@ -147,6 +148,7 @@ The check cannot find all STE problems. A person must also read each document.
 | offshore stash, stash | A store of credits and items that stays after a burn. |
 | pane | A part of the HUD that shows one type of text. |
 | pipeline | Two or more commands that the pipe character (`\|`) joins. |
+| plant | A job goal: put a false file on a host of the target. |
 | police auction, auction | The sale of the valuable items from the rigs of burned handles. |
 | program | Software that a handle runs to do an action. |
 | recovery code | A secret code that gets an account back on a new device. |
@@ -174,6 +176,7 @@ The check cannot find all STE problems. A person must also read each document.
 | version | The strength of a program, from v1 to v3. A higher version makes the main effect of the program stronger. |
 | wager | The credits that the loser of a fight pays to the winner. |
 | weak point | A flaw of an ICE that `probe` finds. |
+| wipe | A job goal: delete a file on a host of the target. |
 | workspace | A set of Rust crates that build together. |
 | world seed | The number that sets the job board and the targets of a server. |
 | zone | The type of a network: target, darknet, or arena. |
@@ -188,6 +191,7 @@ The check cannot find all STE problems. A person must also read each document.
 | compile | To make the next version of a program from a blueprint, or to add a mod. |
 | crack | To break ICE or encryption. |
 | decrypt | To make encrypted data readable. |
+| download | To copy a file from a host to a rig. |
 | encrypt | To make data unreadable without a key. |
 | exploit | To use a weakness in software to get more access. |
 | hack | To get access to a computer without permission. |
@@ -197,7 +201,7 @@ The check cannot find all STE problems. A person must also read each document.
 | load | To put a program into the RAM of a rig. |
 | mute | To stop the chat messages of a player for some minutes. |
 | patch | To repair a weakness or damage in software. |
-| probe | To find the weaknesses of a host or of ICE. |
+| probe | To find the weaknesses of a host or of ICE, or to find a honeypot. |
 | recover | To get an account back with a recovery code. |
 | revoke | To remove a key from an account. |
 | sanitize | To remove unsafe characters from text. |
@@ -206,3 +210,4 @@ The check cannot find all STE problems. A person must also read each document.
 | scrub | To delete log lines. |
 | tip off | To tell the police about a handle. It adds heat to that handle. |
 | unload | To remove a program from the RAM of a rig. |
+| upload | To copy a file from a rig to a host. |

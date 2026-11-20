@@ -71,6 +71,7 @@ A file section puts one file on a host or on a template. The section name has th
 | Key | Count | Meaning |
 | --- | --- | --- |
 | `line` | 1 or more | One line of the file. The lines stay in their order. |
+| `bait` | 0 or 1 | `yes` or `no`. The default is `no`. With `yes`, the file is a honeypot. If a player reads or downloads it in a target, the trace increases by 30%. |
 
 A file with a name like `crack-v2.blueprint` is a blueprint. A player who reads it learns the blueprint for that version. The program must have versions, and the version must be 2 or 3.
 
@@ -82,11 +83,11 @@ An ICE section puts one ICE on a host. The section name has the form `<host>/<na
 
 | Key | Count | Meaning |
 | --- | --- | --- |
-| `type` | 1 | `sentry`, `warden`, `hound`, or `scorch`. |
+| `type` | 1 | `sentry`, `warden`, `hound`, `scorch`, `tarpit`, or `lockjaw`. |
 | `version` | 0 or 1 | A number from 1 to 9. The default is 1. |
 | `guards` | 0 or 1 | The other end of the route that a warden blocks. Each warden must have this key. Other types cannot have it. |
 
-The [gameplay](design/gameplay.md#ice-in-version-01) document tells what each type does.
+The [gameplay](design/gameplay.md#ice-types) document tells what each type does.
 
 ### Contract
 

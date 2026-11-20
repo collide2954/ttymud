@@ -10,11 +10,11 @@ The website is at [collide2954.github.io/ttymud](https://collide2954.github.io/t
 
 ## Status
 
-TTYmud is in early development. Milestones M0 to M15 are complete. You can run a server and play the default city with other players over an encrypted connection. In a terminal, the client shows a HUD with status bars, an output pane, and a chat pane.
+TTYmud is in early development. Milestones M0 to M16 are complete. You can run a server and play the default city with other players over an encrypted connection. In a terminal, the client shows a HUD with status bars, an output pane, and a chat pane.
 
-You select a handle and a starter kit, and the server keeps them. Your first job is a hack into the network of a dental office. After that, fixers post new jobs each day against six corporations. The server makes a new network for each job. You earn credits, buy programs and hardware, and sell stolen data to a fence.
+You select a handle and a starter kit, and the server keeps them. Your first job is a hack into the network of a dental office. After that, fixers post new jobs each day against six corporations. The server makes a new network for each job. A job asks you to steal a file, to delete a file, or to put a false file on a host. You earn credits, buy programs and hardware, and sell stolen data to a fence.
 
-The corporations react to all players. Noise raises their alert levels, and analysts read the logs of each run. A corporation patches the software that players exploit too often. The news feed reports the events of the city, and the fixers tell rumors.
+The corporations react to all players. Noise raises their alert levels, and analysts read the logs of each run. Analysts lock stolen accounts and reset their passwords, and a strict analyst can cut a route. A corporation patches the software that players exploit too often. Each target has a honeypot file, and bigger corporations use stronger ICE. The news feed reports the events of the city, and the fixers tell rumors.
 
 You can make a crew of up to 4 handles. Crewmates share one copy of a target network, and each role helps the crew. Crews take heists, and the goal of a heist is in a vault that has no route.
 

@@ -82,7 +82,8 @@ This table records the main design decisions. When a decision changes, change th
 | Home host | It is private for each handle. A handle that connects again starts there. |
 | Storage | Plain text files in the data directory. A storage thread writes them. |
 | Noise | Noise raises the trace at once. A working Sentry doubles it. The trace does not increase while you wait. |
-| ICE in version 0.1 | Sentry, Warden, Hound, and Scorch. The other types come later. |
+| ICE | Sentry, Warden, Hound, Scorch, Tarpit, and Lockjaw, and honeypot files. |
+| Job goals | Theft, wipe, or plant. A wipe deletes a record with `rm`, and a plant puts a false file on a host with `upload`. |
 | RAM | A new rig has 8 GB. A starter kit fills it with five programs. `load` and `unload` work only at the home host. |
 | First contract | The fixer Pell offers it to each new handle. Its steps and hints come from the content file. |
 | Repair | The `repair` command at the home host. It is free up to 50 integrity. Above 50, each point costs 2 credits. |
