@@ -198,7 +198,7 @@ mod tests {
     use crate::commands::Verb;
     use crate::target::{RoleBridge, Vault, generate_heist};
     use crate::testing::{plain, world};
-    use crate::world::contract::{Contract, Job};
+    use crate::world::contract::{Contract, Job, Task};
     use crate::world::{HostId, World};
 
     fn seed_with(employee: bool) -> u64 {
@@ -223,6 +223,7 @@ mod tests {
             fixer: 0,
             network,
             goal: target.goal.clone(),
+            task: Task::Steal,
             offer: Vec::new(),
             steps: Vec::new(),
             pay: 0,

@@ -2,7 +2,7 @@ use ttymud_text::{Message, Style};
 
 use super::alert::BREACH_ALERT;
 use super::jobs::{DAY, Fixer};
-use super::{NetworkId, PlayerId, Step, World, lines};
+use super::{HostId, NetworkId, PlayerId, Step, World, lines};
 use crate::content::ContractDef;
 use crate::contract::Event;
 
@@ -10,12 +10,20 @@ const HINT_TICKS: u32 = 15;
 const FEE_HEAT: u32 = 4;
 const FEE_PERCENT: u32 = 25;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Task {
+    Steal,
+    Wipe,
+    Plant(HostId),
+}
+
 #[derive(Debug)]
 pub(super) struct Contract {
     pub(super) id: String,
     pub(super) fixer: usize,
     pub(super) network: NetworkId,
     pub(super) goal: String,
+    pub(super) task: Task,
     pub(super) offer: Vec<String>,
     pub(super) steps: Vec<(Event, String)>,
     pub(super) pay: u32,
@@ -36,6 +44,7 @@ impl Contract {
                 .unwrap_or(0),
             network: network(&def.network).unwrap_or(NetworkId(0)),
             goal: def.goal,
+            task: Task::Steal,
             offer: def.offer,
             steps: def.steps,
             pay: def.pay,
@@ -133,7 +142,12 @@ impl World {
         Some(Message::game(format!("Hint: {hint}")))
     }
 
-    pub(super) fn finish_contract(&mut self, player: PlayerId, network: NetworkId) -> Vec<Message> {
+    pub(super) fn finish_contract(
+        &mut self,
+        player: PlayerId,
+        network: NetworkId,
+        done: bool,
+    ) -> Vec<Message> {
         let Some(state) = self.players.get_mut(&player) else {
             return Vec::new();
         };
@@ -143,15 +157,18 @@ impl World {
         else {
             return Vec::new();
         };
-        let goal = state
-            .rig
-            .files
-            .iter()
-            .position(|file| file.name == contract.goal);
-        let (true, Some(goal)) = (contract.network == network, goal) else {
+        if contract.network != network {
             return Vec::new();
-        };
-        state.rig.files.remove(goal);
+        }
+        if contract.task == Task::Steal {
+            let files = &mut state.rig.files;
+            let Some(goal) = files.iter().position(|file| file.name == contract.goal) else {
+                return Vec::new();
+            };
+            files.remove(goal);
+        } else if !done {
+            return Vec::new();
+        }
         state.end_contract();
         let fee = if state.heat >= FEE_HEAT {
             contract.pay * FEE_PERCENT / 100
@@ -169,10 +186,17 @@ impl World {
                 .map_or_default(|fixer| fixer.id.clone());
             state.done.push((day, id, slot));
         }
-        let (heat, fixer, loot) = (state.heat, contract.fixer, contract.goal.clone());
-        let taken = match pay {
-            0 => format!(" takes {loot}."),
-            pay => format!(" takes {loot} and pays you {pay} cr."),
+        let (heat, fixer, loot, task) = (
+            state.heat,
+            contract.fixer,
+            contract.goal.clone(),
+            contract.task,
+        );
+        let taken = match (task, pay) {
+            (Task::Steal, 0) => format!(" takes {loot}."),
+            (Task::Steal, pay) => format!(" takes {loot} and pays you {pay} cr."),
+            (_, 0) => " is happy with your work.".to_owned(),
+            (_, pay) => format!(" pays you {pay} cr."),
         };
         let name = self.fixer_name(fixer);
         let said = |rest: String| Message::game("").span(Style::Player, name).text(rest);
@@ -189,9 +213,36 @@ impl World {
         if let Some(corp) = self.networks[network.0].corp {
             self.raise_alert(corp, BREACH_ALERT);
             let name = &self.corps[corp].name;
-            self.publish(format!("{name} loses {loot} in a breach."));
+            self.publish(match task {
+                Task::Steal => format!("{name} loses {loot} in a breach."),
+                Task::Wipe => format!("{name} loses {loot}, and it has no copy."),
+                Task::Plant(_) => format!("Investigators find {loot} on a server of {name}."),
+            });
         }
         shown
+    }
+
+    pub(super) fn complete_task(&mut self, player: PlayerId, task: Task, file: &str) {
+        let Some(state) = self.players.get(&player) else {
+            return;
+        };
+        let (Some(job), Some(run)) = (state.contract, state.run.as_ref()) else {
+            return;
+        };
+        let instance = run.instance;
+        let matches = self.contracts.get(job.contract).is_some_and(|contract| {
+            contract.task == task && contract.goal == file && contract.network == run.network
+        });
+        if !matches {
+            return;
+        }
+        for state in self.players.values_mut() {
+            let same = state.contract.map(Job::contract) == Some(job.contract);
+            let run = state.run.as_mut().filter(|run| run.instance == instance);
+            if let (true, Some(run)) = (same, run) {
+                run.done = true;
+            }
+        }
     }
 
     pub(super) fn offer(&self, player: PlayerId) -> Vec<Message> {
@@ -224,12 +275,22 @@ impl World {
             [] => {
                 let network = &self.networks[contract.network.0].name;
                 let fixer = self.fixer_name(contract.fixer);
+                let goal = match contract.task {
+                    Task::Steal => {
+                        Message::game("Goal: download ").span(Style::File, &contract.goal)
+                    }
+                    Task::Wipe => Message::game("Goal: delete ")
+                        .span(Style::File, &contract.goal)
+                        .text(" with rm"),
+                    Task::Plant(host) => Message::game("Goal: upload ")
+                        .span(Style::File, &contract.goal)
+                        .text(" to ")
+                        .span(Style::Host, &self.hosts[host.0].id),
+                };
                 let mut shown = vec![
                     Message::game("Contract from ").span(Style::Player, fixer),
                     Message::game(format!("Target: {network}")),
-                    Message::game("Goal: download ")
-                        .span(Style::File, &contract.goal)
-                        .text(", then leave the network with a clean exit."),
+                    goal.text(", then leave the network with a clean exit."),
                 ];
                 if contract.pay > 0 {
                     shown.push(Message::game(format!("Pay: {} cr", contract.pay)));

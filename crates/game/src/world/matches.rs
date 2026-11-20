@@ -110,6 +110,7 @@ impl World {
             logs: Vec::new(),
             bridges: Vec::new(),
             files,
+            deleted: Vec::new(),
             clock: 0,
             cuts: Vec::new(),
             cutting: Vec::new(),

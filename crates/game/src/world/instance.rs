@@ -15,6 +15,7 @@ pub(super) struct Instance {
     pub(super) logs: Vec<(HostId, PlayerId, u32)>,
     pub(super) bridges: Vec<(HostId, HostId)>,
     pub(super) files: Vec<(HostId, File)>,
+    pub(super) deleted: Vec<(HostId, String)>,
     pub(super) clock: u32,
     pub(super) cuts: Vec<(HostId, HostId)>,
     pub(super) cutting: Vec<Cut>,

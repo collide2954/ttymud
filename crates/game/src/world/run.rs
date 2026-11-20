@@ -34,6 +34,7 @@ pub(super) struct Run {
     pub(super) last: Option<Verb>,
     pub(super) frozen: Option<(Verb, u32)>,
     pub(super) passwords: Vec<String>,
+    pub(super) done: bool,
 }
 
 impl Run {
@@ -53,6 +54,7 @@ impl Run {
             last: None,
             frozen: None,
             passwords: Vec::new(),
+            done: false,
         }
     }
 }
@@ -318,6 +320,7 @@ impl World {
                 logs: Vec::new(),
                 bridges: Vec::new(),
                 files: Vec::new(),
+                deleted: Vec::new(),
                 clock: 0,
                 cuts: Vec::new(),
                 cutting: Vec::new(),
@@ -353,6 +356,7 @@ impl World {
             .players
             .get_mut(&player)
             .and_then(|state| state.run.take());
+        let done = closed.as_ref().is_some_and(|run| run.done);
         if let Some(run) = closed {
             self.close_instance(run.instance);
         }
@@ -366,7 +370,7 @@ impl World {
             self.advance(player, Event::Exit);
         }
         let mut shown = vec![exit];
-        shown.extend(self.finish_contract(player, network));
+        shown.extend(self.finish_contract(player, network, done));
         shown.extend(self.finish_heist(player, network));
         shown
     }

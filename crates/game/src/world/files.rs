@@ -1,10 +1,12 @@
 use ttymud_text::{Kind, Message, Style};
 
+use super::contract::Task;
 use super::run::MAX_TRACE;
 use super::{HostId, PlayerId, Step, Thing, World, choose, listing, usage};
 use crate::commands::Item;
 use crate::content::{File, Zone};
 use crate::contract::Event;
+use crate::target::Level;
 
 const DOWNLOAD_NOISE: u32 = 2;
 const HONEYPOT_TRACE: u32 = 30;
@@ -182,13 +184,133 @@ impl World {
     }
 
     pub(super) fn files_on(&self, host: HostId, viewer: PlayerId) -> Vec<&File> {
-        let copy = self
-            .instance(viewer)
-            .into_iter()
-            .flat_map(|instance| &instance.files);
+        let instance = self.instance(viewer);
+        let copy = instance.into_iter().flat_map(|instance| &instance.files);
+        let gone = |file: &&File| {
+            let deleted = instance.map_or(&[][..], |instance| instance.deleted.as_slice());
+            deleted
+                .iter()
+                .any(|(at, name)| *at == host && *name == file.name)
+        };
         let loose = self.drops.iter().chain(copy);
         let dropped = loose.filter(|&&(at, _)| at == host).map(|(_, file)| file);
-        self.hosts[host.0].files.iter().chain(dropped).collect()
+        let kept = self.hosts[host.0].files.iter().filter(|file| !gone(file));
+        kept.chain(dropped).collect()
+    }
+
+    pub(super) fn upload(
+        &mut self,
+        player: PlayerId,
+        args: &[String],
+        input: Option<Vec<Item>>,
+    ) -> Result<Step, Message> {
+        if self.run_zone(player) != Some(Zone::Target) {
+            return Err(Message::error("upload works only in a target network."));
+        }
+        let rig: Vec<&File> = self
+            .players
+            .get(&player)
+            .map_or_default(|state| state.rig.files.iter().collect());
+        let files = match input {
+            Some(_) if !args.is_empty() => {
+                return Err(Message::error("upload takes a file or a pipe, not both."));
+            }
+            Some(items) => piped_files("upload", items)?,
+            None if args.is_empty() => {
+                return Err(usage("upload <file>", Thing::File, &names(&rig)));
+            }
+            None => pick(args, &rig)?,
+        };
+        let host = self.here(player);
+        let place = self.hosts[host.0].id.clone();
+        let here = self.files_on(host, player);
+        let need = here
+            .iter()
+            .map(|file| file.lock)
+            .max()
+            .unwrap_or(Level::Guest);
+        let taken: Vec<String> = here.iter().map(|file| file.name.clone()).collect();
+        let access = self.access(player);
+        if need > access {
+            let (need, access) = (need.word(), access.word());
+            return Err(Message::error(format!(
+                "An upload to {place} needs {need} access. Your access here: {access}."
+            )));
+        }
+        let mut shown = Vec::new();
+        for file in files {
+            if taken.contains(&file.name) {
+                let name = &file.name;
+                shown.push(Message::error(format!(
+                    "{place} already has a file named {name}."
+                )));
+                continue;
+            }
+            if let Some(state) = self.players.get_mut(&player) {
+                state.rig.files.retain(|known| known.name != file.name);
+            }
+            shown.push(
+                Message::game("Uploaded ")
+                    .span(Style::File, &file.name)
+                    .text(" to ")
+                    .span(Style::Host, &place)
+                    .text("."),
+            );
+            let name = file.name.clone();
+            if let Some(instance) = self.instance_mut(player) {
+                instance.files.push((host, file));
+            }
+            self.complete_task(player, Task::Plant(host), &name);
+        }
+        shown.extend(self.noise(player, DOWNLOAD_NOISE));
+        Ok(Step::show(shown))
+    }
+
+    pub(super) fn delete_here(
+        &mut self,
+        player: PlayerId,
+        args: &[String],
+    ) -> Result<Option<Step>, Message> {
+        let [word] = args else {
+            return Ok(None);
+        };
+        if self.run_zone(player) != Some(Zone::Target) {
+            return Ok(None);
+        }
+        let host = self.here(player);
+        let found = self
+            .files_on(host, player)
+            .into_iter()
+            .find(|file| file.name == *word);
+        let Some(file) = found.cloned() else {
+            return Ok(None);
+        };
+        if let Some(refusal) = self.locked(player, &file) {
+            return Err(refusal);
+        }
+        let place = self.hosts[host.0].id.clone();
+        if let Some(instance) = self.instance_mut(player) {
+            let mine = instance
+                .files
+                .iter()
+                .position(|(at, known)| *at == host && known.name == file.name);
+            match mine {
+                Some(index) => {
+                    instance.files.remove(index);
+                }
+                None => instance.deleted.push((host, file.name.clone())),
+            }
+        }
+        let mut shown = vec![
+            Message::game("You delete ")
+                .span(Style::File, &file.name)
+                .text(" from ")
+                .span(Style::Host, &place)
+                .text("."),
+        ];
+        shown.extend(self.noise(player, DOWNLOAD_NOISE));
+        self.complete_task(player, Task::Wipe, &file.name);
+        Ok(Some(Step::show(shown)))
     }
 
     fn take_file(&mut self, player: PlayerId, host: HostId, name: &str) {

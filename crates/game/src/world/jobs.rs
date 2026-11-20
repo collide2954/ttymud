@@ -1,16 +1,60 @@
 use ttymud_text::{Kind, Message, Style};
 
 use super::alert::Alert;
-use super::contract::{Contract, Job};
+use super::contract::{Contract, Job, Task};
 use super::heists::HEIST_SLOT;
 use super::{Host, HostId, Network, NetworkId, PlayerId, Step, World, lines, listed};
-use crate::content::{CorpDef, FixerDef, Zone};
+use crate::content::{CorpDef, File, FixerDef, Zone};
 use crate::heat::Security;
 use crate::random::{Random, mix};
 use crate::target::{Layer, Target, generate};
 
 const SLOTS: u64 = 3;
+const ORDER_SALT: u64 = 0x6f72;
 pub(super) const DAY: u64 = 86_400;
+const PLANTS: [(&str, &str); 3] = [
+    (
+        "evidence.log",
+        "Logs that blame the night shift for the breach.",
+    ),
+    (
+        "transfer.xls",
+        "A false money transfer to an offshore account.",
+    ),
+    (
+        "memo.txt",
+        "A false memo from the board about secret layoffs.",
+    ),
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Order {
+    Steal,
+    Wipe,
+    Plant { host: usize, file: usize },
+}
+
+fn order(slot: u64, target: &Target, seed: u64) -> Order {
+    if slot == 0 {
+        return Order::Steal;
+    }
+    let mut random = Random::new(seed);
+    match random.below(4) {
+        0 => Order::Wipe,
+        1 => {
+            let core: Vec<usize> = (0..target.hosts.len())
+                .filter(|&index| target.hosts[index].layer == Layer::Core)
+                .collect();
+            if core.is_empty() {
+                return Order::Steal;
+            }
+            let host = core[random.below(core.len())];
+            let file = random.below(PLANTS.len());
+            Order::Plant { host, file }
+        }
+        _ => Order::Steal,
+    }
+}
 
 #[derive(Debug)]
 pub(super) struct Fixer {
@@ -29,6 +73,28 @@ pub(super) struct Offer {
     pub(super) corp: usize,
     pub(super) target: Target,
     pub(super) pay: u32,
+    pub(super) order: Order,
+}
+
+impl Offer {
+    fn goal(&self) -> &str {
+        match self.order {
+            Order::Plant { file, .. } => PLANTS[file].0,
+            Order::Steal | Order::Wipe => &self.target.goal,
+        }
+    }
+
+    fn sentence(&self) -> String {
+        let goal = self.goal();
+        match self.order {
+            Order::Steal => format!("Get {goal} and leave clean."),
+            Order::Wipe => format!("Delete {goal} there and leave clean."),
+            Order::Plant { host, .. } => {
+                let host = &self.target.hosts[host].id;
+                format!("Put {goal} on {host} and leave clean.")
+            }
+        }
+    }
 }
 
 pub(super) fn fixers(
@@ -165,6 +231,8 @@ impl World {
         let percent = 80 + u32::try_from(random.below(41)).unwrap_or(0);
         let pay = base_pay(budget) * percent / 100 / 10 * 10;
         let target = generate(&self.corps[corp], &self.templates, random.draw());
+        let seed = mix(&[self.seed, day, fixer as u64, slot, ORDER_SALT]);
+        let order = order(slot, &target, seed);
         Some(Offer {
             fixer,
             day,
@@ -172,6 +240,7 @@ impl World {
             corp,
             target,
             pay,
+            order,
         })
     }
 
@@ -230,7 +299,7 @@ impl World {
         };
         let offer = offers.swap_remove(number - 1);
         if offer.slot == HEIST_SLOT {
-            return self.accept_heist(player, offer);
+            return self.accept_heist(player, &offer);
         }
         if self
             .players
@@ -264,28 +333,46 @@ impl World {
         }
         let fixer = self.fixers[offer.fixer].name.clone();
         let corp = self.corps[offer.corp].name.clone();
-        let goal = offer.target.goal.clone();
-        let contract = self.post(offer);
+        let sentence = offer.sentence();
+        let plant = match offer.order {
+            Order::Plant { file, .. } => {
+                Some(File::new(PLANTS[file].0, vec![PLANTS[file].1.to_owned()]))
+            }
+            Order::Steal | Order::Wipe => None,
+        };
+        let contract = self.post(&offer);
+        let mut shown = vec![
+            Message::game("")
+                .span(Style::Player, &fixer)
+                .text(format!(": The target is {corp}. {sentence}")),
+        ];
         if let Some(state) = self.players.get_mut(&player) {
             state.contract = Some(Job::new(contract));
+            if let Some(file) = plant {
+                shown.push(
+                    Message::game("")
+                        .span(Style::Player, &fixer)
+                        .text(" gives you ")
+                        .span(Style::File, &file.name)
+                        .text("."),
+                );
+                state.rig.files.retain(|known| known.name != file.name);
+                state.rig.files.push(file);
+            }
         }
         let home = self.home.map_or_else(
             || "your home host".to_owned(),
             |home| self.hosts[home.0].id.clone(),
         );
-        Ok(Step::show(vec![
-            Message::game("")
-                .span(Style::Player, &fixer)
-                .text(format!(": The target is {corp}. Get "))
-                .span(Style::File, &goal)
-                .text(" and leave clean."),
+        shown.extend([
             Message::game("Your way in starts at ")
                 .span(Style::Host, &home)
                 .text("."),
             Message::game("Type ")
                 .span(Style::Command, "contract")
                 .text(" to see the job."),
-        ]))
+        ]);
+        Ok(Step::show(shown))
     }
 
     #[cfg(test)]
@@ -300,26 +387,29 @@ impl World {
     pub(super) fn resume_posting(&mut self, fixer: &str, day: u64, slot: u64) -> Option<usize> {
         let fixer = self.fixers.iter().position(|known| known.id == fixer)?;
         let offer = self.posted(fixer, day, slot)?;
-        Some(self.post(offer))
+        Some(self.post(&offer))
     }
 
-    pub(super) fn post(&mut self, offer: Offer) -> usize {
+    pub(super) fn post(&mut self, offer: &Offer) -> usize {
         let key = (offer.day, offer.fixer, offer.slot);
         if let Some(&index) = self.postings.get(&key) {
             return index;
         }
+        let base = self.hosts.len();
         let network = self.add_target(&offer.target, offer.corp);
         let corp = &self.corps[offer.corp].name;
-        let goal = offer.target.goal;
+        let task = match offer.order {
+            Order::Steal => Task::Steal,
+            Order::Wipe => Task::Wipe,
+            Order::Plant { host, .. } => Task::Plant(HostId(base + host)),
+        };
         self.contracts.push(Contract {
             id: format!("job-{}-{}-{}", offer.day, offer.fixer, offer.slot),
             fixer: offer.fixer,
             network,
-            offer: vec![
-                format!("The target is {corp}."),
-                format!("Get {goal} and leave clean."),
-            ],
-            goal,
+            offer: vec![format!("The target is {corp}."), offer.sentence()],
+            goal: offer.goal().to_owned(),
+            task,
             steps: Vec::new(),
             pay: offer.pay,
             posting: Some(key),
@@ -394,9 +484,16 @@ impl World {
                     Alert::Green => String::new(),
                     hot => format!(" ({} alert)", hot.word()),
                 };
-                let mut line = Message::game(format!("{number}. {}{alert}: get ", corp.name))
-                    .span(Style::File, &offer.target.goal)
-                    .text(format!(". Pay: {} cr.", offer.pay));
+                let head = format!("{number}. {}{alert}: ", corp.name);
+                let line = match offer.order {
+                    Order::Steal => Message::game(head + "get ").span(Style::File, offer.goal()),
+                    Order::Wipe => Message::game(head + "wipe ").span(Style::File, offer.goal()),
+                    Order::Plant { host, .. } => Message::game(head + "plant ")
+                        .span(Style::File, offer.goal())
+                        .text(" on ")
+                        .span(Style::Host, &offer.target.hosts[host].id),
+                };
+                let mut line = line.text(format!(". Pay: {} cr.", offer.pay));
                 let need = needed(corp.budget);
                 if self.is_done(player, &offer) {
                     line = line.text(" Done.");
@@ -647,6 +744,164 @@ mod tests {
         ] {
             world.command(player, line);
         }
+    }
+
+    fn ordered(wanted: fn(super::Order) -> bool) -> (World, PlayerId, Vec<String>) {
+        for day in 20_000..20_200 {
+            let mut world = world();
+            world.set_time(day * DAY + 100);
+            let slot = (1..3).find(|&slot| {
+                world
+                    .posted(0, day, slot)
+                    .is_some_and(|offer| wanted(offer.order))
+            });
+            let Some(slot) = slot else {
+                continue;
+            };
+            let (player, _) = world.join("ghost");
+            if let Some(state) = world.players.get_mut(&player) {
+                state.rep.insert("pell".to_owned(), 10);
+            }
+            world.command(player, "go bazaar");
+            let shown = plain(&world.command(player, &format!("accept {}", slot + 1)));
+            return (world, player, shown);
+        }
+        unreachable!()
+    }
+
+    fn inside(world: &mut World, player: PlayerId, at: HostId) {
+        let entry = entries(world).remove(0);
+        for line in ["go relay", "go back-room", &format!("go {entry}")] {
+            world.command(player, line);
+        }
+        if let Some(state) = world.players.get_mut(&player) {
+            state.chain.push(at);
+            if let Some(run) = state.run.as_mut() {
+                run.access = Level::Admin;
+            }
+        }
+    }
+
+    fn corp_of(world: &World) -> String {
+        let corp = world.networks.last().and_then(|network| network.corp);
+        corp.map_or_default(|corp| world.corps[corp].name.clone())
+    }
+
+    #[test]
+    fn a_wipe_job_needs_rm_on_the_goal_and_a_clean_exit_in_the_same_run() {
+        let (mut world, player, shown) = ordered(|order| order == super::Order::Wipe);
+        let goal = world
+            .contracts
+            .last()
+            .map_or_default(|job| job.goal.clone());
+        let corp = corp_of(&world);
+        assert_eq!(
+            shown[0],
+            format!("Pell: The target is {corp}. Delete {goal} there and leave clean.")
+        );
+        assert_eq!(
+            plain(&world.command(player, "contract"))[2],
+            format!("Goal: delete {goal} with rm, then leave the network with a clean exit.")
+        );
+        let holder = (0..world.hosts.len())
+            .find(|&index| {
+                world.hosts[index]
+                    .files
+                    .iter()
+                    .any(|file| file.name == goal)
+            })
+            .map_or(HostId(0), HostId);
+        let place = world.hosts[holder.0].id.clone();
+        inside(&mut world, player, holder);
+        let deleted = plain(&world.command(player, &format!("rm {goal}")));
+        assert_eq!(deleted[0], format!("You delete {goal} from {place}."));
+        assert!(!plain(&world.command(player, "ls")).contains(&goal));
+        world.command(player, "jackout");
+        inside(&mut world, player, holder);
+        assert!(plain(&world.command(player, "ls")).contains(&goal));
+        world.command(player, "back");
+        let shown = plain(&world.command(player, "back"));
+        let done = "Pell: Clean work. The contract is complete.".to_owned();
+        assert!(!shown.contains(&done), "{shown:?}");
+        inside(&mut world, player, holder);
+        world.command(player, &format!("rm {goal}"));
+        world.command(player, "back");
+        let pay = world.contracts.last().map_or(0, |job| job.pay);
+        let shown = plain(&world.command(player, "back"));
+        assert_eq!(shown[2], format!("Pell pays you {pay} cr."));
+        assert_eq!(
+            world.headline(),
+            format!("{corp} loses {goal}, and it has no copy.")
+        );
+    }
+
+    #[test]
+    fn a_plant_job_gives_a_file_to_upload_on_the_named_host() {
+        let (mut world, player, shown) =
+            ordered(|order| matches!(order, super::Order::Plant { .. }));
+        let goal = world
+            .contracts
+            .last()
+            .map_or_default(|job| job.goal.clone());
+        let Some(super::Task::Plant(host)) = world.contracts.last().map(|job| job.task) else {
+            panic!("{shown:?}");
+        };
+        let (corp, place) = (corp_of(&world), world.hosts[host.0].id.clone());
+        assert_eq!(
+            shown[..2],
+            [
+                format!("Pell: The target is {corp}. Put {goal} on {place} and leave clean."),
+                format!("Pell gives you {goal}."),
+            ]
+        );
+        let other = world
+            .networks
+            .last()
+            .and_then(|network| network.entries.first().copied());
+        inside(&mut world, player, other.unwrap_or(host));
+        assert_eq!(
+            plain(&world.command(player, &format!("upload {goal}")))[0],
+            format!(
+                "Uploaded {goal} to {}.",
+                world.hosts[other.unwrap_or(host).0].id
+            )
+        );
+        world.command(player, "back");
+        world.command(player, "back");
+        world.command(player, "back");
+        assert!(plain(&world.command(player, "contract"))[2].starts_with("Goal: upload "));
+        if let Some(state) = world.players.get_mut(&player) {
+            let file = crate::content::File::new(goal.clone(), vec!["x".to_owned()]);
+            state.rig.files.push(file);
+        }
+        inside(&mut world, player, host);
+        world.command(player, &format!("upload {goal}"));
+        world.command(player, "back");
+        let shown = plain(&world.command(player, "back"));
+        assert_eq!(shown[1], "Pell: Clean work. The contract is complete.");
+        assert_eq!(
+            world.headline(),
+            format!("Investigators find {goal} on a server of {corp}.")
+        );
+    }
+
+    #[test]
+    fn about_one_board_job_in_three_is_a_wipe_or_a_plant() {
+        let world = world();
+        let (mut other, mut total) = (0, 0);
+        for day in 20_000..20_100 {
+            for slot in 0..3 {
+                let Some(offer) = world.posted(0, day, slot) else {
+                    continue;
+                };
+                total += 1;
+                if offer.order != super::Order::Steal {
+                    other += 1;
+                    assert_ne!(slot, 0);
+                }
+            }
+        }
+        assert!((70..=130).contains(&other), "{other} of {total}");
     }
 
     #[test]

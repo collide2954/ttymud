@@ -569,6 +569,7 @@ impl World {
             Verb::Back => self.back(player),
             Verb::Read => self.read(player, args, input),
             Verb::Download => self.download(player, args, input),
+            Verb::Upload => self.upload(player, args, input),
             Verb::Inventory => Ok(self.inventory(player)),
             Verb::Status => Ok(self.status(player)),
             Verb::Jackout => self.jackout(player),

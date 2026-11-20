@@ -57,7 +57,9 @@ impl World {
                 Verb::Lots | Verb::Bid => self.auction.host == Some(here),
                 Verb::Jobs | Verb::Accept | Verb::Rumors => self.has_fixer(here),
                 Verb::Read => readable,
-                Verb::Rm | Verb::Sh => !self.scripts(player).is_empty(),
+                Verb::Rm => running || !self.scripts(player).is_empty(),
+                Verb::Sh => !self.scripts(player).is_empty(),
+                Verb::Upload => running && state.is_some_and(|state| !state.rig.files.is_empty()),
                 Verb::Ps | Verb::Kill => state.is_some_and(|state| state.rig.process.is_some()),
                 Verb::Download => !self.files_on(here, player).is_empty(),
                 Verb::Recovery

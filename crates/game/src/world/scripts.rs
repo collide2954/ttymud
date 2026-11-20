@@ -49,6 +49,9 @@ impl World {
     }
 
     pub(super) fn rm(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
+        if let Some(step) = self.delete_here(player, args)? {
+            return Ok(step);
+        }
         let scripts = self.scripts(player);
         let names: Vec<&str> = scripts.iter().map(String::as_str).collect();
         if args.is_empty() {

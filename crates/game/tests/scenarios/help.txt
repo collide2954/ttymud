@@ -19,13 +19,14 @@ Example: ls | grep txt | read
 > help | grep rig
 read <file>       Show the text of a file here or on your rig.
 download <file>   Copy a file from this host to your rig.
+upload <file>     Move a file from your rig to this host in a target network.
 inventory         Show the files on your rig.
 buy <item>        Buy a program or a rig upgrade at a shop.
 lots              Show the lots of the police auction: the data, hardware, and programs from the rigs of burned handles.
 probe <ice|file>  Find the weak point of an ICE, or find out if a file is a honeypot. In a darknet, it also shows the rig of a handle.
 crack <ice>       Attack an ICE. At zero integrity, the ICE breaks. In a darknet, it also attacks the rig of a handle.
 echo <text> [> script] Show the text. With > or >>, write it to a script on your rig. > replaces the script, and >> adds a line.
-rm <script>       Delete a script from your rig.
+rm <file>         Delete a script from your rig, or a file on this host in a target network.
 sh <script> [words] Run a script from your rig. It runs one command on each tick and uses 1 GB of RAM. The words go into $1 to $9.
 ps                Show the script that runs on your rig.
 kill              Stop the script that runs on your rig.

@@ -3,7 +3,7 @@ use ttymud_text::{Kind, Message, Style};
 use super::alert::{Alert, BREACH_ALERT};
 use super::contract::Contract;
 use super::crews::MAX_CREW;
-use super::jobs::{DAY, Offer, base_pay, needed};
+use super::jobs::{DAY, Offer, Order, base_pay, needed};
 use super::presence::named;
 use super::{HostId, NetworkId, PlayerId, Step, World};
 use crate::random::{Random, mix};
@@ -44,6 +44,7 @@ impl World {
             corp,
             target,
             pay,
+            order: Order::Steal,
         })
     }
 
@@ -95,7 +96,11 @@ impl World {
         shown
     }
 
-    pub(super) fn accept_heist(&mut self, player: PlayerId, offer: Offer) -> Result<Step, Message> {
+    pub(super) fn accept_heist(
+        &mut self,
+        player: PlayerId,
+        offer: &Offer,
+    ) -> Result<Step, Message> {
         let name = self.handle(player).unwrap_or_default().to_owned();
         if self.crews.of(&name).is_none() {
             return Err(Message::error("A heist needs a crew. Type ")
@@ -386,7 +391,7 @@ impl World {
             };
             let fixer = self.fixers.iter().position(|known| known.id == heist.fixer);
             let offer = fixer.and_then(|fixer| self.posted_heist(fixer, heist.day));
-            let contract = offer.map(|offer| self.post(offer));
+            let contract = offer.map(|offer| self.post(&offer));
             let Some(crew) = self.crews.list.get_mut(&key) else {
                 continue;
             };
