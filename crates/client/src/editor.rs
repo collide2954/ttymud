@@ -1,3 +1,7 @@
+use ttymud_text::MAX_LENGTH;
+
+const HISTORY: usize = 100;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Key {
     Char(char),
@@ -141,6 +145,9 @@ impl Editor {
 
     pub(crate) fn insert(&mut self, text: &str) {
         for c in text.chars().filter(|c| !c.is_control()) {
+            if self.buffer.len() >= MAX_LENGTH {
+                return;
+            }
             self.buffer.insert(self.cursor, c);
             self.cursor += 1;
         }
@@ -153,6 +160,8 @@ impl Editor {
         if !line.trim().is_empty() && self.history.last() != Some(&line) {
             self.history.push(line.clone());
         }
+        let old = self.history.len().saturating_sub(HISTORY);
+        self.history.drain(..old);
         Action::Submit(line)
     }
 
@@ -268,6 +277,27 @@ mod tests {
     fn typing_builds_the_line() {
         let editor = typed("look");
         assert_eq!((editor.line().as_str(), editor.cursor()), ("look", 4));
+    }
+
+    #[test]
+    fn a_line_holds_as_many_characters_as_the_server_reads() {
+        let mut editor = typed(&"x".repeat(500));
+        assert_eq!(editor.line().chars().count(), 400);
+        editor.insert("yz");
+        assert_eq!(editor.line(), "x".repeat(400));
+    }
+
+    #[test]
+    fn the_history_keeps_the_last_100_lines() {
+        let mut editor = Editor::default();
+        for number in 0..150 {
+            for c in format!("go {number}").chars() {
+                editor.press(Key::Char(c));
+            }
+            editor.press(Key::Enter);
+        }
+        press(&mut editor, &[Key::Up; 200]);
+        assert_eq!(editor.line(), "go 50");
     }
 
     #[test]
