@@ -38,6 +38,7 @@ mod rumors;
 mod run;
 mod save;
 mod scripts;
+mod shell;
 mod shop;
 mod soc;
 mod software;
@@ -410,6 +411,7 @@ impl World {
             }
             outputs.extend(address(player, self.tick_run(player)));
         }
+        outputs.extend(self.tick_scripts());
         let copies: Vec<InstanceId> = self.instances.keys().copied().collect();
         for id in copies {
             outputs.extend(self.tick_ice(id));
@@ -488,22 +490,27 @@ impl World {
     }
 
     fn run(&mut self, player: PlayerId, stages: &[Stage]) -> Vec<Message> {
+        self.pipeline(player, stages).0
+    }
+
+    fn pipeline(&mut self, player: PlayerId, stages: &[Stage]) -> (Vec<Message>, bool) {
         let mut found = Vec::with_capacity(stages.len());
         for stage in stages {
             let Some(command) = commands::find(&stage.name) else {
-                return vec![unknown(&stage.name)];
+                return (vec![unknown(&stage.name)], false);
             };
             found.push(command);
         }
         if let Err(problem) = commands::check(&found) {
-            return vec![Message::error(problem)];
+            return (vec![Message::error(problem)], false);
         }
         if let Err(message) = self.ready(player, &found) {
-            return vec![message];
+            return (vec![message], false);
         }
         let mut ran = Vec::new();
         let mut input = None;
         let mut shown = Vec::new();
+        let mut worked = true;
         for (command, stage) in found.iter().zip(stages) {
             match self.execute(player, command, &stage.args, input.take()) {
                 Ok(step) => {
@@ -517,12 +524,13 @@ impl World {
                 }
                 Err(message) => {
                     shown = vec![message];
+                    worked = false;
                     break;
                 }
             }
         }
         shown.extend(self.charge(player, ran));
-        shown
+        (shown, worked)
     }
 
     fn execute(
@@ -584,6 +592,9 @@ impl World {
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Echo => self.echo(player, args),
             Verb::Rm => self.rm(player, args),
+            Verb::Sh => self.sh(player, args),
+            Verb::Ps => Ok(self.ps(player)),
+            Verb::Kill => self.kill(player),
             Verb::Wait => Err(Message::error("wait works only in a script.")),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Tell => Err(Message::error("Usage: tell <handle> <text>.")),

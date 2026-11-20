@@ -26,6 +26,9 @@ probe <ice>       Find the weak point of an ICE. In a darknet, it also shows the
 crack <ice>       Attack an ICE. At zero integrity, the ICE breaks. In a darknet, it also attacks the rig of a handle.
 echo <text> [> script] Show the text. With > or >>, write it to a script on your rig. > replaces the script, and >> adds a line.
 rm <script>       Delete a script from your rig.
+sh <script> [words] Run a script from your rig. It runs one command on each tick and uses 1 GB of RAM. The words go into $1 to $9.
+ps                Show the script that runs on your rig.
+kill              Stop the script that runs on your rig.
 > lok
 Unknown command: lok. Did you mean look?
 > xyzzy

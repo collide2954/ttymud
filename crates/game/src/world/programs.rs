@@ -13,6 +13,7 @@ pub(super) enum Target {
 
 impl World {
     pub(super) fn ready(&self, player: PlayerId, found: &[&Command]) -> Result<(), Message> {
+        self.allowed(player, found)?;
         let programs: Vec<&str> = found
             .iter()
             .filter(|command| command.verb.program().is_some())
@@ -21,23 +22,7 @@ impl World {
         let (Some(first), Some(state)) = (programs.first(), self.players.get(&player)) else {
             return Ok(());
         };
-        let missing = found.iter().find(|command| {
-            command.verb.program().is_some() && !state.rig.loads.contains(&command.verb)
-        });
-        if let Some(command) = missing {
-            return Err(self.not_loaded(command.name()));
-        }
-        if state.run.is_none() {
-            return Err(Message::error(format!(
-                "{first} works only in a target network."
-            )));
-        }
-        let cost = commands::cost(
-            found
-                .iter()
-                .filter_map(|command| state.rig.program(command.verb)),
-        );
-        let (cost, have) = (cost.cycles, state.rig.cycles);
+        let (cost, have) = (self.cycles_for(player, found), state.rig.cycles);
         if have >= cost {
             return Ok(());
         }
@@ -49,6 +34,38 @@ impl World {
         Err(Message::error(format!(
             "{what} needs {cost} cycles, but you have {have}. You get 1 cycle on each tick."
         )))
+    }
+
+    pub(super) fn allowed(&self, player: PlayerId, found: &[&Command]) -> Result<(), Message> {
+        let first = found
+            .iter()
+            .find(|command| command.verb.program().is_some());
+        let (Some(first), Some(state)) = (first, self.players.get(&player)) else {
+            return Ok(());
+        };
+        let missing = found.iter().find(|command| {
+            command.verb.program().is_some() && !state.rig.loads.contains(&command.verb)
+        });
+        if let Some(command) = missing {
+            return Err(self.not_loaded(command.name()));
+        }
+        if state.run.is_none() {
+            let first = first.name();
+            return Err(Message::error(format!(
+                "{first} works only in a target network."
+            )));
+        }
+        Ok(())
+    }
+
+    pub(super) fn cycles_for(&self, player: PlayerId, found: &[&Command]) -> u32 {
+        let Some(state) = self.players.get(&player) else {
+            return 0;
+        };
+        let programs = found
+            .iter()
+            .filter_map(|command| state.rig.program(command.verb));
+        commands::cost(programs).cycles
     }
 
     pub(super) fn charge(&mut self, player: PlayerId, ran: Vec<Program>) -> Vec<Message> {

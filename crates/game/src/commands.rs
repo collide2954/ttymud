@@ -43,6 +43,9 @@ pub(crate) enum Verb {
     Grep,
     Echo,
     Rm,
+    Sh,
+    Ps,
+    Kill,
     Wait,
     Say,
     Channels,
@@ -126,8 +129,29 @@ impl Verb {
                 | Self::Link
                 | Self::Keys
                 | Self::Bans
+                | Self::Ps
+                | Self::Kill
                 | Self::Available
         )
+    }
+
+    pub(crate) fn scripted(self) -> bool {
+        !self.moderation()
+            && !matches!(
+                self,
+                Self::Sh
+                    | Self::Say
+                    | Self::Tell
+                    | Self::Reply
+                    | Self::Report
+                    | Self::Crew
+                    | Self::Duel
+                    | Self::Match
+                    | Self::Recovery
+                    | Self::Link
+                    | Self::Keys
+                    | Self::Revoke
+            )
     }
 
     pub(crate) fn moderation(self) -> bool {
@@ -641,6 +665,33 @@ pub(crate) const COMMANDS: &[Command] = &[
         usage: "rm <script>",
         summary: "Delete a script from your rig.",
         example: "rm sweep.sh",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Sh,
+        names: &["sh"],
+        usage: "sh <script> [words]",
+        summary: "Run a script from your rig. It runs one command on each tick and uses 1 GB of RAM. The words go into $1 to $9.",
+        example: "sh sweep.sh sentry",
+        takes: Takes::Nothing,
+        gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Ps,
+        names: &["ps"],
+        usage: "ps",
+        summary: "Show the script that runs on your rig.",
+        example: "ps",
+        takes: Takes::Nothing,
+        gives: Gives::Items(Kinds::LINES),
+    },
+    Command {
+        verb: Verb::Kill,
+        names: &["kill"],
+        usage: "kill",
+        summary: "Stop the script that runs on your rig.",
+        example: "kill",
         takes: Takes::Nothing,
         gives: Gives::Nothing,
     },

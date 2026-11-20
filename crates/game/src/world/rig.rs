@@ -1,6 +1,7 @@
 use ttymud_text::{Message, RunStatus, Status, Style};
 
 use super::builds::Build;
+use super::shell::{PROCESS_RAM, Process};
 use super::{PlayerId, Step, World, lines, listed};
 use crate::commands::{self, Verb};
 use crate::content::File;
@@ -27,6 +28,7 @@ pub(super) struct Rig {
     pub(super) ram: u32,
     pub(super) cpu: u32,
     pub(super) builds: Vec<(Verb, Build)>,
+    pub(super) process: Option<Process>,
 }
 
 impl Rig {
@@ -39,6 +41,7 @@ impl Rig {
             ram: RAM,
             cpu: CYCLES,
             builds: Vec::new(),
+            process: None,
         }
     }
 
@@ -47,10 +50,11 @@ impl Rig {
     }
 
     pub(super) fn used(&self) -> u32 {
-        commands::programs()
+        let programs: u32 = commands::programs()
             .filter(|(command, _)| self.loads.contains(&command.verb))
             .map(|(_, program)| program.ram)
-            .sum()
+            .sum();
+        programs + self.process.as_ref().map_or(0, |_| PROCESS_RAM)
     }
 
     pub(super) fn loaded(&self) -> Vec<String> {
