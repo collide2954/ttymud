@@ -9,7 +9,7 @@ use ttymud_server::Moderation;
 const USAGE: &str = "\
 Usage: ttymud-server [OPTION]
        ttymud-server init <DIR>
-       ttymud-server run <DIR> [--listen ADDRESS]
+       ttymud-server run <DIR> [--listen ADDRESS] [--ssh ADDRESS]
        ttymud-server mod <DIR> [add|remove <HANDLE>]
        ttymud-server play [NAME]
 
@@ -20,19 +20,30 @@ Commands:
   play [NAME]    Walk Port Ostra alone, offline.
 
 Options:
+  --ssh ADDRESS  Also let players connect with SSH, for example on 0.0.0.0:7332.
+                 The server must have the ssh feature.
   -h, --help     Show this help.
   -V, --version  Show the version.
 ";
 
 const LISTEN: &str = "0.0.0.0:7331";
+#[cfg(not(feature = "ssh"))]
+const NO_SSH: &str = "this server has no SSH support. Build it with: cargo build --release -p ttymud-server --features ssh";
 
 #[derive(Debug, PartialEq, Eq)]
 enum Cli {
     Help,
     Version,
     Init(PathBuf),
-    Run { dir: PathBuf, listen: String },
-    Mod { dir: PathBuf, action: Moderation },
+    Run {
+        dir: PathBuf,
+        listen: String,
+        ssh: Option<String>,
+    },
+    Mod {
+        dir: PathBuf,
+        action: Moderation,
+    },
     Play(Option<String>),
 }
 
@@ -47,14 +58,7 @@ fn parse(args: &[OsString]) -> Result<Cli, String> {
         [] | ["-h" | "--help"] => Ok(Cli::Help),
         ["-V" | "--version"] => Ok(Cli::Version),
         ["init", _] => Ok(Cli::Init(dir())),
-        ["run", _] => Ok(Cli::Run {
-            dir: dir(),
-            listen: LISTEN.to_owned(),
-        }),
-        ["run", _, "--listen", address] => Ok(Cli::Run {
-            dir: dir(),
-            listen: (*address).to_owned(),
-        }),
+        ["run", _, options @ ..] => run_options(dir(), options),
         ["mod", rest @ ..] if !rest.is_empty() => {
             let action = match &rest[1..] {
                 [] => Moderation::List,
@@ -70,6 +74,20 @@ fn parse(args: &[OsString]) -> Result<Cli, String> {
         [word] => Err(format!("unknown argument '{word}'")),
         _ => Err("too many arguments".to_owned()),
     }
+}
+
+fn run_options(dir: PathBuf, options: &[&str]) -> Result<Cli, String> {
+    let (mut listen, mut ssh) = (LISTEN.to_owned(), None);
+    for pair in options.chunks(2) {
+        match pair {
+            ["--listen", address] => (*address).clone_into(&mut listen),
+            ["--ssh", address] => ssh = Some((*address).to_owned()),
+            [option @ ("--listen" | "--ssh")] => return Err(format!("{option} needs an address")),
+            [option, ..] => return Err(format!("unknown option '{option}'")),
+            [] => {}
+        }
+    }
+    Ok(Cli::Run { dir, listen, ssh })
 }
 
 fn main() -> ExitCode {
@@ -91,7 +109,7 @@ fn main() -> ExitCode {
             Ok(())
         }
         Cli::Init(dir) => init(&dir),
-        Cli::Run { dir, listen } => run(&dir, &listen),
+        Cli::Run { dir, listen, ssh } => run(&dir, &listen, ssh.as_deref()),
         Cli::Mod { dir, action } => {
             ttymud_server::moderate(&dir, &action).map(|done| println!("{done}"))
         }
@@ -123,7 +141,11 @@ fn init(dir: &Path) -> io::Result<()> {
     Ok(())
 }
 
-fn run(dir: &Path, listen: &str) -> io::Result<()> {
+fn run(dir: &Path, listen: &str, ssh: Option<&str>) -> io::Result<()> {
+    #[cfg(not(feature = "ssh"))]
+    if ssh.is_some() {
+        return Err(io::Error::other(NO_SSH));
+    }
     let keys = ttymud_server::load_keys(dir).map_err(|error| missing_key(dir, error))?;
     let world = ttymud_server::load_world(dir)?;
     let identity = ttymud_server::load_identity(dir)?;
@@ -132,6 +154,14 @@ fn run(dir: &Path, listen: &str) -> io::Result<()> {
     println!("{} is open on {}.", world.city(), listener.local_addr()?);
     println!("Fingerprint: {}", keys.public().fingerprint());
     println!("Accounts: {}", world.account_count());
+    #[cfg(feature = "ssh")]
+    if let Some(address) = ssh {
+        let key = ttymud_server::ssh_host_key(dir)?;
+        let port = ttymud_server::SshPort::new(TcpListener::bind(address)?, key);
+        println!("SSH is open on {}.", port.address()?);
+        println!("SSH fingerprint: {}", port.fingerprint());
+        return ttymud_server::serve_with_ssh(&listener, port, keys, world, identity, Some(store));
+    }
     ttymud_server::serve(&listener, keys, world, identity, Some(store))
 }
 
@@ -199,7 +229,8 @@ mod tests {
             parse(&args(&["run", "data"])),
             Ok(Cli::Run {
                 dir: "data".into(),
-                listen: "0.0.0.0:7331".to_owned()
+                listen: "0.0.0.0:7331".to_owned(),
+                ssh: None,
             })
         );
     }
@@ -210,8 +241,35 @@ mod tests {
             parse(&args(&["run", "data", "--listen", "127.0.0.1:4000"])),
             Ok(Cli::Run {
                 dir: "data".into(),
-                listen: "127.0.0.1:4000".to_owned()
+                listen: "127.0.0.1:4000".to_owned(),
+                ssh: None,
             })
+        );
+    }
+
+    #[test]
+    fn run_takes_an_ssh_address_and_the_options_in_any_order() {
+        let both = Cli::Run {
+            dir: "data".into(),
+            listen: "127.0.0.1:4000".to_owned(),
+            ssh: Some("0.0.0.0:7332".to_owned()),
+        };
+        let line = [
+            "run",
+            "data",
+            "--ssh",
+            "0.0.0.0:7332",
+            "--listen",
+            "127.0.0.1:4000",
+        ];
+        assert_eq!(parse(&args(&line)), Ok(both));
+        assert_eq!(
+            parse(&args(&["run", "data", "--ssh"])),
+            Err("--ssh needs an address".to_owned())
+        );
+        assert_eq!(
+            parse(&args(&["run", "data", "--port", "22"])),
+            Err("unknown option '--port'".to_owned())
         );
     }
 

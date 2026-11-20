@@ -7,13 +7,17 @@ license.workspace = true
 repository.workspace = true
 
 [features]
-ssh = []
+ssh = ["dep:rand", "dep:russh", "dep:tokio", "dep:ttymud"]
 
 [dependencies]
 ttymud-game.workspace = true
 ttymud-net.workspace = true
 ttymud-text.workspace = true
 ttymud-wire.workspace = true
+rand = { version = "0.10", optional = true }
+russh = { version = "0.65", optional = true, default-features = false, features = ["ring", "rsa"] }
+tokio = { version = "1", optional = true, features = ["rt", "net", "sync", "time"] }
+ttymud = { path = "../client", optional = true }
 
 [lints]
 workspace = true
