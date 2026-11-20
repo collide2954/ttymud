@@ -14,7 +14,7 @@ Usage: ttymud-server [OPTION]
        ttymud-server delete <DIR> <HANDLE>
        ttymud-server city <DIR>
        ttymud-server check <DIR>
-       ttymud-server play [NAME]
+       ttymud-server play [NAME] [--city FILE]
 
 Commands:
   init <DIR>     Make a data directory with a new server key.
@@ -30,6 +30,7 @@ Commands:
 Options:
   --ssh ADDRESS  Also let players connect with SSH, for example on 0.0.0.0:7332.
                  The server must have the ssh feature.
+  --city FILE    With play, walk the city in FILE instead of Port Ostra.
   -h, --help     Show this help.
   -V, --version  Show the version.
 ";
@@ -58,7 +59,10 @@ enum Cli {
     },
     City(PathBuf),
     Check(PathBuf),
-    Play(Option<String>),
+    Play {
+        name: Option<String>,
+        city: Option<PathBuf>,
+    },
 }
 
 fn parse(args: &[OsString]) -> Result<Cli, String> {
@@ -89,8 +93,7 @@ fn parse(args: &[OsString]) -> Result<Cli, String> {
         ["delete", _] => Err("delete needs a handle".to_owned()),
         ["city", _] => Ok(Cli::City(dir())),
         ["check", _] => Ok(Cli::Check(dir())),
-        ["play"] => Ok(Cli::Play(None)),
-        ["play", name] => Ok(Cli::Play(Some((*name).to_owned()))),
+        ["play", ..] => play_options(args, &words),
         [command @ ("init" | "run" | "mod" | "delete" | "city" | "check")] => {
             Err(format!("{command} needs a data directory"))
         }
@@ -111,6 +114,25 @@ fn run_options(dir: PathBuf, options: &[&str]) -> Result<Cli, String> {
         }
     }
     Ok(Cli::Run { dir, listen, ssh })
+}
+
+fn play_options(args: &[OsString], words: &[&str]) -> Result<Cli, String> {
+    let (mut name, mut city) = (None, None);
+    let mut rest = args.iter().zip(words).skip(1);
+    while let Some((_, &word)) = rest.next() {
+        match word {
+            "--city" => {
+                let (file, _) = rest.next().ok_or("--city needs a file")?;
+                city = Some(PathBuf::from(file));
+            }
+            option if option.starts_with("--") => {
+                return Err(format!("unknown option '{option}'"));
+            }
+            _ if name.is_none() => name = Some(word.to_owned()),
+            _ => return Err("too many arguments".to_owned()),
+        }
+    }
+    Ok(Cli::Play { name, city })
 }
 
 fn main() -> ExitCode {
@@ -147,8 +169,9 @@ fn main() -> ExitCode {
             );
         }),
         Cli::Check(dir) => ttymud_server::check(&dir).map(|done| println!("{done}")),
-        Cli::Play(name) => ttymud_server::play(
+        Cli::Play { name, city } => ttymud_server::play(
             name.as_deref(),
+            city.as_deref(),
             io::BufReader::new(io::stdin()),
             io::stdout().lock(),
         ),
@@ -381,16 +404,49 @@ mod tests {
         );
     }
 
+    fn play(name: Option<&str>, city: Option<&str>) -> Cli {
+        Cli::Play {
+            name: name.map(str::to_owned),
+            city: city.map(Into::into),
+        }
+    }
+
     #[test]
     fn play_needs_no_name() {
-        assert_eq!(parse(&args(&["play"])), Ok(Cli::Play(None)));
+        assert_eq!(parse(&args(&["play"])), Ok(play(None, None)));
     }
 
     #[test]
     fn play_takes_a_name() {
+        assert_eq!(parse(&args(&["play", "nyx"])), Ok(play(Some("nyx"), None)));
+    }
+
+    #[test]
+    fn play_takes_a_city_file_before_or_after_the_name() {
+        let lab = Some("lab.ini");
         assert_eq!(
-            parse(&args(&["play", "nyx"])),
-            Ok(Cli::Play(Some("nyx".to_owned())))
+            parse(&args(&["play", "--city", "lab.ini"])),
+            Ok(play(None, lab))
+        );
+        assert_eq!(
+            parse(&args(&["play", "nyx", "--city", "lab.ini"])),
+            Ok(play(Some("nyx"), lab))
+        );
+        assert_eq!(
+            parse(&args(&["play", "--city", "lab.ini", "nyx"])),
+            Ok(play(Some("nyx"), lab))
+        );
+        assert_eq!(
+            parse(&args(&["play", "--city"])),
+            Err("--city needs a file".to_owned())
+        );
+        assert_eq!(
+            parse(&args(&["play", "--fast"])),
+            Err("unknown option '--fast'".to_owned())
+        );
+        assert_eq!(
+            parse(&args(&["play", "nyx", "zer0"])),
+            Err("too many arguments".to_owned())
         );
     }
 }

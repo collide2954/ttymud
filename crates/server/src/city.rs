@@ -30,6 +30,19 @@ pub(crate) fn load_world(dir: &Path) -> io::Result<World> {
     }
 }
 
+pub(crate) fn city_world(file: Option<&Path>) -> io::Result<World> {
+    let content = match file {
+        None => parse(BUILT_IN, PORT_OSTRA)?,
+        Some(path) => {
+            let name = path.display().to_string();
+            let text = fs::read_to_string(path)
+                .map_err(|error| io::Error::new(error.kind(), format!("{name}: {error}")))?;
+            parse(&name, &text)?
+        }
+    };
+    Ok(World::new(content, seed()))
+}
+
 pub fn write_city(dir: &Path) -> io::Result<PathBuf> {
     fs::create_dir_all(dir)?;
     let path = dir.join(CITY);

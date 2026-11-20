@@ -1,28 +1,30 @@
 use std::io::{self, BufRead, Write};
+use std::path::Path;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use ttymud_game::{Output, PlayerId, World};
 
-use crate::city::{now, port_ostra, seed};
+use crate::city::{city_world, now};
 use crate::ticker::{TICK, Ticker};
 
 pub fn play(
     name: Option<&str>,
+    city: Option<&Path>,
     input: impl BufRead + Send + 'static,
     output: impl Write,
 ) -> io::Result<()> {
-    session(name, input, output, TICK)
+    session(city_world(city)?, name, input, output, TICK)
 }
 
 fn session(
+    mut world: World,
     name: Option<&str>,
     input: impl BufRead + Send + 'static,
     mut output: impl Write,
     every: Duration,
 ) -> io::Result<()> {
-    let mut world = port_ostra(seed())?;
     world.set_time(now());
     let (player, joined) = world.connect("offline");
     let city = world.city();
@@ -91,11 +93,15 @@ fn prompt(output: &mut impl Write, world: &World, player: PlayerId) -> io::Resul
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::io::{BufReader, Cursor, Write};
+    use std::path::PathBuf;
     use std::thread;
     use std::time::Duration;
 
     use super::{play as run, session};
+    use crate::city::city_world;
+    use crate::testing::{LAB, scratch};
 
     #[test]
     fn text_from_a_tick_starts_on_a_new_line() {
@@ -109,7 +115,15 @@ mod tests {
         });
         let mut output = Vec::new();
         let every = Duration::from_millis(20);
-        session(Some("nyx"), BufReader::new(reader), &mut output, every).unwrap();
+        let world = city_world(None).unwrap();
+        session(
+            world,
+            Some("nyx"),
+            BufReader::new(reader),
+            &mut output,
+            every,
+        )
+        .unwrap();
         typist.join().unwrap();
         let text = String::from_utf8(output).unwrap();
         assert!(
@@ -120,7 +134,13 @@ mod tests {
 
     fn play(name: Option<&str>, input: &str) -> String {
         let mut output = Vec::new();
-        run(name, Cursor::new(input.as_bytes().to_vec()), &mut output).unwrap();
+        run(
+            name,
+            None,
+            Cursor::new(input.as_bytes().to_vec()),
+            &mut output,
+        )
+        .unwrap();
         String::from_utf8(output).unwrap()
     }
 
@@ -155,5 +175,41 @@ mod tests {
     #[test]
     fn quit_ends_the_session() {
         assert!(!play(Some("nyx"), "ghost\nquit\nls\n").contains("night-market/"));
+    }
+
+    fn city_file(name: &str, text: &str) -> PathBuf {
+        let dir = scratch(name);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("lab.ini");
+        fs::write(&path, text).unwrap();
+        path
+    }
+
+    #[test]
+    fn play_walks_the_city_of_a_file() {
+        let path = city_file("play-city", LAB);
+        let mut output = Vec::new();
+        run(None, Some(&path), Cursor::new(Vec::new()), &mut output).unwrap();
+        let text = String::from_utf8(output).unwrap();
+        assert!(
+            text.starts_with("Offline mode. You are alone in Lab. Type quit to leave."),
+            "{text}"
+        );
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn play_shows_the_errors_of_a_city_file() {
+        let path = city_file("play-broken", "[city lab]\nname = Lab\nstart = nowhere\n");
+        let input = Cursor::new(Vec::new());
+        let error = run(None, Some(&path), input, Vec::new()).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "{}: line 3: start is an unknown host: nowhere",
+                path.display()
+            )
+        );
+        let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 }
