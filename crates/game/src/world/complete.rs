@@ -56,6 +56,10 @@ impl World {
                 .into_iter()
                 .map(|file| file.name.as_str())
                 .collect(),
+            (Verb::Sh, 1) | (Verb::Rm, _) => self.script_names(player),
+            (Verb::Echo, _) if matches!(words.last().map(String::as_str), Some(">" | ">>")) => {
+                self.script_names(player)
+            }
             (Verb::Probe | Verb::Crack | Verb::Pretext, _) => {
                 self.targets_here(player, command.verb == Verb::Pretext)
             }
@@ -210,6 +214,22 @@ mod tests {
                 "cd", "connect", "cat", "compile", "contract", "crack", "channels", "crew"
             ]
         );
+    }
+
+    #[test]
+    fn sh_rm_and_echo_complete_the_scripts_on_the_rig() {
+        let lines = ["echo ls > sweep.sh", "echo ls > scan2.sh", "get motd.txt"];
+        assert_eq!(complete(&lines, "sh sw").names, ["sweep.sh"]);
+        assert_eq!(complete(&lines, "rm ").names, ["sweep.sh", "scan2.sh"]);
+        assert_eq!(
+            complete(&lines, "echo look >> s").names,
+            ["sweep.sh", "scan2.sh"]
+        );
+        assert_eq!(
+            complete(&lines, "sh sweep.sh s").names,
+            Vec::<String>::new()
+        );
+        assert_eq!(complete(&lines, "echo s").names, Vec::<String>::new());
     }
 
     #[test]

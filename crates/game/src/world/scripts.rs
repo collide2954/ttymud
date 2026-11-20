@@ -14,14 +14,19 @@ enum Write {
 }
 
 impl World {
-    pub(super) fn scripts(&self, player: PlayerId) -> Vec<String> {
+    pub(super) fn script_names(&self, player: PlayerId) -> Vec<&str> {
         self.players
             .get(&player)
             .into_iter()
             .flat_map(|state| &state.rig.files)
             .filter(|file| is_script(&file.name))
-            .map(|file| file.name.clone())
+            .map(|file| file.name.as_str())
             .collect()
+    }
+
+    pub(super) fn scripts(&self, player: PlayerId) -> Vec<String> {
+        let names = self.script_names(player);
+        names.into_iter().map(str::to_owned).collect()
     }
 
     pub(super) fn echo(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {

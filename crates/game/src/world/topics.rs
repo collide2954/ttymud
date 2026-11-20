@@ -17,6 +17,8 @@ pub(super) const TOPICS: &[&str] = &[
     "pipelines",
     "pvp",
     "runs",
+    "script",
+    "scripts",
     "soc",
     "trace",
 ];
@@ -30,14 +32,46 @@ pub(super) fn topic(name: &str) -> Option<Vec<Message>> {
         "pipes" | "pipelines" => Some(pipes()),
         "pvp" | "darknet" | "arena" => Some(pvp()),
         "runs" | "trace" => Some(runs()),
+        "scripts" | "script" => Some(scripts()),
         "soc" | "alert" | "patches" => Some(soc()),
         _ => None,
     }
 }
 
 pub(super) fn index() -> Message {
-    Message::game("Topics: crews, economy, heat, ice, pipes, pvp, runs, soc. Example: ")
+    Message::game("Topics: crews, economy, heat, ice, pipes, pvp, runs, scripts, soc. Example: ")
         .span(Style::Command, "help ice")
+}
+
+fn scripts() -> Vec<Message> {
+    let command = |text: &str| Message::new(Kind::Game).span(Style::Command, text);
+    vec![
+        title("Scripts"),
+        Message::game(
+            "A script is a file on your rig with one command on each line. Its name ends in ",
+        )
+        .span(Style::File, ".sh")
+        .text("."),
+        command("echo 'scan | probe' > sweep.sh").text(" writes a script, and >> adds a line."),
+        command("sh sweep.sh sentry").text(" runs it. The words after the name go into $1 to $9."),
+        Message::game(
+            "A script runs one command on each tick. It waits until your rig has the cycles for the command.",
+        ),
+        Message::game("A running script uses 1 GB of RAM. Type ")
+            .span(Style::Command, "ps")
+            .text(" to see it, and ")
+            .span(Style::Command, "kill")
+            .text(" to stop it."),
+        Message::game(
+            "&& runs the next command only if the last command worked. || runs it only if the last command failed.",
+        ),
+        Message::game(
+            "A failed line stops the script. grep fails when nothing matches. A crash, a trace, or a burn also stops the script.",
+        ),
+        command("wait 3").text(" lets 3 ticks go by. A line that starts with # is a note."),
+        Message::game("A script cannot chat, send a challenge, or start a script."),
+        Message::game("Example: ").span(Style::Command, "echo 'crack $1 || jackout' >> sweep.sh"),
+    ]
 }
 
 fn pvp() -> Vec<Message> {

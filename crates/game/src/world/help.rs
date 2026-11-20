@@ -207,8 +207,37 @@ mod tests {
     fn help_names_the_topics() {
         assert_eq!(
             run("help").last().map(String::as_str),
-            Some("Topics: crews, economy, heat, ice, pipes, pvp, runs, soc. Example: help ice")
+            Some(
+                "Topics: crews, economy, heat, ice, pipes, pvp, runs, scripts, soc. Example: help ice"
+            )
         );
+    }
+
+    #[test]
+    fn help_scripts_explains_echo_sh_ps_kill_and_wait() {
+        let scripts = run("help scripts");
+        assert_eq!(scripts[0], "Scripts");
+        for word in [
+            ".sh",
+            "echo 'scan | probe' > sweep.sh",
+            ">>",
+            "sh sweep.sh sentry",
+            "$1 to $9",
+            "1 GB of RAM",
+            "ps",
+            "kill",
+            "&&",
+            "||",
+            "wait 3",
+            "#",
+        ] {
+            assert!(
+                scripts.iter().any(|line| line.contains(word)),
+                "{word}: {scripts:?}"
+            );
+        }
+        assert_eq!(run("help script"), scripts);
+        assert_eq!(run("help sh")[0], "sh <script> [words]");
     }
 
     #[test]
