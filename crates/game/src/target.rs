@@ -1,8 +1,10 @@
 use crate::content::{CorpDef, File, IceDef, TemplateDef};
 use crate::heat::Security;
 use crate::ice::IceKind;
-use crate::random::Random;
+use crate::names::person;
+use crate::random::{Random, mix};
 
+const HEIST_SALT: u64 = 0x7661;
 const LAN_VALUE: u32 = 40;
 const CORE_VALUE: u32 = 100;
 const WORDS: [&str; 12] = [
@@ -15,6 +17,37 @@ pub(crate) enum Layer {
     Edge,
     Lan,
     Core,
+    Vault,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Vault {
+    pub(crate) host: usize,
+    pub(crate) laptop: usize,
+    pub(crate) bridge: RoleBridge,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum RoleBridge {
+    Employee { host: usize, name: String },
+    Modem { host: usize },
+}
+
+impl Vault {
+    pub(crate) fn moved(&self, base: usize) -> Self {
+        let bridge = match &self.bridge {
+            RoleBridge::Employee { host, name } => RoleBridge::Employee {
+                host: base + host,
+                name: name.clone(),
+            },
+            RoleBridge::Modem { host } => RoleBridge::Modem { host: base + host },
+        };
+        Self {
+            host: base + self.host,
+            laptop: base + self.laptop,
+            bridge,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -40,6 +73,7 @@ pub(crate) struct Target {
     pub(crate) hosts: Vec<TargetHost>,
     pub(crate) goal: String,
     pub(crate) keys: Vec<(String, Level)>,
+    pub(crate) vault: Option<Vault>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,8 +94,11 @@ pub(crate) fn security(budget: Security, layer: Layer) -> Security {
     match (budget, layer) {
         (Low, Layer::Edge | Layer::Lan) | (Medium, Layer::Edge) => Low,
         (Low, Layer::Core) | (Medium, Layer::Lan) | (High, Layer::Edge) => Medium,
-        (Medium | High, Layer::Core) | (High, Layer::Lan) | (Top, Layer::Edge | Layer::Lan) => High,
-        (Top, Layer::Core) => Top,
+        (Medium | High, Layer::Core)
+        | (Low | Medium, Layer::Vault)
+        | (High, Layer::Lan)
+        | (Top, Layer::Edge | Layer::Lan) => High,
+        (Top, Layer::Core) | (High | Top, Layer::Vault) => Top,
     }
 }
 
@@ -90,6 +127,7 @@ pub(crate) fn generate(corp: &CorpDef, templates: &[TemplateDef], seed: u64) -> 
         hosts: Vec::new(),
         goal: String::new(),
         keys: Vec::new(),
+        vault: None,
     };
     for (layer, least) in [(Layer::Edge, 1), (Layer::Lan, 2), (Layer::Core, 2)] {
         let count = least + random.below(2);
@@ -101,6 +139,79 @@ pub(crate) fn generate(corp: &CorpDef, templates: &[TemplateDef], seed: u64) -> 
     target.lock();
     target.leak(&mut random);
     target
+}
+
+pub(crate) fn generate_heist(
+    corp: &CorpDef,
+    templates: &[TemplateDef],
+    seed: u64,
+) -> Option<Target> {
+    let vaults: Vec<&TemplateDef> = templates
+        .iter()
+        .filter(|def| def.layer == Layer::Vault)
+        .collect();
+    let laptops: Vec<&TemplateDef> = templates.iter().filter(|def| def.laptop).collect();
+    if vaults.is_empty() || laptops.is_empty() {
+        return None;
+    }
+    let mut target = generate(corp, templates, seed);
+    let mut random = Random::new(mix(&[seed, HEIST_SALT]));
+    let (lan, deep) = (target.layer(Layer::Lan), target.layer(Layer::Core));
+    if lan.is_empty() || deep.is_empty() {
+        return None;
+    }
+    let pick = |random: &mut Random, from: &[usize]| from[random.below(from.len())];
+    let laptop = laptops[random.below(laptops.len())];
+    let laptop = target.add_host(corp, laptop, Layer::Lan, laptop.id.clone());
+    let near = pick(&mut random, &lan);
+    target.connect(laptop, near);
+    let safe = vaults[random.below(vaults.len())];
+    let safe = target.add_host(corp, safe, Layer::Vault, safe.id.clone());
+    let security = target.hosts[safe].security;
+    target.hosts[safe].ice.extend([
+        ice_def(IceKind::Sentry, security, None),
+        ice_def(IceKind::Scorch, security, None),
+    ]);
+    let goal = target.goal.clone();
+    let moved: Vec<File> = target
+        .hosts
+        .iter_mut()
+        .flat_map(|host| {
+            let (goals, rest) = std::mem::take(&mut host.files)
+                .into_iter()
+                .partition(|file: &File| file.name == goal);
+            host.files = rest;
+            goals
+        })
+        .collect();
+    target.hosts[safe].files.extend(moved);
+    target.lock();
+    let bridge = if random.below(2) == 0 {
+        let host = pick(&mut random, &lan);
+        RoleBridge::Employee {
+            host,
+            name: person(&mut random),
+        }
+    } else {
+        RoleBridge::Modem {
+            host: pick(&mut random, &deep),
+        }
+    };
+    target.vault = Some(Vault {
+        host: safe,
+        laptop,
+        bridge,
+    });
+    Some(target)
+}
+
+fn ice_def(kind: IceKind, security: Security, guards: Option<String>) -> IceDef {
+    IceDef {
+        name: kind.title().to_lowercase(),
+        kind,
+        version: version(security),
+        guards,
+    }
 }
 
 fn password(random: &mut Random) -> String {
@@ -123,8 +234,10 @@ impl Target {
         count: usize,
         random: &mut Random,
     ) {
-        let mut pool: Vec<&TemplateDef> =
-            templates.iter().filter(|def| def.layer == layer).collect();
+        let mut pool: Vec<&TemplateDef> = templates
+            .iter()
+            .filter(|def| def.layer == layer && !def.laptop)
+            .collect();
         if pool.is_empty() {
             return;
         }
@@ -138,18 +251,29 @@ impl Target {
             } else {
                 template.id.clone()
             };
-            self.hosts.push(TargetHost {
-                id,
-                name: format!("{} {}", corp.name, template.name),
-                description: template.description.clone(),
-                layer,
-                security: security(corp.budget, layer),
-                software: template.software.clone(),
-                routes: Vec::new(),
-                files: template.files.clone(),
-                ice: Vec::new(),
-            });
+            self.add_host(corp, template, layer, id);
         }
+    }
+
+    fn add_host(
+        &mut self,
+        corp: &CorpDef,
+        template: &TemplateDef,
+        layer: Layer,
+        id: String,
+    ) -> usize {
+        self.hosts.push(TargetHost {
+            id,
+            name: format!("{} {}", corp.name, template.name),
+            description: template.description.clone(),
+            layer,
+            security: security(corp.budget, layer),
+            software: template.software.clone(),
+            routes: Vec::new(),
+            files: template.files.clone(),
+            ice: Vec::new(),
+        });
+        self.hosts.len() - 1
     }
 
     fn connect(&mut self, a: usize, b: usize) {
@@ -182,12 +306,7 @@ impl Target {
     }
 
     fn deploy(&mut self, random: &mut Random) {
-        let ice = |kind: IceKind, security: Security, guards: Option<String>| IceDef {
-            name: kind.title().to_lowercase(),
-            kind,
-            version: version(security),
-            guards,
-        };
+        let ice = ice_def;
         for host in self.layer(Layer::Edge) {
             let security = self.hosts[host].security;
             self.hosts[host]
@@ -247,7 +366,7 @@ impl Target {
         for (host, mut file) in hosts.zip(data) {
             file.value = match self.hosts[host].layer {
                 Layer::Lan => LAN_VALUE * factor,
-                Layer::Edge | Layer::Core => CORE_VALUE * factor,
+                Layer::Edge | Layer::Core | Layer::Vault => CORE_VALUE * factor,
             };
             self.hosts[host].files.push(file);
         }
@@ -257,7 +376,7 @@ impl Target {
         for host in &mut self.hosts {
             for file in &mut host.files {
                 file.lock = match host.layer {
-                    Layer::Core => Level::Admin,
+                    Layer::Core | Layer::Vault => Level::Admin,
                     Layer::Lan if file.value > 0 => Level::User,
                     Layer::Lan | Layer::Edge => Level::Guest,
                 };
@@ -300,7 +419,8 @@ impl Target {
 }
 
 impl Layer {
-    pub(crate) const ALL: [Self; 3] = [Self::Edge, Self::Lan, Self::Core];
+    pub(crate) const BASE: [Self; 3] = [Self::Edge, Self::Lan, Self::Core];
+    const ALL: [Self; 4] = [Self::Edge, Self::Lan, Self::Core, Self::Vault];
 
     pub(crate) fn find(word: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|layer| layer.word() == word)
@@ -311,15 +431,16 @@ impl Layer {
             Self::Edge => "edge",
             Self::Lan => "lan",
             Self::Core => "core",
+            Self::Vault => "vault",
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Layer, Level, Target, generate, security};
+    use super::{Layer, Level, RoleBridge, Target, generate, generate_heist, security};
     use crate::Content;
-    use crate::content::File;
+    use crate::content::{File, TemplateDef};
     use crate::heat::Security;
     use crate::ice::IceKind;
     use crate::testing::CITY;
@@ -338,7 +459,8 @@ mod tests {
     #[test]
     fn layers_are_found_by_their_content_word() {
         assert_eq!(Layer::find("lan"), Some(Layer::Lan));
-        assert_eq!(Layer::find("vault"), None);
+        assert_eq!(Layer::find("vault"), Some(Layer::Vault));
+        assert_eq!(Layer::find("attic"), None);
     }
 
     #[test]
@@ -382,6 +504,69 @@ mod tests {
                 assert!(ids.contains(&"ws-1".to_owned()), "{ids:?}");
             }
         }
+    }
+
+    #[test]
+    fn a_heist_target_adds_a_vault_without_routes_a_laptop_and_a_role_bridge() {
+        let content = Content::parse(CITY).unwrap();
+        let corp = &content.corps[0];
+        let (mut employees, mut modems) = (0, 0);
+        for seed in 0..30 {
+            let plain = generate(corp, &content.templates, seed);
+            assert!(plain.vault.is_none());
+            assert!(
+                plain
+                    .hosts
+                    .iter()
+                    .all(|host| host.layer != Layer::Vault && !host.id.starts_with("maint"))
+            );
+            let heist = generate_heist(corp, &content.templates, seed).unwrap();
+            let vault = heist.vault.clone().unwrap();
+            let safe = &heist.hosts[vault.host];
+            assert_eq!(safe.layer, Layer::Vault);
+            assert_eq!(safe.routes, Vec::<usize>::new());
+            assert!(
+                heist
+                    .hosts
+                    .iter()
+                    .all(|host| !host.routes.contains(&vault.host))
+            );
+            let kinds: Vec<IceKind> = safe.ice.iter().map(|ice| ice.kind).collect();
+            assert_eq!(kinds, [IceKind::Sentry, IceKind::Scorch]);
+            assert!(safe.ice.iter().all(|ice| ice.version == 3));
+            let holders = heist
+                .hosts
+                .iter()
+                .filter(|host| host.files.iter().any(|file| file.name == heist.goal))
+                .count();
+            assert_eq!(holders, 1);
+            assert!(safe.files.iter().any(|file| file.name == heist.goal));
+            let laptop = &heist.hosts[vault.laptop];
+            assert_eq!(
+                (laptop.layer, laptop.routes.is_empty()),
+                (Layer::Lan, false)
+            );
+            match &vault.bridge {
+                RoleBridge::Employee { host, name } => {
+                    employees += 1;
+                    assert_eq!(heist.hosts[*host].layer, Layer::Lan);
+                    assert_ne!(*host, vault.laptop);
+                    assert!(name.contains('.'), "{name}");
+                }
+                RoleBridge::Modem { host } => {
+                    modems += 1;
+                    assert_eq!(heist.hosts[*host].layer, Layer::Core);
+                }
+            }
+        }
+        assert!(employees > 0 && modems > 0, "{employees} {modems}");
+        let templates: Vec<TemplateDef> = content
+            .templates
+            .iter()
+            .filter(|def| def.layer != Layer::Vault)
+            .cloned()
+            .collect();
+        assert_eq!(generate_heist(corp, &templates, 1), None);
     }
 
     #[test]
@@ -462,7 +647,7 @@ mod tests {
             for host in &target.hosts {
                 for file in &host.files {
                     let lock = match host.layer {
-                        Layer::Core => Level::Admin,
+                        Layer::Core | Layer::Vault => Level::Admin,
                         Layer::Lan if file.key.is_some() || file.value > 0 => Level::User,
                         Layer::Lan | Layer::Edge => Level::Guest,
                     };

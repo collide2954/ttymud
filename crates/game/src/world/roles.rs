@@ -68,16 +68,22 @@ impl World {
     }
 
     pub(super) fn proxy(&mut self, player: PlayerId) -> Result<Step, Message> {
+        let modem = self.ride_modem(player);
         let Some(run) = self.run_mut(player) else {
             return Ok(Step::default());
         };
         if run.proxy {
-            return Err(Message::error("Your link already goes through a proxy."));
+            return match modem {
+                Some(line) => Ok(Step::show(vec![line])),
+                None => Err(Message::error("Your link already goes through a proxy.")),
+            };
         }
         run.proxy = true;
-        Ok(Step::show(vec![Message::game(
+        let mut shown: Vec<Message> = modem.into_iter().collect();
+        shown.push(Message::game(
             "Your link goes through a proxy. ICE attacks on your trace do half damage in this run.",
-        )]))
+        ));
+        Ok(Step::show(shown))
     }
 
     pub(super) fn pretext(
@@ -86,10 +92,13 @@ impl World {
         args: &[String],
         input: Option<Vec<Item>>,
     ) -> Result<Step, Message> {
-        if let ([word], None) = (args, &input)
-            && let Some(fooled) = self.fool(player, word)
-        {
-            return fooled;
+        if let ([word], None) = (args, &input) {
+            if let Some(tricked) = self.trick_employee(player, word) {
+                return tricked;
+            }
+            if let Some(fooled) = self.fool(player, word) {
+                return fooled;
+            }
         }
         let targets = self.targets(player, "pretext", args, input)?;
         let [(name, _)] = targets.as_slice() else {

@@ -82,6 +82,7 @@ pub(crate) struct TemplateDef {
     pub(crate) name: String,
     pub(crate) description: String,
     pub(crate) software: Option<String>,
+    pub(crate) laptop: bool,
     pub(crate) files: Vec<File>,
 }
 

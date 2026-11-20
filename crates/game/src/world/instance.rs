@@ -12,6 +12,8 @@ pub(super) struct Instance {
     pub(super) ice: Vec<Ice>,
     pub(super) analysts: Vec<Analyst>,
     pub(super) logs: Vec<(HostId, PlayerId, u32)>,
+    pub(super) bridges: Vec<(HostId, HostId)>,
+    pub(super) clock: u32,
 }
 
 #[derive(Debug, Clone)]

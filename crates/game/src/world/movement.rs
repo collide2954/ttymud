@@ -34,6 +34,18 @@ impl World {
 
     pub(super) fn back(&mut self, player: PlayerId) -> Result<Step, Message> {
         let from = self.here(player);
+        let behind = self.players.get(&player).and_then(|state| {
+            let index = state.chain.len().checked_sub(2)?;
+            state.chain.get(index).copied()
+        });
+        if let Some(behind) = behind
+            && self.vault_hop(player, from, behind)
+        {
+            let id = &self.hosts[behind.0].id;
+            return Err(Message::error(format!(
+                "There is no route back to {id} now."
+            )));
+        }
         match self.players.get_mut(&player) {
             Some(state) if state.chain.len() > 1 => {
                 state.chain.pop();

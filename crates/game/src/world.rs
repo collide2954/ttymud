@@ -11,6 +11,7 @@ mod crews;
 mod files;
 mod grep;
 mod heat;
+mod heists;
 mod help;
 mod ice;
 mod ignore;
@@ -34,6 +35,7 @@ mod software;
 mod stash;
 mod tell;
 mod topics;
+mod vault;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
@@ -48,7 +50,7 @@ use crate::kits::Kit;
 use crate::matching::{self, Found};
 use crate::parse::{self, ParseError, Stage};
 use crate::random::Random;
-use crate::target::Level;
+use crate::target::{Level, Vault};
 
 use account::{Account, Phase, Social};
 use alert::CorpState;
@@ -89,6 +91,7 @@ struct Network {
     entries: Vec<HostId>,
     keys: Vec<(String, Level)>,
     corp: Option<usize>,
+    vault: Option<Vault>,
 }
 
 impl From<NetworkDef> for Network {
@@ -99,6 +102,7 @@ impl From<NetworkDef> for Network {
             entries: Vec::new(),
             keys: Vec::new(),
             corp: None,
+            vault: None,
         }
     }
 }
@@ -380,6 +384,7 @@ impl World {
         for id in copies {
             outputs.extend(self.tick_ice(id));
             outputs.extend(self.tick_soc(id));
+            outputs.extend(self.tick_vault(id));
         }
         for &player in &players {
             let mut shown: Vec<Message> = self.hint(player).into_iter().collect();
@@ -586,6 +591,17 @@ impl World {
         let mut routes = self.hosts[id.0].routes.clone();
         if self.home == Some(id) {
             routes.extend(self.job_entries(player));
+        }
+        let bridges = self
+            .instance(player)
+            .into_iter()
+            .flat_map(|instance| &instance.bridges);
+        for &(from, to) in bridges {
+            if from == id {
+                routes.push(to);
+            } else if to == id {
+                routes.push(from);
+            }
         }
         routes
     }

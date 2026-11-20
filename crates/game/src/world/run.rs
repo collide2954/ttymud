@@ -266,6 +266,8 @@ impl World {
                 ice: deploy(&self.hosts, network, self.ice_bonus(network)),
                 analysts: self.staff(network),
                 logs: Vec::new(),
+                bridges: Vec::new(),
+                clock: 0,
             };
             self.open_instance(instance)
         });
@@ -299,6 +301,7 @@ impl World {
         if self.is_job(player, network) {
             self.advance(player, Event::Enter);
         }
+        self.note_entry(player, network);
         vec![Message::game(connect)]
     }
 
@@ -315,9 +318,10 @@ impl World {
         if self.is_job(player, network) {
             self.advance(player, Event::Exit);
         }
-        std::iter::once(exit)
-            .chain(self.finish_contract(player, network))
-            .collect()
+        let mut shown = vec![exit];
+        shown.extend(self.finish_contract(player, network));
+        shown.extend(self.finish_heist(player, network));
+        shown
     }
 }
 

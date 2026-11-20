@@ -155,14 +155,14 @@ impl Reader {
             );
             return;
         }
-        self.allow(section, &["layer", "name", "desc", "software"]);
+        self.allow(section, &["layer", "name", "desc", "software", "laptop"]);
         self.check_name(section.line, id, Name::Plain);
         let layer = self.single(section, "layer").and_then(|(word, line)| {
             let layer = Layer::find(&word);
             if layer.is_none() {
                 self.error(
                     line,
-                    format!("unknown layer: {word} (use edge, lan, or core)"),
+                    format!("unknown layer: {word} (use edge, lan, core, or vault)"),
                 );
             }
             layer
@@ -170,6 +170,23 @@ impl Reader {
         let name = self.single(section, "name").unwrap_or_default().0;
         let description = self.single(section, "desc").unwrap_or_default().0;
         let software = self.optional(section, "software").map(|(name, _)| name);
+        let laptop = match self.optional(section, "laptop") {
+            None => false,
+            Some((word, line)) => {
+                let yes = match word.as_str() {
+                    "yes" => true,
+                    "no" => false,
+                    _ => {
+                        self.error(line, format!("bad laptop: {word} (use yes or no)"));
+                        false
+                    }
+                };
+                if yes && layer != Some(Layer::Lan) {
+                    self.error(line, "only a lan template can be a laptop".to_owned());
+                }
+                yes
+            }
+        };
         if let Some(layer) = layer {
             let template = TemplateDef {
                 id: id.to_owned(),
@@ -177,6 +194,7 @@ impl Reader {
                 name,
                 description,
                 software,
+                laptop,
                 files: Vec::new(),
             };
             self.templates.push((template, section.line));
@@ -193,14 +211,23 @@ impl Reader {
         for (id, line) in clashes {
             self.error(line, format!("template {id} has the same name as a host"));
         }
+        let vault = self
+            .templates
+            .iter()
+            .find(|(template, _)| template.layer == Layer::Vault)
+            .map(|&(_, line)| line);
+        let laptop = self.templates.iter().any(|(template, _)| template.laptop);
+        if let (Some(line), false) = (vault, laptop) {
+            self.error(line, "a vault template needs a laptop template".to_owned());
+        }
         if self.corps.is_empty() {
             return;
         }
-        for layer in Layer::ALL {
+        for layer in Layer::BASE {
             if !self
                 .templates
                 .iter()
-                .any(|(template, _)| template.layer == layer)
+                .any(|(template, _)| template.layer == layer && !template.laptop)
             {
                 let word = layer.word();
                 self.error(0, format!("the corps need a template for the {word} layer"));

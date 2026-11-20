@@ -2,6 +2,7 @@ use ttymud_text::{Kind, Message, Style};
 
 use super::alert::Alert;
 use super::contract::{Contract, Job};
+use super::heists::HEIST_SLOT;
 use super::{Host, HostId, Network, NetworkId, PlayerId, Step, World, lines, listed};
 use crate::content::{CorpDef, FixerDef};
 use crate::heat::Security;
@@ -50,7 +51,7 @@ pub(super) fn fixers(
         .collect()
 }
 
-fn base_pay(budget: Security) -> u32 {
+pub(super) fn base_pay(budget: Security) -> u32 {
     match budget {
         Security::Low => 300,
         Security::Medium => 700,
@@ -59,7 +60,7 @@ fn base_pay(budget: Security) -> u32 {
     }
 }
 
-fn needed(budget: Security) -> u32 {
+pub(super) fn needed(budget: Security) -> u32 {
     match budget {
         Security::Low => 0,
         Security::Medium => 2,
@@ -108,7 +109,7 @@ impl World {
             .unwrap_or(0)
     }
 
-    fn refusal(&self, player: PlayerId, fixer: usize) -> Option<Message> {
+    pub(super) fn refusal(&self, player: PlayerId, fixer: usize) -> Option<Message> {
         let most = self.fixers.get(fixer)?.max_heat?;
         let heat = self.players.get(&player)?.heat;
         (heat > most).then(|| {
@@ -194,10 +195,14 @@ impl World {
 
     pub(super) fn job_entries(&self, player: PlayerId) -> Vec<HostId> {
         let job = self.players.get(&player).and_then(|state| state.contract);
-        job.and_then(|job| self.contracts.get(job.contract()))
-            .map_or_else(Vec::new, |contract| {
-                self.networks[contract.network.0].entries.clone()
-            })
+        let solo = job.and_then(|job| self.contracts.get(job.contract()));
+        let mut entries: Vec<HostId> = solo
+            .into_iter()
+            .chain(self.heist_contract(player))
+            .flat_map(|contract| self.networks[contract.network.0].entries.clone())
+            .collect();
+        entries.dedup();
+        entries
     }
 
     pub(super) fn accept(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
@@ -211,6 +216,7 @@ impl World {
                 .text(" to see the jobs."));
         };
         let mut offers = self.offers_at(here, self.now / DAY);
+        offers.extend(self.heists_at(here, self.now / DAY));
         let number = word
             .parse()
             .ok()
@@ -222,6 +228,10 @@ impl World {
                     .text(" to see the jobs."),
             );
         };
+        let offer = offers.swap_remove(number - 1);
+        if offer.slot == HEIST_SLOT {
+            return self.accept_heist(player, offer);
+        }
         if self
             .players
             .get(&player)
@@ -231,7 +241,6 @@ impl World {
                 .span(Style::Command, "contract drop")
                 .text(" to end it."));
         }
-        let offer = offers.swap_remove(number - 1);
         if let Some(refusal) = self.refusal(player, offer.fixer) {
             return Err(refusal);
         }
@@ -294,7 +303,7 @@ impl World {
         Some(self.post(offer))
     }
 
-    fn post(&mut self, offer: Offer) -> usize {
+    pub(super) fn post(&mut self, offer: Offer) -> usize {
         let key = (offer.day, offer.fixer, offer.slot);
         if let Some(&index) = self.postings.get(&key) {
             return index;
@@ -320,7 +329,7 @@ impl World {
         index
     }
 
-    fn add_target(&mut self, target: &Target, corp: usize) -> NetworkId {
+    pub(super) fn add_target(&mut self, target: &Target, corp: usize) -> NetworkId {
         let network = NetworkId(self.networks.len());
         let base = self.hosts.len();
         let mut entries = Vec::new();
@@ -350,6 +359,7 @@ impl World {
             entries,
             keys: target.keys.clone(),
             corp: Some(corp),
+            vault: target.vault.as_ref().map(|vault| vault.moved(base)),
         });
         network
     }
@@ -393,6 +403,7 @@ impl World {
                 shown.push(line);
             }
         }
+        shown.extend(self.heist_board(player, &mut number, self.heists_at(here, day)));
         let standing: Vec<String> = self
             .fixers_at(here)
             .into_iter()
@@ -434,15 +445,17 @@ mod tests {
     #[test]
     fn jobs_lists_the_offers_of_each_fixer_for_the_day() {
         let shown = board(20_000);
-        assert_eq!(shown.len(), 6, "{shown:?}");
+        assert_eq!(shown.len(), 8, "{shown:?}");
         assert_eq!(shown[0], "Pell has these jobs today:");
         assert!(shown[1].starts_with("1. Acme Corp: get "), "{shown:?}");
         for (index, line) in shown[1..4].iter().enumerate() {
             assert!(line.starts_with(&format!("{}. ", index + 1)), "{line}");
             assert!(line.contains(". Pay: "), "{line}");
         }
-        assert_eq!(shown[4], "Your reputation: Pell 0");
-        assert_eq!(shown[5], "Type accept <number> to take a job.");
+        assert_eq!(shown[4], "Heists for crews today:");
+        assert!(shown[5].starts_with("4. "), "{shown:?}");
+        assert_eq!(shown[6], "Your reputation: Pell 0");
+        assert_eq!(shown[7], "Type accept <number> to take a job.");
     }
 
     fn globex() -> (World, PlayerId, String) {

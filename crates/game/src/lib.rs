@@ -7,6 +7,7 @@ mod ice;
 pub mod ini;
 mod kits;
 mod matching;
+mod names;
 mod parse;
 mod random;
 mod target;

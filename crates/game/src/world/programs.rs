@@ -84,6 +84,7 @@ impl World {
         }
         step.shown.extend(self.software_line(player));
         step.shown.extend(self.soc_line(player));
+        step.shown.extend(self.vault_lines(player));
         Ok(step)
     }
 

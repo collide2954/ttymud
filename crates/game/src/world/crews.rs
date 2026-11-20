@@ -3,16 +3,17 @@ use std::collections::BTreeMap;
 use ttymud_text::{Kind, Message, Style};
 
 use super::account::{Phase, good_name};
+use super::heists::Heist;
 use super::presence::named;
 use super::save::{Text, allow, checked, number, problem};
 use super::{Output, PlayerId, Step, Thing, World, choose, lines};
 use crate::content::ContentError;
-use crate::ini::{self, Section};
+use crate::ini::{self, Pair, Section};
 
 pub(super) const CREWS: &str = "crews.ini";
 pub(super) const MAX_CREW: usize = 4;
-pub(super) const ACTIONS: [&str; 6] = ["create", "invite", "join", "leave", "kick", "lead"];
-const USAGE: &str = "Usage: crew, crew create <name>, crew invite <handle>, crew join <crew>, crew leave, crew kick <handle>, or crew lead <handle>.";
+pub(super) const ACTIONS: [&str; 7] = ["create", "invite", "join", "leave", "kick", "lead", "drop"];
+const USAGE: &str = "Usage: crew, crew create <name>, crew invite <handle>, crew join <crew>, crew leave, crew kick <handle>, crew lead <handle>, or crew drop.";
 const RULE: &str = "A crew name has 3 to 16 letters, digits, hyphens, or underscores.";
 const NO_CREW: &str = "You are not in a crew. Type crew create <name> to make one.";
 
@@ -22,6 +23,8 @@ pub(super) struct Crew {
     pub(super) leader: String,
     pub(super) members: Vec<String>,
     pub(super) rep: u32,
+    pub(super) heist: Option<Heist>,
+    pub(super) done: Vec<(u64, String)>,
 }
 
 impl Crew {
@@ -43,7 +46,7 @@ impl Crew {
 pub(super) struct Crews {
     pub(super) list: BTreeMap<String, Crew>,
     invites: Vec<(String, String)>,
-    dirty: bool,
+    pub(super) dirty: bool,
 }
 
 enum Gone {
@@ -56,7 +59,7 @@ impl Crews {
         self.list.values().find(|crew| crew.has(handle))
     }
 
-    fn key_of(&self, handle: &str) -> Option<String> {
+    pub(super) fn key_of(&self, handle: &str) -> Option<String> {
         let found = self.list.iter().find(|(_, crew)| crew.has(handle));
         found.map(|(key, _)| key.clone())
     }
@@ -74,6 +77,15 @@ impl Crews {
             for member in &crew.members {
                 text.pair("member", member);
             }
+            if let Some(heist) = &crew.heist {
+                text.pair("heist", &format!("{} {}", heist.fixer, heist.day));
+                for name in &heist.entered {
+                    text.pair("entered", name);
+                }
+            }
+            for (day, fixer) in &crew.done {
+                text.pair("done", &format!("{fixer} {day}"));
+            }
         }
         text.finish()
     }
@@ -90,7 +102,11 @@ impl Crews {
                 ));
                 continue;
             }
-            allow(section, &["leader", "rep", "member"], &mut errors);
+            allow(
+                section,
+                &["leader", "rep", "member", "heist", "entered", "done"],
+                &mut errors,
+            );
             if let Some(crew) = read_crew(section, &mut errors) {
                 list.insert(crew.name.to_ascii_lowercase(), crew);
             }
@@ -129,12 +145,42 @@ fn read_crew(section: &Section<'_>, errors: &mut Vec<ContentError>) -> Option<Cr
         errors.push(problem(section.line, message));
         return None;
     }
+    let heist = values("heist")
+        .next()
+        .and_then(|pair| fixer_day(pair, errors))
+        .map(|(fixer, day)| Heist {
+            fixer,
+            day,
+            contract: None,
+            entered: values("entered")
+                .map(|pair| pair.value.to_owned())
+                .collect(),
+        });
+    let done = values("done")
+        .filter_map(|pair| fixer_day(pair, errors))
+        .map(|(fixer, day)| (day, fixer))
+        .collect();
     Some(Crew {
         name: name.to_owned(),
         leader: leader.value.to_owned(),
         members,
         rep,
+        heist,
+        done,
     })
+}
+
+fn fixer_day(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<(String, u64)> {
+    let parsed = pair.value.split_once(' ').and_then(|(fixer, day)| {
+        let day = day.trim().parse().ok()?;
+        Some((fixer.to_owned(), day))
+    });
+    if parsed.is_none() {
+        let (key, value) = (pair.key, pair.value);
+        let usage = "use a fixer and a day";
+        errors.push(problem(pair.line, format!("bad {key}: {value} ({usage})")));
+    }
+    parsed
 }
 
 impl World {
@@ -155,6 +201,7 @@ impl World {
             }
             (Some("kick"), [handle]) => self.crew_kick(player, &name, handle)?,
             (Some("lead"), [handle]) => self.crew_lead(player, &name, handle)?,
+            (Some("drop"), []) => self.crew_drop(player, &name)?,
             _ => return Err(Message::error(USAGE)),
         };
         Ok(lines(shown))
@@ -198,6 +245,8 @@ impl World {
             leader: name.to_owned(),
             members: vec![name.to_owned()],
             rep: 0,
+            heist: None,
+            done: Vec::new(),
         };
         self.crews.list.insert(key, made);
         self.crews.dirty = true;
@@ -206,7 +255,7 @@ impl World {
         ))])
     }
 
-    fn led_crew(&self, name: &str) -> Result<String, Message> {
+    pub(super) fn led_crew(&self, name: &str) -> Result<String, Message> {
         let key = self
             .crews
             .key_of(name)
@@ -553,7 +602,7 @@ mod tests {
         assert_eq!(
             plain(&world.command(nyx, "crew dance")),
             [
-                "Usage: crew, crew create <name>, crew invite <handle>, crew join <crew>, crew leave, crew kick <handle>, or crew lead <handle>."
+                "Usage: crew, crew create <name>, crew invite <handle>, crew join <crew>, crew leave, crew kick <handle>, crew lead <handle>, or crew drop."
             ]
         );
     }

@@ -95,7 +95,9 @@ impl World {
             return self.restore_news(text);
         }
         if path == CREWS {
-            return self.crews.read(text);
+            self.crews.read(text)?;
+            self.resume_heists();
+            return Ok(());
         }
         if path == BURNS {
             self.burns = parse_burns(text)?;

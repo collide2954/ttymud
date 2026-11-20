@@ -138,6 +138,7 @@ impl World {
             .collect();
         if analysts {
             names.extend(self.analyst_names(player));
+            names.extend(self.employee_here(player));
         }
         names
     }

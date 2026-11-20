@@ -213,7 +213,11 @@ impl World {
     }
 
     pub(super) fn contract(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
+        let heist = self.heist_lines(player);
         let Some((contract, _)) = self.contract_of(player) else {
+            if args.is_empty() && !heist.is_empty() {
+                return Ok(lines(heist));
+            }
             return Ok(Step::show(vec![Message::game("You have no contract.")]));
         };
         match args {
@@ -233,6 +237,7 @@ impl World {
                 if let Some(hint) = self.next_step(player) {
                     shown.push(Message::game(format!("Next: {hint}")));
                 }
+                shown.extend(heist);
                 Ok(lines(shown))
             }
             [word] if word.eq_ignore_ascii_case("drop") => {

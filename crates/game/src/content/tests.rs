@@ -184,11 +184,38 @@ fn a_template_makes_hosts_for_one_layer() {
         name: "VPN Gateway".to_owned(),
         description: "An old box.".to_owned(),
         software: Some("Gatekeep VPN".to_owned()),
+        laptop: false,
         files: vec![File::new("motd.txt", vec!["Hi.".to_owned()])],
     };
     assert_eq!(Content::parse(&text).unwrap().templates, [template]);
     let plain = Content::parse(&format!("{NET}{TEMPLATES}")).unwrap();
     assert!(plain.templates.iter().all(|def| def.software.is_none()));
+}
+
+#[test]
+fn a_vault_template_needs_a_laptop_template_on_the_lan() {
+    let laptop = "[template maint]\nlayer = lan\nname = M\ndesc = M.\nlaptop = yes\n";
+    let vault = "[template safe]\nlayer = vault\nname = S\ndesc = S.\n";
+    let content = Content::parse(&format!("{NET}{TEMPLATES}{laptop}{vault}")).unwrap();
+    let kinds: Vec<(Layer, bool)> = content
+        .templates
+        .iter()
+        .map(|def| (def.layer, def.laptop))
+        .collect();
+    assert_eq!(kinds[3..], [(Layer::Lan, true), (Layer::Vault, false)]);
+    assert_eq!(
+        errors(&format!("{NET}{TEMPLATES}{vault}")),
+        ["line 31: a vault template needs a laptop template"]
+    );
+    let bad = "[template x]\nlayer = core\nname = X\ndesc = X.\nlaptop = yes\n\
+               [template y]\nlayer = lan\nname = Y\ndesc = Y.\nlaptop = maybe\n";
+    assert_eq!(
+        errors(&format!("{NET}{TEMPLATES}{bad}")),
+        [
+            "line 35: only a lan template can be a laptop",
+            "line 40: bad laptop: maybe (use yes or no)"
+        ]
+    );
 }
 
 const CORPS: &str = "\
@@ -245,7 +272,7 @@ fn bad_corps_and_templates_fail() {
             "line 21: data needs a file name and a line, for example data = claims.db: Ten years of claims.",
             "line 22: corp empty has no data",
             "line 25: template a has the same name as a host",
-            "line 30: unknown layer: attic (use edge, lan, or core)",
+            "line 30: unknown layer: attic (use edge, lan, core, or vault)",
         ]
     );
 }

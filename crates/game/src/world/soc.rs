@@ -3,6 +3,7 @@ use ttymud_text::{Kind, Message, Style};
 use super::instance::{InstanceId, tell};
 use super::run::MAX_TRACE;
 use super::{HostId, NetworkId, Output, PlayerId, Step, World, address};
+use crate::names::person;
 use crate::random::{Random, mix};
 use crate::target::Level;
 
@@ -12,11 +13,6 @@ const NIGHT_STAFF: usize = 1;
 const READ_TICKS: u32 = 2;
 const FOUND_TRACE: u32 = 5;
 const SALT: u64 = 0x050c;
-const INITIALS: &[u8] = b"abcdefghjklmnprstvwz";
-const SURNAMES: [&str; 16] = [
-    "ortiz", "lin", "okafor", "novak", "silva", "haddad", "kowal", "tanaka", "mbeki", "larsen",
-    "costa", "ivanova", "reyes", "osei", "becker", "nakamura",
-];
 const HABITS: [Habit; 3] = [Habit::Careful, Habit::Strict, Habit::Lazy];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,8 +62,7 @@ fn pool(seed: u64, corp: usize) -> Vec<(String, Habit)> {
     let mut random = Random::new(mix(&[seed, corp as u64, SALT]));
     let mut people: Vec<(String, Habit)> = Vec::new();
     for _ in 0..POOL * 10 {
-        let initial = char::from(INITIALS[random.below(INITIALS.len())]);
-        let name = format!("{initial}.{}", SURNAMES[random.below(SURNAMES.len())]);
+        let name = person(&mut random);
         let habit = HABITS[random.below(HABITS.len())];
         if !people.iter().any(|(known, _)| *known == name) {
             people.push((name, habit));
