@@ -34,12 +34,22 @@ Each content file has one city section.
 
 ### Network
 
-A network section makes one target network by hand. A run starts when a player goes from a hub host to a host in a network.
+A network section makes one network by hand. A run starts when a player goes from a hub host to a host in a network.
 
 | Key | Count | Meaning |
 | --- | --- | --- |
 | `name` | 1 | The name of the network that players see, for example the name of the company. |
 | `security` | 0 or 1 | `low`, `medium`, `high`, or `top`. The default is `low`. A trace in this network gives 1, 2, 3, or 5 heat. |
+| `zone` | 0 or 1 | `target`, `darknet`, or `arena`. The default is `target`. |
+| `base` | 0 or 2 | A host of an arena where one side of a fight starts. Each arena must have two different bases. |
+
+The zone sets the rules of the network:
+
+- **Target.** Each run gets its own copy of the network, or one copy for each crew. Noise raises the trace.
+- **Darknet.** All handles share one copy, and noise gives no trace. Handles can attack each other there. The players must agree before they enter.
+- **Arena.** Duels and crew matches occur in an arena. Each fight gets its own copy, and the fight puts the handles on the two bases.
+
+An arena has no route from the city. As a result, its hosts do not connect to hub hosts, and the check for hosts that players cannot reach skips them. The server uses the first arena of the content file.
 
 ### Host
 
@@ -144,12 +154,12 @@ Each corporation counts the uses of `exploit` against each software family, and 
 
 ### Shop
 
-A shop section opens a shop on a hub host. The section name is the name of the host, for example `[shop night-market]`. Each shop also has a fence that buys stolen data.
+A shop section opens a shop on a hub host or on a host in a darknet. The section name is the name of the host, for example `[shop night-market]`. Each shop also has a fence that buys stolen data. The fence of a shop in a darknet pays 50% more, and it has its own prices.
 
 | Key | Count | Meaning |
 | --- | --- | --- |
 | `program` | 0 or more | A program and its price in credits, for example `program = mask 400`. |
-| `blueprint` | 0 or more | A program and the price of its blueprint for version 2, for example `blueprint = crack 600`. The program must have versions. |
+| `blueprint` | 0 or more | A program, a version, and the price of its blueprint, for example `blueprint = crack 3 2500`. The program must have versions. The version is 2 or 3. Without a version, the blueprint is for version 2. |
 | `ram` | 0 or more | A RAM size in GB and its price, for example `ram = 12 900`. Each size must be more than the size before it. |
 | `cpu` | 0 or more | A number of cycles and its price, for example `cpu = 5 1200`. Each number must be more than the number before it. |
 
@@ -275,9 +285,11 @@ The server checks a content file before it uses the file. It finds these errors 
 - Two sections of the same type with the same name, and two files or two ICE with the same name on one host.
 - Routes and files on unknown hosts, and routes from a host to itself.
 - A start host that does not exist.
-- Hosts that players cannot reach from the start host.
-- A home, burns, news, auction, fixer, or shop host that does not exist, or that is in a network.
+- Hosts that players cannot reach from the start host. Hosts in an arena are not errors.
+- A home, burns, news, auction, or fixer host that does not exist, or that is in a network.
+- A shop host that does not exist, or that is in a target network or in an arena.
 - Networks without hosts, hosts in unknown networks, and routes between two networks.
+- Unknown zones, bases of networks that are not arenas, bases outside their arena, arenas without two bases, and routes into an arena.
 - Unknown security levels, budgets, and layers.
 - ICE on unknown hosts or on hub hosts, unknown ICE types, and bad versions.
 - Wardens without a `guards` key, other ICE with a `guards` key, and wardens that guard no route.
@@ -288,7 +300,7 @@ The server checks a content file before it uses the file. It finds these errors 
 - Corps without data, data lines without a colon, and corps without a template for each layer.
 - Templates with the name of a host, laptop templates on a layer that is not `lan`, and vault templates without a laptop template.
 - A channel with the name `crew`.
-- Unknown programs in a shop, blueprints for programs without versions, bad prices, and RAM or CPU steps that do not go up.
+- Unknown programs in a shop, blueprints for programs without versions, bad blueprint versions, bad prices, and RAM or CPU steps that do not go up.
 - Bad values for `pay`, `max-heat`, `auto`, and `laptop`.
 
 The server shows all errors at the same time. As a result, you can correct all of them in one step.

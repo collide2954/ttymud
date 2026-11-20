@@ -200,8 +200,29 @@ mod tests {
     fn help_names_the_topics() {
         assert_eq!(
             run("help").last().map(String::as_str),
-            Some("Topics: crews, economy, heat, ice, pipes, runs, soc. Example: help ice")
+            Some("Topics: crews, economy, heat, ice, pipes, pvp, runs, soc. Example: help ice")
         );
+    }
+
+    #[test]
+    fn help_pvp_explains_the_darknet_the_tip_and_the_fights() {
+        let pvp = run("help pvp");
+        assert_eq!(pvp[0], "Fights between handles");
+        for word in [
+            "darknet",
+            "probe <handle> | crack",
+            "tip <handle>",
+            "duel <handle>",
+            "match <crew>",
+        ] {
+            assert!(
+                pvp.iter().any(|line| line.contains(word)),
+                "{word}: {pvp:?}"
+            );
+        }
+        assert_eq!(run("help darknet"), pvp);
+        assert_eq!(run("help arena"), pvp);
+        assert_eq!(run("help duel")[0], "duel <handle> [credits]");
     }
 
     #[test]

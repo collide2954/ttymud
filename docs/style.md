@@ -91,7 +91,9 @@ The check cannot find all STE problems. A person must also read each document.
 | account | The identity of a person on a server. A key pair identifies the account. |
 | alert level | The state of alarm of a corporation: green, yellow, orange, or red. |
 | analyst | An NPC who works in a SOC. |
+| arena | A network for fights between handles: duels and crew matches. Each fight gets its own copy. |
 | audit log | The file where the server writes each action of the moderators. |
+| base | A host in an arena where one side of a fight starts. |
 | blueprint | Know-how that lets a handle compile one version of a program. |
 | bridge | A way into a vault: the sync of a maintenance laptop, a USB drive, or an old modem line. |
 | budget | How much a corporation spends on security: low, medium, high, or top. |
@@ -106,9 +108,12 @@ The check cannot find all STE problems. A person must also read each document.
 | crew | A group of up to 4 handles, with a leader, a channel, and a reputation. |
 | crewmate | A handle in the same crew. |
 | cycle | One unit of CPU time on a rig. |
+| darknet | A network without law that all handles share. Other handles can attack you there, and noise gives no trace. |
 | display layer | One level of the client display: line, edit, color, or HUD. |
+| duel | A fight between two handles in an arena. |
 | fence | An NPC who buys stolen data. |
 | fixer | An NPC who gives contracts. |
+| flag | A file on a base in a crew match. A crew scores when it carries the flag of the other crew to its own base. |
 | habit | How an analyst works: careful, lazy, or strict. |
 | handle | A character under an account. A handle can burn. |
 | headline | One item of the news feed. |
@@ -129,6 +134,7 @@ The check cannot find all STE problems. A person must also read each document.
 | loot | Data and items that a handle takes from a target. |
 | lot | One item of the police auction. |
 | maintenance laptop, laptop | A LAN host of a heist target that syncs with the vault at times. |
+| match | A game of capture the flag between two crews in an arena. |
 | mod | A change to a program, for example the quiet mod: 1 less noise for 1 more cycle. |
 | moderator | A player who can mute, kick, and ban other players. The operator selects the moderators. |
 | news feed, news | The public list of the latest events in a city. |
@@ -148,7 +154,7 @@ The check cannot find all STE problems. A person must also read each document.
 | run | One visit of a handle to a target, from entry to exit. |
 | security level | The strength of the security of a host: low, medium, high, or top. |
 | shift | The time when a group of analysts works in a SOC: the day shift or the night shift. |
-| shop | A place on a hub host that sells programs and hardware. |
+| shop | A place on a hub host or in a darknet that sells programs, blueprints, and hardware. |
 | SOC | The security operations center of a corporation. |
 | software family, software | The software that a host runs, for example a mail server. An exploit attacks one software family. |
 | starter kit, kit | The first programs of a new handle. A kit sets the first role of the handle. |
@@ -160,9 +166,11 @@ The check cannot find all STE problems. A person must also read each document.
 | trace | How near the SOC is to the location of a handle, from 0% to 100%. |
 | vault | The last layer of a heist target. It has no route, so a crew needs a bridge. |
 | version | The strength of a program, from v1 to v3. A higher version makes the main effect of the program stronger. |
+| wager | The credits that the loser of a fight pays to the winner. |
 | weak point | A flaw of an ICE that `probe` finds. |
 | workspace | A set of Rust crates that build together. |
 | world seed | The number that sets the job board and the targets of a server. |
+| zone | The type of a network: target, darknet, or arena. |
 
 ## Technical verbs
 
@@ -190,4 +198,5 @@ The check cannot find all STE problems. A person must also read each document.
 | scan | To find hosts and services. |
 | scroll | To move the text in a pane up or down. |
 | scrub | To delete log lines. |
+| tip off | To tell the police about a handle. It adds heat to that handle. |
 | unload | To remove a program from the RAM of a rig. |

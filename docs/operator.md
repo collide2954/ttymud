@@ -94,7 +94,7 @@ The server keeps the game data in plain text files in the data directory:
 - `accounts/`: one file for each account. The file has the handle, the rig, the credits, the reputation, the contract, the know-how, and the stash of the account. The name of the file is the first public key of the account in hexadecimal.
 - `keys.ini`: the keys of each account, and a hash of each recovery code. The server never keeps a recovery code.
 - `burns.ini`: the burn list.
-- `world.ini`: the seed of the world. The server makes the file at its first start. It also keeps the data prices that the fence lowered. A `[corp]` section keeps the state of each corporation: its alert level, its exploit counts, and its patches.
+- `world.ini`: the seed of the world. The server makes the file at its first start. It also keeps the data prices that the fences lowered. A `[corp]` section keeps the state of each corporation: its alert level, its exploit counts, and its patches. A `[fence]` section keeps the prices of each fence in a darknet.
 - `news.ini`: the last 50 headlines of the news feed.
 - `crews.ini`: the crews, with their members, their reputation, and their heists.
 - `auction.ini`: the lots of the police auction, with their top bids.
@@ -102,6 +102,8 @@ The server keeps the game data in plain text files in the data directory:
 - `audit.log`: the actions of the moderators, one on each line.
 - `reports.ini`: the reports of the players, with their chat.
 - `bans.ini`: the banned accounts, and the IP addresses of IP bans.
+
+The server does not keep the files that crashed rigs leave in a darknet, the open challenges, and the fights in the arena. After a restart, they are gone. The save of a fighter keeps the rig from before the fight, so a restart takes nothing from the fighters.
 
 The server writes a file each time its data changes. A storage thread writes the files, so a slow disk does not stop the game. The server writes each file to a temporary file first, and then it renames the file. As a result, a crash cannot leave a damaged file.
 

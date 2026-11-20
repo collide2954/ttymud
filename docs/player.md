@@ -384,3 +384,47 @@ The stash keeps files safe from a burn. It holds 3 files. Use these commands at 
 - `unstash <file>` moves a file from the stash back to your rig.
 
 The `stash` command without a file shows the files in the stash. It works on all hosts.
+
+## Fights between handles
+
+Other handles can attack you only in places that you select: a darknet, a duel, or a crew match. In targets and in the city, no handle can attack you. Type `help pvp` for a summary.
+
+## Darknets
+
+A darknet is a network that all handles share. In Port Ostra, the Undercity is a darknet under the Night Market. When you go to a darknet, the game tells you the risks. To agree, type the same `go` command again in the next 60 seconds. The game asks again each time that you come in from the city.
+
+In a darknet, noise gives no trace and no heat. But other handles on your host can attack your rig:
+
+- `probe <handle>` shows the integrity, the firewall, and the programs of the rig. The handle sees the probe.
+- `crack <handle>` hits the integrity of the rig. `probe <handle> | crack` hits the weak point for double damage.
+- `firewall` stops the next attacks, and `patch` repairs your rig. A higher version makes each program stronger. For example, `crack` v3 does 25 damage.
+
+Crewmates cannot attack each other. If your rig crashes in a darknet, your data files and your blueprint files stay on that host. Any handle can download them. You wake up at your safehouse with 0 integrity. To leave at once, type `jackout`. It costs 20 integrity, but you keep your files.
+
+`tip <handle>` tells the police about a different handle in the same darknet. The tip adds 1 heat to that handle, but never the fifth heat. A handle gets only one tip in 24 hours. The handle does not learn who sent the tip.
+
+The fence of the Black Market in the Undercity pays 50% more than the fences in the city, and it has its own prices. The Black Market also sells blueprints for version 3.
+
+## Duels
+
+A duel is a fight between two handles in an arena. In Port Ostra, the arena is the Grid. Use these commands in the city, outside the networks:
+
+- `duel <handle>` challenges a handle. For a wager, add the credits, for example `duel zer0 100`.
+- `duel <handle>` also accepts the challenge of that handle. Type it in the next 60 seconds.
+
+Each handle starts on a base of the arena. Crash the rig of the other handle to win. A handle that jacks out or disconnects loses. After 10 minutes, the duel is a draw. The winner takes the wager from the loser.
+
+A fight gives no heat, and no rig loses anything. When the fight ends, you get back your integrity, your cycles, your files, and your place in the city.
+
+## Crew matches
+
+A crew match is a game of capture the flag between two crews in the arena. Only a crew leader can start a match:
+
+- `match <crew>` challenges a crew. For a wager between the two leaders, add the credits, for example `match owls 200`.
+- `match <crew>` also accepts the challenge of that crew. Type it in the next 60 seconds.
+
+All crewmates who are online and in the city join the match. Each crew starts on its base, and each base has the flag of its crew, for example `owls.flag`. Download the flag of the other crew, and carry it to your own base. Each time that you do this, your crew scores one capture. You cannot take the flag of your own crew.
+
+If your rig crashes in a match, you wake up at your base with full integrity and 0 cycles. A flag that you carry goes back to its base. The first crew with 3 captures wins. After 15 minutes, the crew with more captures wins, and a tie is a draw.
+
+A crewmate who jacks out or disconnects leaves the match. If the leader leaves, the crew loses the match. The leader of the winning crew takes the wager from the other leader.

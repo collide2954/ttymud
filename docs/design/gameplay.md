@@ -486,3 +486,32 @@ The account keeps these things:
 - **The offshore stash.** At your home host, the `stash` command moves a file from your rig into the stash. The stash holds 3 files. After a burn, the next handle gets the stash. Later, the stash will also hold credits, and each deposit will have a fee.
 
 Then the player makes a new handle and selects a starter kit. The new handle starts with heat 0 and a new rig.
+
+## PvP by consent
+
+TTYmud is PvE first. A handle can attack a different handle only in a darknet, in a duel, or in a crew match. Each of them needs the consent of the player.
+
+### Attacks on a rig
+
+In a darknet or an arena, `probe` and `crack` work on the rig of a handle on the same host. The `probe` command shows the integrity, the firewall, and the programs of the rig, and it tells the handle. A crack after a probe in the same pipeline does double damage. The `firewall` program stops cracks from handles as it stops ICE. The versions of the programs count, so `crack` v3 does 25 damage. Crewmates cannot attack each other.
+
+### Darknets
+
+A darknet is a network with `zone = darknet`. All handles share one copy of it. Before each entry from the city, the game shows the risks, and a second `go` to the same host in 60 seconds enters. Noise in a darknet gives no trace and no heat.
+
+A crash in a darknet leaves the data files and the blueprint files of the rig on the host. Any handle can download them, and a download takes the file away. The handle wakes up at its home host with 0 integrity. A darknet keeps the newest 100 dropped files.
+
+The `tip <handle>` command adds 1 heat to a different handle in the same darknet. A tip never takes the heat from 4 to 5, so a tip cannot burn a handle. A handle gets one tip in 24 hours, and its save keeps the time of the last tip. The tip does not name the sender.
+
+The fence of a shop in a darknet pays 150% of the value of a file. It keeps its own prices, which go down and come back as in the city. A shop can sell blueprints for version 3.
+
+### Arenas
+
+An arena is a network with `zone = arena` and two bases. It has no route from the city. Each fight gets its own copy of the arena, and each side starts on a base. A fight gives no heat and causes no loss. When the fight ends, each rig gets back its integrity, cycles, files, and place in the city. During a fight, the save keeps the rig from before the fight.
+
+| Fight | Start | Win | Time |
+| --- | --- | --- | --- |
+| Duel | `duel <handle> [credits]`, and the other handle answers in 60 seconds. | Crash the other rig. A jack out or a disconnect loses. | After 10 minutes, a draw. |
+| Crew match | `match <crew> [credits]` by a leader, and the other leader answers in 60 seconds. | Carry the flag of the other crew to your base 3 times. | After 15 minutes, the crew with more captures wins. A tie is a draw. |
+
+In a crew match, the crewmates who are online and in the city join. A crash sends the handle to its base with full integrity and 0 cycles, and the flag that it carries goes back. A crewmate who jacks out or disconnects leaves the match. If a leader leaves, the crew loses. The loser pays the wager to the winner. In a crew match, the two leaders pay and get the wager.

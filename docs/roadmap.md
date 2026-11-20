@@ -106,10 +106,15 @@ M9 added crew channels.
 - Data prices for each file name. Each sale lowers the price, and the price comes back with time.
 - The police auction of the rigs of burned handles, with `lots` and `bid`, in `auction.ini`.
 
-### M11: PvP by consent
+### M11: PvP by consent (done)
 
-- Duels and capture-the-flag matches.
-- Darknet zones.
+- Darknet zones that all handles share, with consent by a second `go`, and no trace.
+- `probe` and `crack` against the rigs of other handles, with `firewall` and `patch` as defenses. Crewmates cannot attack each other.
+- A crash in a darknet leaves the valuable files on the host and wakes the handle at home.
+- `tip <handle>`: 1 heat, one tip in 24 hours, and never the fifth heat.
+- A darknet fence that pays 150% with its own prices, and blueprints for version 3 in shops.
+- Arena networks with two bases, duels with wagers, and capture-the-flag matches between crews.
+- The Undercity darknet and the Grid arena in Port Ostra.
 
 ## Version 0.3 and later
 

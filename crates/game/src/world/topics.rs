@@ -2,10 +2,12 @@ use ttymud_text::{Kind, Message, Style};
 
 pub(super) const TOPICS: &[&str] = &[
     "alert",
+    "arena",
     "auction",
     "blueprints",
     "burn",
     "crews",
+    "darknet",
     "economy",
     "heat",
     "heist",
@@ -13,6 +15,7 @@ pub(super) const TOPICS: &[&str] = &[
     "patches",
     "pipes",
     "pipelines",
+    "pvp",
     "runs",
     "soc",
     "trace",
@@ -25,6 +28,7 @@ pub(super) fn topic(name: &str) -> Option<Vec<Message>> {
         "heat" | "burn" => Some(heat()),
         "ice" => Some(ice()),
         "pipes" | "pipelines" => Some(pipes()),
+        "pvp" | "darknet" | "arena" => Some(pvp()),
         "runs" | "trace" => Some(runs()),
         "soc" | "alert" | "patches" => Some(soc()),
         _ => None,
@@ -32,8 +36,31 @@ pub(super) fn topic(name: &str) -> Option<Vec<Message>> {
 }
 
 pub(super) fn index() -> Message {
-    Message::game("Topics: crews, economy, heat, ice, pipes, runs, soc. Example: ")
+    Message::game("Topics: crews, economy, heat, ice, pipes, pvp, runs, soc. Example: ")
         .span(Style::Command, "help ice")
+}
+
+fn pvp() -> Vec<Message> {
+    let command = |text: &str| Message::new(Kind::Game).span(Style::Command, text);
+    vec![
+        title("Fights between handles"),
+        Message::game(
+            "Handles can attack each other only in a darknet, in a duel, or in a crew match.",
+        ),
+        Message::game("In a darknet, noise gives no trace. ")
+            .span(Style::Command, "probe <handle> | crack")
+            .text(" attacks a rig on your host."),
+        Message::game(
+            "A crash in a darknet leaves your data and blueprints on the host, and you wake up at home.",
+        ),
+        command("tip <handle>")
+            .text(" gives 1 heat to a handle in your darknet. A handle gets one tip in 24 hours."),
+        command("duel <handle> [credits]").text(" challenges a handle to a fight in the arena."),
+        Message::game("A crew leader types ")
+            .span(Style::Command, "match <crew> [credits]")
+            .text(" for capture the flag. 3 captures win."),
+        Message::game("A fight gives no heat. When it ends, your rig is as it was before."),
+    ]
 }
 
 fn economy() -> Vec<Message> {
