@@ -40,7 +40,7 @@ impl fmt::Display for ConnectError {
             Self::NotTrusted => f.write_str("you did not trust the server"),
             Self::KeyChanged { address, .. } => write!(f, "the key of {address} changed"),
             Self::WrongKey { address, .. } => {
-                write!(f, "the key of {address} is not the key that you gave")
+                write!(f, "the key of {address} is not the expected key")
             }
         }
     }

@@ -1,18 +1,24 @@
 use std::ffi::OsString;
+use std::fmt::Write as _;
 use std::io::{self, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use ttymud::{Choices, ConnectError, Depth, Ending, Layer, Settings};
+use ttymud::{Choices, ConnectError, Depth, Ending, Layer, Server, Settings};
 use ttymud_net::PublicKey;
+
+const SERVERS_PAGE: &str = "https://collide2954.github.io/ttymud/servers.html";
 
 const USAGE: &str = "\
 Usage: ttymud [OPTION]
-       ttymud connect <ADDRESS> [--key KEY] [--accept-new] [--config DIR]
+       ttymud servers
+       ttymud connect <ADDRESS|NAME> [--key KEY] [--accept-new] [--config DIR]
                       [--layer LAYER] [--color DEPTH] [--ascii] [--verbose]
 
 Commands:
+  servers            Show the public list of servers.
   connect <ADDRESS>  Connect to a server. The default port is 7331.
+  connect <NAME>     Connect to a server from the public list.
 
 Options:
   --key KEY        Check that the server has this key: the 64 hexadecimal
@@ -33,6 +39,7 @@ Options:
 enum Cli {
     Help,
     Version,
+    Servers,
     Connect(Options),
 }
 
@@ -49,6 +56,7 @@ fn parse(args: &[OsString]) -> Result<Cli, String> {
     match args {
         [] => Ok(Cli::Help),
         [command, rest @ ..] if command == "connect" => parse_connect(rest),
+        [command] if command == "servers" => Ok(Cli::Servers),
         [flag] => match flag.to_str() {
             Some("-h" | "--help") => Ok(Cli::Help),
             Some("-V" | "--version") => Ok(Cli::Version),
@@ -110,6 +118,7 @@ fn main() -> ExitCode {
     match cli {
         Cli::Help => print!("{USAGE}"),
         Cli::Version => println!("ttymud {}", env!("CARGO_PKG_VERSION")),
+        Cli::Servers => print!("{}", listing(&ttymud::servers())),
         Cli::Connect(options) => match connect(&options) {
             Ok(Ending::Quit) => {}
             Ok(Ending::Closed) => println!("The connection to the server closed."),
@@ -141,13 +150,11 @@ fn connect(options: &Options) -> Result<Ending, String> {
         );
     }
     let known = dir.join("known_servers");
-    let link = ttymud::connect(
-        &options.address,
-        &identity.keys,
-        &known,
-        options.key,
-        |address, key| trust(address, key, options.accept_new),
-    )
+    let servers = ttymud::servers();
+    let (address, key) = target(options, &servers);
+    let link = ttymud::connect(address, &identity.keys, &known, key, |address, key| {
+        trust(address, key, options.accept_new)
+    })
     .map_err(|error| explain(&error, &known))?;
     let ending = match settings.layer {
         Layer::Line => {
@@ -165,6 +172,32 @@ fn connect(options: &Options) -> Result<Ending, String> {
         Layer::Hud => ttymud::hud_mode(link, settings),
     };
     ending.map_err(|error| error.to_string())
+}
+
+fn target<'a>(options: &'a Options, servers: &'a [Server]) -> (&'a str, Option<PublicKey>) {
+    match servers.iter().find(|server| server.name == options.address) {
+        Some(server) => (&server.address, options.key.or(Some(server.key))),
+        None => (&options.address, options.key),
+    }
+}
+
+fn listing(servers: &[Server]) -> String {
+    let mut text = String::new();
+    if servers.is_empty() {
+        text.push_str("This version of ttymud knows no public servers.\n");
+        text.push_str("To connect to a server by its address, type: ttymud connect ADDRESS\n");
+    } else {
+        let width = servers.iter().map(|server| server.name.len()).max();
+        let width = width.unwrap_or_default();
+        for server in servers {
+            let (name, city, address) = (&server.name, &server.city, &server.address);
+            let _ = writeln!(text, "{name:width$}  {city} at {address}");
+            let _ = writeln!(text, "{:width$}  {}", "", server.description);
+        }
+        text.push_str("\nTo connect to a server, type: ttymud connect NAME\n");
+    }
+    let _ = writeln!(text, "To add your server to the list, read {SERVERS_PAGE}");
+    text
 }
 
 fn trust(address: &str, key: PublicKey, accept_new: bool) -> io::Result<bool> {
@@ -216,12 +249,81 @@ fn explain(error: &ConnectError, known: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cli, Options, parse};
+    use super::{Cli, Options, listing, parse, target};
     use std::ffi::OsString;
-    use ttymud::{Choices, Depth, Layer};
+    use ttymud::{Choices, Depth, Layer, Server};
+    use ttymud_net::Keys;
 
     fn args(list: &[&str]) -> Vec<OsString> {
         list.iter().map(OsString::from).collect()
+    }
+
+    fn ostra() -> Server {
+        Server {
+            name: "ostra".to_owned(),
+            city: "Port Ostra".to_owned(),
+            address: "ostra.example.net:7331".to_owned(),
+            key: Keys::generate().unwrap().public(),
+            description: "The first city.".to_owned(),
+        }
+    }
+
+    #[test]
+    fn servers_takes_no_arguments() {
+        assert_eq!(parse(&args(&["servers"])), Ok(Cli::Servers));
+        assert_eq!(
+            parse(&args(&["servers", "all"])),
+            Err("too many arguments".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_listed_name_gives_the_address_and_the_key_of_the_server() {
+        let list = [ostra()];
+        let given = Keys::generate().unwrap().public();
+        let options = |address: &str, key| Options {
+            address: address.to_owned(),
+            key,
+            ..Options::default()
+        };
+        let address = "ostra.example.net:7331";
+        assert_eq!(
+            target(&options("ostra", None), &list),
+            (address, Some(list[0].key))
+        );
+        assert_eq!(
+            target(&options("ostra", Some(given)), &list),
+            (address, Some(given))
+        );
+        assert_eq!(
+            target(&options("ostra:7331", None), &list),
+            ("ostra:7331", None)
+        );
+    }
+
+    #[test]
+    fn the_listing_shows_each_server_and_how_to_connect() {
+        let dock = Server {
+            name: "dock-7".to_owned(),
+            ..ostra()
+        };
+        assert_eq!(
+            listing(&[dock, ostra()]),
+            "dock-7  Port Ostra at ostra.example.net:7331\n        The first city.\n\
+             ostra   Port Ostra at ostra.example.net:7331\n        The first city.\n\n\
+             To connect to a server, type: ttymud connect NAME\n\
+             To add your server to the list, read https://collide2954.github.io/ttymud/servers.html\n"
+        );
+    }
+
+    #[test]
+    fn an_empty_listing_tells_how_to_connect_and_how_to_add_a_server() {
+        assert_eq!(
+            listing(&[]),
+            "This version of ttymud knows no public servers.\n\
+             To connect to a server by its address, type: ttymud connect ADDRESS\n\
+             To add your server to the list, read https://collide2954.github.io/ttymud/servers.html\n"
+        );
     }
 
     #[test]

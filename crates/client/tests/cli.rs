@@ -95,6 +95,21 @@ fn unknown_argument_fails_with_a_hint() -> io::Result<()> {
 }
 
 #[test]
+fn servers_shows_the_public_list() -> io::Result<()> {
+    let output = ttymud(&["servers"])?;
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for server in ttymud::servers() {
+        assert!(stdout.contains(&server.name), "{stdout}");
+    }
+    assert!(
+        stdout.contains("To add your server to the list"),
+        "{stdout}"
+    );
+    Ok(())
+}
+
+#[test]
 fn connect_plays_on_a_server() -> io::Result<()> {
     let (address, _) = echo_server();
     let config = scratch("play");
@@ -138,7 +153,7 @@ fn a_wrong_given_key_stops_with_a_warning() -> io::Result<()> {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("WARNING: the key of") && stderr.contains("is not the key that you gave"),
+        stderr.contains("WARNING: the key of") && stderr.contains("is not the expected key"),
         "{stderr}"
     );
     Ok(())
