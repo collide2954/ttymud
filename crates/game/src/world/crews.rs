@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use ttymud_text::{Message, Style};
+use ttymud_text::{Kind, Message, Style};
 
 use super::account::{Phase, good_name};
 use super::presence::named;
@@ -402,6 +402,40 @@ impl World {
         Gone::Left(None)
     }
 
+    pub(super) fn crew_say(&mut self, player: PlayerId, text: &str) -> Vec<Output> {
+        let name = self.handle(player).unwrap_or_default().to_owned();
+        let Some(key) = self.crews.key_of(&name) else {
+            return self.deliver(player, vec![Message::error(NO_CREW)]);
+        };
+        if text.is_empty() {
+            return self.deliver(player, vec![Message::error("Usage: #crew <text>.")]);
+        }
+        if let Some(refusal) = self.muted(player).or_else(|| self.repeated(player, text)) {
+            return self.deliver(player, vec![refusal]);
+        }
+        let message = Message::new(Kind::Chat)
+            .text("[crew] <")
+            .span(Style::Player, &name)
+            .text("> ")
+            .text(text);
+        let crew = &self.crews.list[&key];
+        let mates: Vec<PlayerId> = self
+            .players
+            .iter()
+            .filter(|&(&other, state)| {
+                other != player && state.phase == Phase::Playing && crew.has(&state.name)
+            })
+            .map(|(&other, _)| other)
+            .filter(|&other| self.hears(other, player))
+            .collect();
+        self.outbox.extend(mates.into_iter().map(|other| Output {
+            player: other,
+            message: message.clone(),
+        }));
+        self.remember(player, None, "#crew", text);
+        self.deliver(player, vec![message])
+    }
+
     pub(super) fn tell_crew(&mut self, key: &str, except: PlayerId, message: &Message) {
         let Some(crew) = self.crews.list.get(key) else {
             return;
@@ -646,6 +680,41 @@ mod tests {
         assert_eq!(
             plain(&world.command(zer0, "crew kick kid")),
             ["No crewmate named kid. Crew: nyx, zer0"]
+        );
+    }
+
+    #[test]
+    fn crew_chat_reaches_the_crewmates_on_all_hosts() {
+        let (mut world, players) = crewed();
+        let (nyx, zer0, kid) = (players[0], players[1], players[2]);
+        world.command(zer0, "go market");
+        let outputs = world.command(nyx, "#crew meet at the gate");
+        assert_eq!(heard(&outputs, nyx), ["[crew] <nyx> meet at the gate"]);
+        assert_eq!(heard(&outputs, zer0), ["[crew] <nyx> meet at the gate"]);
+        assert_eq!(heard(&outputs, kid), Vec::<String>::new());
+        assert_eq!(
+            plain(&world.command(kid, "#crew hi")),
+            ["You are not in a crew. Type crew create <name> to make one."]
+        );
+        assert_eq!(
+            plain(&world.command(nyx, "#CREW")),
+            ["Usage: #crew <text>."]
+        );
+        world.command(zer0, "ignore nyx");
+        let outputs = world.command(nyx, "#crew again");
+        assert_eq!(heard(&outputs, zer0), Vec::<String>::new());
+    }
+
+    #[test]
+    fn channels_lists_the_crew_channel_for_a_crewmate() {
+        let (mut world, players) = crewed();
+        let shown = plain(&world.command(players[0], "channels"));
+        let line = "#crew: The channel of the crew Ghostwire. Only your crewmates hear it.";
+        assert!(shown.contains(&line.to_owned()), "{shown:?}");
+        let other = plain(&world.command(players[2], "channels"));
+        assert!(
+            !other.iter().any(|line| line.starts_with("#crew")),
+            "{other:?}"
         );
     }
 

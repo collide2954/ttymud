@@ -14,6 +14,12 @@ impl Reader {
         }
         self.allow(section, &["desc", "auto"]);
         self.check_name(section.line, id, Name::Plain);
+        if id == "crew" {
+            self.error(
+                section.line,
+                "the channel name crew is for crews".to_owned(),
+            );
+        }
         let desc = self.single(section, "desc").unwrap_or_default().0;
         let auto = match self.optional(section, "auto") {
             None => false,

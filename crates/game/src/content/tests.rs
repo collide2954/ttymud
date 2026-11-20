@@ -110,6 +110,10 @@ fn a_channel_has_a_description_and_can_be_automatic() {
         errors(&format!("{text}[channel city]\ndesc = Again.\n")),
         ["line 24: channel city is defined more than once"]
     );
+    assert_eq!(
+        errors(&format!("{NET}[channel crew]\ndesc = Mine.\n")),
+        ["line 19: the channel name crew is for crews"]
+    );
 }
 
 #[test]

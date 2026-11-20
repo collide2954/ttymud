@@ -56,6 +56,17 @@ impl World {
                 line
             })
             .collect();
+        let name = self.handle(player).unwrap_or_default();
+        if let Some(crew) = self.crews.of(name) {
+            shown.push(
+                Message::game("")
+                    .span(Style::Command, "#crew")
+                    .text(format!(
+                        ": The channel of the crew {}. Only your crewmates hear it.",
+                        crew.name
+                    )),
+            );
+        }
         shown.push(
             Message::game("Type ")
                 .span(Style::Command, "#<channel> <text>")
@@ -117,6 +128,9 @@ impl World {
     }
 
     pub(super) fn channel_say(&mut self, player: PlayerId, name: &str, text: &str) -> Vec<Output> {
+        if name.eq_ignore_ascii_case("crew") {
+            return self.crew_say(player, text);
+        }
         let id = match self.channel_named(name) {
             Ok(id) => id,
             Err(message) => return self.deliver(player, vec![message]),
