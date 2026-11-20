@@ -144,6 +144,7 @@ pub(crate) struct File {
     pub(crate) value: u32,
     pub(crate) lock: Level,
     pub(crate) key: Option<String>,
+    pub(crate) bait: bool,
 }
 
 impl File {
@@ -154,6 +155,7 @@ impl File {
             value: 0,
             lock: Level::Guest,
             key: None,
+            bait: false,
         }
     }
 

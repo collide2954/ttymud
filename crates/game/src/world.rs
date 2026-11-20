@@ -1072,8 +1072,12 @@ mod tests {
         );
         assert_eq!(run("help | go"), ["go needs routes, but help gives lines."]);
         assert_eq!(
-            run("ls | grep x | probe"),
-            ["probe needs ICE, but ls gives routes and files."]
+            run("ls | grep x | pretext"),
+            ["pretext needs ICE, but ls gives routes and files."]
+        );
+        assert_eq!(
+            run("help | probe"),
+            ["probe needs files and ICE, but help gives lines."]
         );
     }
 

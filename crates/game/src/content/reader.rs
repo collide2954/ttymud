@@ -317,7 +317,7 @@ impl Reader {
     }
 
     fn file(&mut self, section: &Section<'_>) {
-        self.allow(section, &["line"]);
+        self.allow(section, &["line", "bait"]);
         let Some((host, name)) = section.id.split_once('/') else {
             self.error(
                 section.line,
@@ -335,7 +335,8 @@ impl Reader {
             let id = section.id;
             self.error(section.line, format!("file {id} has no line"));
         }
-        let file = File::new(name, lines);
+        let mut file = File::new(name, lines);
+        file.bait = self.yes_or_no(section, "bait");
         self.files.push((host.to_owned(), file, section.line));
     }
 

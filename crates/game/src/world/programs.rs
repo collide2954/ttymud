@@ -4,6 +4,7 @@ use super::instance::InstanceId;
 use super::presence::named;
 use super::{HostId, Output, PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::{self, Command, Item, Program, Verb};
+use crate::content::File;
 
 #[derive(Debug)]
 pub(super) enum Target {
@@ -251,6 +252,9 @@ impl World {
         args: &[String],
         input: Option<Vec<Item>>,
     ) -> Result<Step, Message> {
+        if let Some(files) = self.probed_files(player, args, input.as_deref()) {
+            return Ok(probe_files(&files));
+        }
         let targets = self.targets(player, "probe", args, input)?;
         let mut step = Step::default();
         for target in targets {
@@ -260,6 +264,33 @@ impl World {
             }
         }
         Ok(step)
+    }
+
+    fn probed_files(
+        &self,
+        player: PlayerId,
+        args: &[String],
+        input: Option<&[Item]>,
+    ) -> Option<Vec<File>> {
+        let files: Vec<File> = if let Some(items) = input {
+            let piped = items.iter().filter_map(|item| match item {
+                Item::File(file) => Some(file.clone()),
+                Item::Route(_) | Item::Ice { .. } | Item::Rig { .. } | Item::Line(_) => None,
+            });
+            piped.collect()
+        } else {
+            let here = self.files_on(self.here(player), player);
+            let found: Vec<File> = args
+                .iter()
+                .filter_map(|arg| here.iter().find(|file| file.name == *arg))
+                .map(|&file| file.clone())
+                .collect();
+            if found.len() < args.len() {
+                return None;
+            }
+            found
+        };
+        (!files.is_empty()).then_some(files)
     }
 
     fn probe_ice(&self, player: PlayerId, name: String, step: &mut Step) {
@@ -332,6 +363,23 @@ impl World {
                 .collect(),
         }
     }
+}
+
+fn probe_files(files: &[File]) -> Step {
+    let shown = files
+        .iter()
+        .map(|file| {
+            let verdict = if file.bait {
+                " is a honeypot. Do not touch it."
+            } else {
+                " is a real file."
+            };
+            Message::game("")
+                .span(Style::File, &file.name)
+                .text(verdict)
+        })
+        .collect();
+    Step::show(shown)
 }
 
 #[cfg(test)]

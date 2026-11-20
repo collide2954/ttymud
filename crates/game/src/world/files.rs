@@ -1,11 +1,13 @@
 use ttymud_text::{Kind, Message, Style};
 
+use super::run::MAX_TRACE;
 use super::{HostId, PlayerId, Step, Thing, World, choose, listing, usage};
 use crate::commands::Item;
-use crate::content::File;
+use crate::content::{File, Zone};
 use crate::contract::Event;
 
 const DOWNLOAD_NOISE: u32 = 2;
+const HONEYPOT_TRACE: u32 = 30;
 
 impl World {
     pub(super) fn read(
@@ -37,6 +39,11 @@ impl World {
         if let Some(refusal) = refusal {
             return Err(refusal);
         }
+        let baits: Vec<String> = files
+            .iter()
+            .filter(|file| file.bait && !carried(&file.name))
+            .map(|file| file.name.clone())
+            .collect();
         let named = files.len() > 1;
         let mut shown = Vec::new();
         let mut items = Vec::new();
@@ -51,6 +58,7 @@ impl World {
         }
         shown.extend(self.learn(player, &files));
         shown.extend(self.study(player, &files));
+        shown.extend(self.spring(player, &baits));
         Ok(Step { shown, items })
     }
 
@@ -85,6 +93,7 @@ impl World {
             return Ok(Step::default());
         };
         let mut copied = Vec::new();
+        let mut baits = Vec::new();
         for file in allowed {
             if state.rig.files.iter().any(|known| known.name == file.name) {
                 let name = &file.name;
@@ -99,6 +108,9 @@ impl World {
             if let Some(run) = &mut state.run {
                 run.loot.push(file.name.clone());
             }
+            if file.bait {
+                baits.push(file.name.clone());
+            }
             copied.push(file.name.clone());
             state.rig.files.push(file);
         }
@@ -111,7 +123,33 @@ impl World {
         if !copied.is_empty() {
             shown.extend(self.noise(player, DOWNLOAD_NOISE));
         }
+        shown.extend(self.spring(player, &baits));
         Ok(Step::show(shown))
+    }
+
+    fn spring(&mut self, player: PlayerId, baits: &[String]) -> Vec<Message> {
+        let mut shown = Vec::new();
+        for name in baits {
+            let Some(run) = self
+                .players
+                .get(&player)
+                .and_then(|state| state.run.as_ref())
+            else {
+                break;
+            };
+            if self.networks[run.network.0].zone != Zone::Target {
+                break;
+            }
+            let before = run.trace;
+            let after = (before + HONEYPOT_TRACE).min(MAX_TRACE);
+            shown.push(
+                Message::new(Kind::Telegraph)
+                    .span(Style::File, name)
+                    .text(format!(" is a honeypot. Trace: {before}% -> {after}%.")),
+            );
+            shown.extend(self.raise_trace(player, HONEYPOT_TRACE));
+        }
+        shown
     }
 
     pub(super) fn inventory(&self, player: PlayerId) -> Step {
@@ -205,7 +243,61 @@ fn piped_files(command: &str, items: Vec<Item>) -> Result<Vec<File>, Message> {
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::{run, walk};
+    use crate::testing::{plain, run, step, walk};
+
+    const BAITED: &str = "[city lab]\nname = Lab\nstart = hub\n[host hub]\nname = Hub\n\
+                          desc = A hub.\n[network net]\nname = Net\n[host gate]\nname = Gate\n\
+                          desc = A gate.\nnetwork = net\nroute = hub\n\
+                          [file gate/passwords.txt]\nline = Root passwords.\nbait = yes\n\
+                          [file gate/notes.txt]\nline = Notes.\n";
+
+    fn at_bait(lines: &[&str]) -> Vec<String> {
+        let content = crate::Content::parse(BAITED).unwrap();
+        let mut world = crate::World::new(content, 0);
+        let (player, _) = world.join("ghost");
+        let mut last = Vec::new();
+        for line in [&["go gate"][..], lines].concat() {
+            last = plain(&step(&mut world, player, line));
+        }
+        last
+    }
+
+    #[test]
+    fn reading_or_downloading_a_honeypot_raises_the_trace() {
+        assert_eq!(
+            at_bait(&["read passwords.txt"]),
+            [
+                "Root passwords.",
+                "passwords.txt is a honeypot. Trace: 0% -> 30%."
+            ]
+        );
+        assert_eq!(
+            at_bait(&["download passwords.txt"]),
+            [
+                "Downloaded passwords.txt.",
+                "passwords.txt is a honeypot. Trace: 2% -> 32%."
+            ]
+        );
+        assert_eq!(at_bait(&["read notes.txt"]), ["Notes."]);
+        assert_eq!(
+            at_bait(&["download passwords.txt", "read passwords.txt"]),
+            ["Root passwords."]
+        );
+    }
+
+    #[test]
+    fn probe_tells_a_honeypot_from_a_real_file() {
+        let verdicts = [
+            "passwords.txt is a honeypot. Do not touch it.",
+            "notes.txt is a real file.",
+        ];
+        assert_eq!(at_bait(&["probe passwords.txt notes.txt"]), verdicts);
+        assert_eq!(at_bait(&["ls | probe"]), verdicts);
+        assert_eq!(
+            at_bait(&["probe secrets.txt"]),
+            ["No ICE named secrets.txt. Type scan to find ICE."]
+        );
+    }
 
     #[test]
     fn read_shows_the_lines_of_a_file() {

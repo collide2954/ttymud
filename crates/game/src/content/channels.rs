@@ -40,7 +40,7 @@ impl Reader {
         });
     }
 
-    fn yes_or_no(&mut self, section: &Section<'_>, key: &str) -> bool {
+    pub(super) fn yes_or_no(&mut self, section: &Section<'_>, key: &str) -> bool {
         match self.optional(section, key) {
             None => false,
             Some((word, _)) if word == "yes" => true,

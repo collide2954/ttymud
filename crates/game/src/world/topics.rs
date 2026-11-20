@@ -257,6 +257,10 @@ fn ice() -> Vec<Message> {
             "lockjaw",
             "Noise wakes it. Its BITE freezes the program that you used last, for 6 ticks.",
         ),
+        kind(
+            "honeypot",
+            "A bait file. If you read or download it, your trace goes up by 30%. Type probe <file> to find it.",
+        ),
         Message::game("A crack after a probe in the same pipeline hits the weak point: ")
             .span(Style::Command, "probe sentry | crack"),
     ]

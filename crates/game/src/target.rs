@@ -8,6 +8,19 @@ use crate::random::{Random, mix};
 const HEIST_SALT: u64 = 0x7661;
 const BLUEPRINT_SALT: u64 = 0x6270;
 const ICE_SALT: u64 = 0x6963;
+const BAIT_SALT: u64 = 0x6261;
+const BAITS: [(&str, &str); 4] = [
+    (
+        "passwords.txt",
+        "Root passwords for all servers. Do not share.",
+    ),
+    (
+        "payroll.xls",
+        "The pay of each employee, with bank accounts.",
+    ),
+    ("vpn-keys.txt", "VPN keys for the members of the board."),
+    ("audit-report.pdf", "The internal audit. Confidential."),
+];
 const LAN_VALUE: u32 = 40;
 const CORE_VALUE: u32 = 100;
 const WORDS: [&str; 12] = [
@@ -143,6 +156,7 @@ pub(crate) fn generate(corp: &CorpDef, templates: &[TemplateDef], seed: u64) -> 
     if Random::new(mix(&[seed, BLUEPRINT_SALT])).below(3) == 0 {
         target.plant(seed, Layer::Core, 2);
     }
+    target.bait(seed);
     target.lock();
     target.leak(&mut random);
     target
@@ -377,6 +391,28 @@ impl Target {
             let host = hosts[random.below(hosts.len())];
             let security = self.hosts[host].security;
             self.hosts[host].ice.push(ice_def(kind, security, None));
+        }
+    }
+
+    fn bait(&mut self, seed: u64) {
+        let mut random = Random::new(mix(&[seed, BAIT_SALT]));
+        let hosts: Vec<usize> = self
+            .layer(Layer::Lan)
+            .into_iter()
+            .chain(self.layer(Layer::Core))
+            .collect();
+        if hosts.is_empty() {
+            return;
+        }
+        let host = &mut self.hosts[hosts[random.below(hosts.len())]];
+        let first = random.below(BAITS.len());
+        let free = (0..BAITS.len())
+            .map(|step| BAITS[(first + step) % BAITS.len()])
+            .find(|(name, _)| host.files.iter().all(|file| file.name != *name));
+        if let Some((name, line)) = free {
+            let mut file = File::new(name, vec![line.to_owned()]);
+            file.bait = true;
+            host.files.push(file);
         }
     }
 
@@ -754,6 +790,27 @@ mod tests {
                 "{seed}"
             );
         }
+    }
+
+    #[test]
+    fn each_target_has_one_bait_file_on_a_lan_or_core_host() {
+        let mut names = std::collections::BTreeSet::new();
+        for seed in 0..40 {
+            let target = target(seed);
+            let baits: Vec<(Layer, &File)> = target
+                .hosts
+                .iter()
+                .flat_map(|host| host.files.iter().map(move |file| (host.layer, file)))
+                .filter(|(_, file)| file.bait)
+                .collect();
+            let [(layer, file)] = baits.as_slice() else {
+                panic!("{seed}: {baits:?}");
+            };
+            assert!(matches!(layer, Layer::Lan | Layer::Core), "{seed}");
+            assert_eq!(file.value, 0, "{seed}");
+            names.insert(file.name.clone());
+        }
+        assert!(names.len() > 1, "{names:?}");
     }
 
     #[test]

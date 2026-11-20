@@ -243,6 +243,7 @@ impl Kinds {
     const PLACES: Self = Self(3);
     const LINES: Self = Self(4);
     const ICE: Self = Self(8);
+    const ICE_OR_FILES: Self = Self(10);
     const ANY: Self = Self(15);
 
     fn overlaps(self, other: Self) -> bool {
@@ -528,10 +529,10 @@ pub(crate) const COMMANDS: &[Command] = &[
     Command {
         verb: Verb::Probe,
         names: &["probe"],
-        usage: "probe <ice>",
-        summary: "Find the weak point of an ICE. In a darknet, it also shows the rig of a handle.",
+        usage: "probe <ice|file>",
+        summary: "Find the weak point of an ICE, or find out if a file is a honeypot. In a darknet, it also shows the rig of a handle.",
         example: "probe sentry",
-        takes: Takes::Optional(Kinds::ICE),
+        takes: Takes::Optional(Kinds::ICE_OR_FILES),
         gives: Gives::Items(Kinds::ICE),
     },
     Command {
