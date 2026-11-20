@@ -71,6 +71,10 @@ fn read(input: impl BufRead, events: &mpsc::Sender<Event>) {
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
+    use std::net::{TcpListener, TcpStream};
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::Duration;
 
     use super::line_mode;
     use crate::Ending;
@@ -134,5 +138,21 @@ mod tests {
     fn the_end_of_the_input_quits() {
         let (ending, _) = session("");
         assert_eq!(ending, Ending::Quit);
+    }
+
+    #[test]
+    fn quit_ends_the_session_when_the_socket_does_not_shut_down() {
+        let mut link = link(echo);
+        let other = TcpListener::bind("127.0.0.1:0").unwrap();
+        link.control = TcpStream::connect(other.local_addr().unwrap()).unwrap();
+        let (done, ended) = mpsc::channel();
+        thread::spawn(move || {
+            let input = Cursor::new(b"look\nquit\n".to_vec());
+            let mut screen = Vec::new();
+            let _ = done.send(line_mode(link, input, &mut screen, false).ok());
+        });
+        let ending = ended.recv_timeout(Duration::from_secs(10));
+        assert_eq!(ending, Ok(Some(Ending::Quit)));
+        drop(other);
     }
 }

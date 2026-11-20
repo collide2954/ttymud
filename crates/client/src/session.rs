@@ -1,6 +1,6 @@
 use std::io;
 use std::net::{Shutdown, TcpStream};
-use std::sync::mpsc;
+use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread;
 use std::time::Duration;
 
@@ -12,6 +12,7 @@ use crate::editor::Key;
 use crate::{Link, Shown, render};
 
 const DRAIN: Duration = Duration::from_secs(5);
+const CLOSE: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Ending {
@@ -66,17 +67,25 @@ pub(crate) fn run(
         ..
     } = link;
     let (events, inbox) = mpsc::channel();
+    let (alive, watch) = mpsc::channel::<()>();
     let network = {
         let events = events.clone();
         thread::Builder::new()
             .name("network".to_owned())
-            .spawn(move || listen(receiver, &events))?
+            .spawn(move || {
+                let _alive = alive;
+                listen(receiver, &events);
+            })?
     };
     thread::Builder::new()
         .name("input".to_owned())
         .spawn(move || input(&events))?;
     let ending = play(&inbox, &mut sender, view).and_then(|ending| view.finish().map(|()| ending));
     let _ = control.shutdown(Shutdown::Both);
+    // On Windows, shutdown can fail with NotConnected and leave the network read blocked.
+    if matches!(watch.recv_timeout(CLOSE), Err(RecvTimeoutError::Timeout)) {
+        return ending;
+    }
     network
         .join()
         .map_err(|_| io::Error::other("the network thread stopped"))?;
