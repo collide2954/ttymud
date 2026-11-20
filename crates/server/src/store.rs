@@ -9,7 +9,7 @@ use crate::identity::KEYS;
 const ACCOUNTS: &str = "accounts";
 const BURNS: &str = "burns.ini";
 const NEWS: &str = "news.ini";
-const CREWS: &str = "crews.ini";
+pub(crate) const CREWS: &str = "crews.ini";
 const AUCTION: &str = "auction.ini";
 const WORLD: &str = "world.ini";
 pub(crate) const MODERATORS: &str = "moderators.ini";
@@ -75,12 +75,7 @@ fn load_file(dir: &Path, name: &str, saves: &mut Vec<(String, String)>) -> io::R
 }
 
 pub(crate) fn write(dir: &Path, path: &str, text: &str) -> io::Result<()> {
-    let target = target(dir, path).ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("not a save path: {path}"),
-        )
-    })?;
+    let target = checked(dir, path)?;
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -91,6 +86,22 @@ pub(crate) fn write(dir: &Path, path: &str, text: &str) -> io::Result<()> {
     file.sync_all()?;
     drop(file);
     fs::rename(&temporary, &target)
+}
+
+pub(crate) fn remove(dir: &Path, path: &str) -> io::Result<()> {
+    match fs::remove_file(checked(dir, path)?) {
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        result => result,
+    }
+}
+
+fn checked(dir: &Path, path: &str) -> io::Result<PathBuf> {
+    target(dir, path).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("not a save path: {path}"),
+        )
+    })
 }
 
 fn target(dir: &Path, path: &str) -> Option<PathBuf> {

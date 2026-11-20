@@ -267,6 +267,20 @@ impl World {
         self.accounts.len()
     }
 
+    pub fn delete_account(&mut self, word: &str) -> Result<(String, String), String> {
+        let id = match self.saved_handle(word) {
+            Some((id, _)) => id,
+            None if self.accounts.contains_key(word) => word.to_owned(),
+            None => return Err(format!("No handle named {word}.")),
+        };
+        let handle = self.accounts.remove(&id).and_then(|account| account.handle);
+        self.dirty.remove(&id);
+        self.moderation.forget_moderator(&id);
+        let name = handle.map_or_else(|| id.clone(), |saved| saved.name);
+        self.forget_member(&name);
+        Ok((id, name))
+    }
+
     #[must_use]
     pub fn handle(&self, player: PlayerId) -> Option<&str> {
         let state = self.players.get(&player)?;
@@ -316,6 +330,44 @@ mod tests {
         world.command(player, name);
         world.command(player, kit);
         player
+    }
+
+    #[test]
+    fn delete_account_removes_the_account_and_its_moderator_and_crew_places() {
+        let mut world = world();
+        world
+            .restore("moderators.ini", "[moderator a]\nhandle = nyx\n")
+            .unwrap();
+        let nyx = hacker(&mut world, "a", "nyx", "ghost");
+        let zer0 = hacker(&mut world, "b", "zer0", "ghost");
+        world.command(nyx, "crew create Ghostwire");
+        world.command(nyx, "crew invite zer0");
+        world.command(zer0, "crew join ghostwire");
+        let _ = world.leave(nyx);
+        let _ = world.leave(zer0);
+        let _ = world.saves();
+        assert_eq!(
+            world.delete_account("NYX"),
+            Ok(("a".to_owned(), "nyx".to_owned()))
+        );
+        assert_eq!(world.account_count(), 1);
+        assert_eq!(world.moderators(), Vec::<String>::new());
+        let crews = world
+            .saves()
+            .into_iter()
+            .find(|(path, _)| path == "crews.ini");
+        let crews = crews.map_or_default(|(_, text)| text);
+        assert!(crews.contains("leader = zer0\n"), "{crews}");
+        assert!(!crews.contains("nyx"), "{crews}");
+        assert_eq!(
+            world.delete_account("nyx"),
+            Err("No handle named nyx.".to_owned())
+        );
+        assert_eq!(
+            world.delete_account("b"),
+            Ok(("b".to_owned(), "zer0".to_owned()))
+        );
+        assert_eq!(world.account_count(), 0);
     }
 
     #[test]

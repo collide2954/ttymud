@@ -89,6 +89,13 @@ impl Identity {
         Some(offer.account)
     }
 
+    pub(crate) fn forget(&mut self, account: &str) {
+        self.offers.retain(|offer| offer.account != account);
+        if self.accounts.remove(account).is_some() {
+            self.dirty = true;
+        }
+    }
+
     pub(crate) fn revoke(&mut self, account: &str, key: &str) {
         self.ring(account).keys.retain(|known| known != key);
         self.dirty = true;

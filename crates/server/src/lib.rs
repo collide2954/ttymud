@@ -20,7 +20,7 @@ mod ticker;
 pub use city::{load_world, port_ostra};
 pub use data::{init, load_keys};
 pub use identity::{Identity, load_identity};
-pub use moderate::{Moderation, moderate};
+pub use moderate::{Moderation, delete, moderate};
 pub use peers::{Peer, load_peers};
 pub use play::play;
 pub use serve::serve;

@@ -11,12 +11,15 @@ Usage: ttymud-server [OPTION]
        ttymud-server init <DIR>
        ttymud-server run <DIR> [--listen ADDRESS] [--ssh ADDRESS]
        ttymud-server mod <DIR> [add|remove <HANDLE>]
+       ttymud-server delete <DIR> <HANDLE>
        ttymud-server play [NAME]
 
 Commands:
   init <DIR>     Make a data directory with a new server key.
   run <DIR>      Open the city to players. The default address is 0.0.0.0:7331.
   mod <DIR>      Show the moderators, or add or remove a moderator by handle.
+  delete <DIR> <HANDLE>
+                 Delete an account and its data. Stop the server first.
   play [NAME]    Walk Port Ostra alone, offline.
 
 Options:
@@ -44,6 +47,10 @@ enum Cli {
         dir: PathBuf,
         action: Moderation,
     },
+    Delete {
+        dir: PathBuf,
+        handle: String,
+    },
     Play(Option<String>),
 }
 
@@ -68,9 +75,16 @@ fn parse(args: &[OsString]) -> Result<Cli, String> {
             };
             Ok(Cli::Mod { dir: dir(), action })
         }
+        ["delete", _, handle] => Ok(Cli::Delete {
+            dir: dir(),
+            handle: (*handle).to_owned(),
+        }),
+        ["delete", _] => Err("delete needs a handle".to_owned()),
         ["play"] => Ok(Cli::Play(None)),
         ["play", name] => Ok(Cli::Play(Some((*name).to_owned()))),
-        [command @ ("init" | "run" | "mod")] => Err(format!("{command} needs a data directory")),
+        [command @ ("init" | "run" | "mod" | "delete")] => {
+            Err(format!("{command} needs a data directory"))
+        }
         [word] => Err(format!("unknown argument '{word}'")),
         _ => Err("too many arguments".to_owned()),
     }
@@ -112,6 +126,9 @@ fn main() -> ExitCode {
         Cli::Run { dir, listen, ssh } => run(&dir, &listen, ssh.as_deref()),
         Cli::Mod { dir, action } => {
             ttymud_server::moderate(&dir, &action).map(|done| println!("{done}"))
+        }
+        Cli::Delete { dir, handle } => {
+            ttymud_server::delete(&dir, &handle).map(|done| println!("{done}"))
         }
         Cli::Play(name) => ttymud_server::play(
             name.as_deref(),
@@ -312,6 +329,25 @@ mod tests {
         assert_eq!(
             parse(&args(&["mod", "data", "promote", "nyx"])),
             Err("mod takes add <HANDLE> or remove <HANDLE>".to_owned())
+        );
+    }
+
+    #[test]
+    fn delete_takes_a_data_directory_and_a_handle() {
+        assert_eq!(
+            parse(&args(&["delete", "data", "nyx"])),
+            Ok(Cli::Delete {
+                dir: "data".into(),
+                handle: "nyx".to_owned(),
+            })
+        );
+        assert_eq!(
+            parse(&args(&["delete", "data"])),
+            Err("delete needs a handle".to_owned())
+        );
+        assert_eq!(
+            parse(&args(&["delete"])),
+            Err("delete needs a data directory".to_owned())
         );
     }
 

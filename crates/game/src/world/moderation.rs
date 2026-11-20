@@ -33,6 +33,10 @@ impl Moderation {
         })
     }
 
+    pub(super) fn forget_moderator(&mut self, id: &str) {
+        self.moderators.remove(id);
+    }
+
     pub(super) fn read_audit(&mut self, text: &str) {
         let lines = text.lines().filter(|line| !line.trim().is_empty());
         self.audit = lines.map(str::to_owned).collect();

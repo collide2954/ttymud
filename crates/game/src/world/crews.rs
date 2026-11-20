@@ -432,6 +432,14 @@ impl World {
         Some((crew, false))
     }
 
+    pub(super) fn forget_member(&mut self, name: &str) {
+        let me = name.to_ascii_lowercase();
+        self.crews.invites.retain(|(_, invited)| *invited != me);
+        if let Some(key) = self.crews.key_of(name) {
+            self.drop_member(&key, name);
+        }
+    }
+
     fn drop_member(&mut self, key: &str, name: &str) -> Gone {
         self.crews.dirty = true;
         let Some(crew) = self.crews.list.get_mut(key) else {
