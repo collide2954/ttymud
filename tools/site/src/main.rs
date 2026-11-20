@@ -68,7 +68,7 @@ fn guide(page: &Page) -> String {
             html
         });
     format!(
-        "<div class=\"guide\">\n\
+        "<div class=\"wrap guide\">\n\
          <nav class=\"contents\" aria-label=\"Contents\">\n<p>Contents</p>\n<ol>\n{links}</ol>\n</nav>\n\
          <details class=\"contents-small\">\n<summary>Contents</summary>\n<ol>\n{links}</ol>\n</details>\n\
          <article>\n{}</article>\n</div>\n",

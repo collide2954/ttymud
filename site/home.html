@@ -1,0 +1,153 @@
+<section class="hero">
+<div class="wrap hero-grid">
+<div class="pitch">
+<p class="eyebrow">Free and open source</p>
+<h1>A multiplayer hacker game for the terminal</h1>
+<p class="lead">You are a hacker in a near-future city. You take contracts, hack into corporate networks, and steal data.</p>
+<p>Security software and analysts try to trace you. If they trace you too often, your handle burns, and you start again with a new identity.</p>
+<p class="actions">
+<a class="button primary" href="#play">Try it</a>
+<a class="button" href="player.html">Read the player guide</a>
+</p>
+</div>
+<figure class="terminal" aria-label="A sample session">
+<div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span><b>nyx in Port Ostra</b></div>
+<pre class="screen"><code><span class="p">nyx@safehouse $</span> <span class="c">go smile-gw</span>
+You connect to the network of <span class="h">Bright Smile Dental</span>.
+ICE: 2 unknown. Type scan to see them.
+<span class="p">[trace 0% integ 100] nyx@smile-gw $</span> <span class="c">scan</span>
+<span class="i">sentry</span>: Sentry v1, integrity 20/20
+<span class="i">warden</span>: Warden v1, integrity 40/40, guards records
+<span class="w">sentry starts to compile ALERT (3 ticks).</span>
+<span class="p">[trace 4% integ 100] nyx@smile-gw $</span> <span class="c">probe sentry | crack</span>
+crack breaks <span class="i">sentry</span> through its weak point.
+<span class="p">[trace 8% integ 100] nyx@smile-gw $</span> <span class="c">go front-desk</span>
+<span class="p">[trace 8% integ 100] nyx@front-desk $</span> <span class="c">go records</span>
+Files: patients.db
+<span class="p">[trace 8% integ 100] nyx@records $</span> <span class="c">download patients.db</span>
+Downloaded patients.db.
+<span class="w">Unknown ICE wakes up.</span>
+<span class="p">[trace 10% integ 100] nyx@records $</span> <span class="c">back</span>
+<span class="p">[trace 10% integ 100] nyx@front-desk $</span> <span class="c">back</span>
+<span class="p">[trace 10% integ 100] nyx@smile-gw $</span> <span class="c">back</span>
+You leave the network of Bright Smile Dental. <span class="o">Clean exit.</span>
+<span class="o">Pell: Clean work. The contract is complete.</span>
+Pell takes patients.db and pays you <span class="y">250 cr</span>.
+<span class="p">nyx@safehouse $</span> <span class="cursor" aria-hidden="true"></span></code></pre>
+<figcaption>An extract of real output from the first job in Port Ostra.</figcaption>
+</figure>
+</div>
+</section>
+
+<section class="band" id="game">
+<div class="wrap">
+<h2>The game</h2>
+<p class="intro">TTYmud is a MUD, a multi-user dungeon. The networks are the dungeons, and the hostile security software is the monster.</p>
+<div class="cards">
+<article class="card">
+<h3>Hack in real time</h3>
+<p>ICE shows its next action and the ticks that are left. Probe, crack, and scrub before the trace gets to 100%.</p>
+</article>
+<article class="card">
+<h3>A city that reacts</h3>
+<p>The noise of all players raises the alert level of each corporation. Analysts read your logs, and companies patch the exploits that players use too much.</p>
+</article>
+<article class="card">
+<h3>Jobs from fixers</h3>
+<p>Fixers post new jobs each day. The server makes a new network for each job, so no two runs are the same.</p>
+</article>
+<article class="card">
+<h3>Crews and heists</h3>
+<p>Make a crew of up to 4 handles. Crewmates share one copy of a target and break into a vault together.</p>
+</article>
+<article class="card">
+<h3>Heat and burns</h3>
+<p>Each trace adds heat. At heat 5, your handle burns. Your account keeps its know-how and its stash for the next handle.</p>
+</article>
+<article class="card">
+<h3>Programs and money</h3>
+<p>Compile stronger versions of your programs from blueprints. Sell stolen data to the fence, and bid at the police auction.</p>
+</article>
+</div>
+</div>
+</section>
+
+<section class="band" id="goals">
+<div class="wrap">
+<h2>Made for the terminal</h2>
+<ul class="goals">
+<li><strong>Easy to learn.</strong> If you know a shell, you know how to play. If you do not know a shell, the game teaches you.</li>
+<li><strong>Hard to predict.</strong> Targets change on each run. Corporations patch the exploits that players use too much.</li>
+<li><strong>Fair danger.</strong> Hostile software shows its next action before it acts.</li>
+<li><strong>All terminals.</strong> Line mode works on all terminals and with screen readers. Better terminals get status bars, panes, and color.</li>
+<li><strong>Safe by default.</strong> TTYmud encrypts all traffic. Your account is a key, not a password. The server removes terminal escape codes from all player text.</li>
+<li><strong>Easy to host.</strong> One binary runs a city. The server keeps its data in plain text files.</li>
+<li><strong>Light.</strong> TTYmud has very few dependencies.</li>
+</ul>
+</div>
+</section>
+
+<section class="band" id="play">
+<div class="wrap">
+<h2>Play</h2>
+<div class="columns">
+<div>
+<h3>Try it alone</h3>
+<p>Install Rust with <a href="https://rustup.rs">rustup</a>. Then get the code and walk Port Ostra alone, without a network:</p>
+<pre class="code"><code>git clone https://github.com/collide2954/ttymud
+cd ttymud
+cargo run -p ttymud-server -- play</code></pre>
+<p>Type a handle, and then select a starter kit. Type <code>help</code> to see the commands, and <code>contract</code> to see your first job.</p>
+</div>
+<div>
+<h3>Connect to a server</h3>
+<p>Build the client, and then connect to the address of a server:</p>
+<pre class="code"><code>cargo build --release -p ttymud
+target/release/ttymud connect ostra.example.net</code></pre>
+<p>At the first start, the client makes your identity key. Compare the fingerprint of a new server with the fingerprint that its operator publishes.</p>
+</div>
+</div>
+<p class="more">The <a href="player.html">player guide</a> tells you how to play, from the first connection to crews and heists.</p>
+</div>
+</section>
+
+<section class="band" id="host">
+<div class="wrap">
+<h2>Host a city</h2>
+<p>One binary runs a city, and the server keeps its data in plain text files. Use these commands to make a data directory and to start the server:</p>
+<pre class="code"><code>cargo build --release -p ttymud-server
+target/release/ttymud-server init ostra-data
+target/release/ttymud-server run ostra-data</code></pre>
+<p>The server listens on port 7331. The <a href="operator.html">operator guide</a> tells you about the server key, moderators, backups, and the game data.</p>
+</div>
+</section>
+
+<section class="band" id="status">
+<div class="wrap">
+<h2>Status</h2>
+<p>TTYmud is in early development. You can run a server and play Port Ostra with other players over an encrypted connection.</p>
+<div class="columns">
+<div>
+<h3>Complete</h3>
+<ol class="milestones" start="0">
+<li>Foundation</li>
+<li>Offline core</li>
+<li>Secure connection</li>
+<li>First hack</li>
+<li>Handles and heat</li>
+<li>Contracts</li>
+<li>Chat relay</li>
+<li>HUD</li>
+<li>The city reacts</li>
+<li>Crews and heists</li>
+<li>Economy</li>
+</ol>
+</div>
+<div>
+<h3>Next</h3>
+<p><strong>M11: PvP by consent.</strong> Duels, capture the flag between crews, and darknet zones. A player who does not agree to PvP is never a target.</p>
+<p>The <a href="https://github.com/collide2954/ttymud/blob/main/docs/roadmap.md">roadmap</a> gives the plan.</p>
+</div>
+</div>
+</div>
+</section>
