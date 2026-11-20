@@ -153,11 +153,7 @@ impl World {
     }
 
     fn check_handle(&self, name: &str) -> Result<(), Message> {
-        let good = (3..=16).contains(&name.len())
-            && name
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
-        if !good {
+        if !good_name(name) {
             return Err(Message::error(RULE));
         }
         if name.to_ascii_lowercase().starts_with("anon-") {
@@ -262,6 +258,13 @@ impl World {
         let state = self.players.get(&player)?;
         (state.phase == Phase::Playing).then_some(state.name.as_str())
     }
+}
+
+pub(super) fn good_name(name: &str) -> bool {
+    (3..=16).contains(&name.len())
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 fn menu() -> Vec<Message> {

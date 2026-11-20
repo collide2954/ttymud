@@ -1,5 +1,6 @@
 use ttymud_text::sanitize;
 
+use super::crews::ACTIONS;
 use super::{PlayerId, World, help, topics};
 use crate::commands::{self, Command, Verb};
 use crate::parse::{self, Tail};
@@ -23,7 +24,7 @@ impl World {
         let names = self
             .choices(player, &words, !word.is_empty())
             .into_iter()
-            .filter(|name| name.starts_with(&start))
+            .filter(|name| name.to_lowercase().starts_with(&start))
             .map(str::to_owned)
             .collect();
         Completion { word, names }
@@ -59,6 +60,8 @@ impl World {
                 self.targets_here(player, command.verb == Verb::Pretext)
             }
             (Verb::Contract, 1) => vec!["drop"],
+            (Verb::Crew, 1) => ACTIONS.to_vec(),
+            (Verb::Crew, 2) => self.crew_choices(player, &words[1]),
             (Verb::Tell | Verb::Ignore | Verb::Block | Verb::Report, 1) => self.online_names(),
             (Verb::Unignore | Verb::Unblock, 1) => {
                 let Some(state) = self.players.get(&player) else {
@@ -181,7 +184,9 @@ mod tests {
         assert_eq!(names("lo"), ["look", "load"]);
         assert_eq!(
             names("c"),
-            ["cd", "connect", "cat", "contract", "crack", "channels"]
+            [
+                "cd", "connect", "cat", "contract", "crack", "channels", "crew"
+            ]
         );
     }
 
@@ -284,6 +289,20 @@ mod tests {
             world.complete(player, "unblock ").names,
             Vec::<String>::new()
         );
+    }
+
+    #[test]
+    fn crew_completes_its_actions_and_the_handles_for_them() {
+        let (mut world, player) = joined();
+        let (nyx, _) = world.join("nyx");
+        assert_eq!(world.complete(player, "crew l").names, ["leave", "lead"]);
+        assert_eq!(world.complete(player, "crew invite n").names, ["nyx"]);
+        world.command(nyx, "crew create Moths");
+        world.command(nyx, "crew invite ghost");
+        assert_eq!(world.complete(player, "crew join ").names, ["Moths"]);
+        assert_eq!(world.complete(player, "crew join m").names, ["Moths"]);
+        world.command(player, "crew join moths");
+        assert_eq!(world.complete(nyx, "crew kick ").names, ["ghost"]);
     }
 
     #[test]

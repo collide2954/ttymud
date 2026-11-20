@@ -98,7 +98,7 @@ impl World {
             .collect()
     }
 
-    pub(super) fn crew(&self, corp: usize, day: bool) -> Vec<(String, Habit)> {
+    pub(super) fn on_shift(&self, corp: usize, day: bool) -> Vec<(String, Habit)> {
         self.shift(corp, day, 0)
     }
 

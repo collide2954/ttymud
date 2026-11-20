@@ -54,6 +54,7 @@ impl World {
         self.burns_dirty = true;
         self.touch(player);
         self.post_burns();
+        self.quit_crew(player, &name, "burns and leaves");
         self.publish(format!(
             "The handle {name} burns. The police seize its rig."
         ));

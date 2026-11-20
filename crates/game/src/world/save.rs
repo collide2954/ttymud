@@ -6,6 +6,7 @@ use super::alert::CorpState;
 use super::bans::BANS;
 use super::burns::Burn;
 use super::contract::Job;
+use super::crews::CREWS;
 use super::moderation::{AUDIT, MODERATORS};
 use super::news::NEWS;
 use super::reports::REPORTS;
@@ -59,6 +60,7 @@ impl World {
         if std::mem::take(&mut self.news.dirty) {
             saves.push((NEWS.to_owned(), self.news_text()));
         }
+        saves.extend(self.crews.save());
         saves.extend(self.moderation.save_audit());
         saves.extend(self.moderation.reports.save());
         saves.extend(self.moderation.bans.save());
@@ -91,6 +93,9 @@ impl World {
         }
         if path == NEWS {
             return self.restore_news(text);
+        }
+        if path == CREWS {
+            return self.crews.read(text);
         }
         if path == BURNS {
             self.burns = parse_burns(text)?;

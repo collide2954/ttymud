@@ -90,8 +90,8 @@ impl World {
             }
             Topic::Shift => {
                 let day = thing.is_multiple_of(2);
-                let crew = self.crew(corp, day);
-                let Some((person, habit)) = crew.get(thing / 2 % crew.len().max(1)) else {
+                let staff = self.on_shift(corp, day);
+                let Some((person, habit)) = staff.get(thing / 2 % staff.len().max(1)) else {
                     return format!("{name} is on {} alert.", self.alert(corp).word());
                 };
                 let habit = match truth {
@@ -214,15 +214,15 @@ mod tests {
     fn a_shift_rumor_names_an_analyst_and_a_habit_that_is_true_or_wrong() {
         let (world, _) = at_bazaar(NOON);
         let acme = acme(&world);
-        let crew = world.crew(acme, true);
-        let (name, habit) = &crew[1];
+        let staff = world.on_shift(acme, true);
+        let (name, habit) = &staff[1];
         let told = |truth| world.rumor(acme, Topic::Shift, truth, 2, 0);
         let kind = habit.word();
         let true_rumor = format!("{name} works days at Acme Corp and is {kind}.");
         assert_eq!(told(Truth::True), true_rumor);
         assert_eq!(told(Truth::Old), true_rumor);
         assert_ne!(told(Truth::False), true_rumor);
-        let (night, _) = &world.crew(acme, false)[0];
+        let (night, _) = &world.on_shift(acme, false)[0];
         assert!(
             world
                 .rumor(acme, Topic::Shift, Truth::True, 1, 0)

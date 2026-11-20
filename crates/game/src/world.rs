@@ -7,6 +7,7 @@ mod channels;
 mod chat;
 mod complete;
 mod contract;
+mod crews;
 mod files;
 mod grep;
 mod heat;
@@ -56,6 +57,7 @@ use channels::Channel;
 pub use chat::is_chat;
 pub use complete::Completion;
 use contract::{Contract, Job};
+use crews::Crews;
 use jobs::Fixer;
 use moderation::Moderation;
 use news::News;
@@ -205,6 +207,7 @@ pub struct World {
     burns: Vec<Burn>,
     burns_dirty: bool,
     news: News,
+    crews: Crews,
     now: u64,
     next_player: u64,
     outbox: Vec<Output>,
@@ -308,6 +311,7 @@ impl World {
                 host: content.news.as_deref().map(find),
                 ..News::default()
             },
+            crews: Crews::default(),
             now: 0,
             next_player: 0,
             outbox: Vec::new(),
@@ -519,6 +523,7 @@ impl World {
             Verb::Reply => Err(Message::error("Usage: reply <text>.")),
             Verb::Who => Ok(self.who()),
             Verb::News => Ok(self.read_news()),
+            Verb::Crew => self.crew(player, args),
             Verb::Ignore => self.ignore(player, args),
             Verb::Unignore => self.unignore(player, args),
             Verb::Block => self.block(player, args),
@@ -682,6 +687,7 @@ enum Thing {
     Ware,
     Channel,
     Handle,
+    Member,
 }
 
 impl Thing {
@@ -691,7 +697,7 @@ impl Thing {
             Self::File => Style::File,
             Self::Ice => Style::Ice,
             Self::Program | Self::Ware | Self::Channel => Style::Command,
-            Self::Handle => Style::Player,
+            Self::Handle | Self::Member => Style::Player,
         }
     }
 
@@ -704,6 +710,7 @@ impl Thing {
             Self::Ware => format!("The shop does not sell {word}"),
             Self::Channel => format!("No channel named {word}"),
             Self::Handle => format!("No handle online named {word}"),
+            Self::Member => format!("No crewmate named {word}"),
         }
     }
 
@@ -716,6 +723,7 @@ impl Thing {
             Self::Ware => "For sale",
             Self::Channel => "Channels",
             Self::Handle => "Online",
+            Self::Member => "Crew",
         }
     }
 }

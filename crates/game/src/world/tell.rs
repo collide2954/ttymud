@@ -7,7 +7,7 @@ const NEW_ACCOUNT: u64 = 600;
 const NOTE: &str = "Note: the operator of this server can read private messages.";
 
 impl World {
-    fn online(&self) -> Vec<(PlayerId, &str)> {
+    pub(super) fn online(&self) -> Vec<(PlayerId, &str)> {
         self.players
             .iter()
             .filter(|(_, state)| state.phase == Phase::Playing)
