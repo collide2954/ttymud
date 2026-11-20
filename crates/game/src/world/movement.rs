@@ -1,4 +1,4 @@
-use ttymud_text::Message;
+use ttymud_text::{Message, Style};
 
 use super::{HostId, PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::Item;
@@ -46,6 +46,13 @@ impl World {
             return Err(Message::error(format!(
                 "There is no route back to {id} now."
             )));
+        }
+        let leaving =
+            behind.is_some_and(|behind| self.hosts[behind.0].network != self.hosts[from.0].network);
+        if leaving && self.in_match(player) {
+            return Err(Message::error("You are in a duel. Type ")
+                .span(Style::Command, "jackout")
+                .text(" to give up."));
         }
         match self.players.get_mut(&player) {
             Some(state) if state.chain.len() > 1 => {

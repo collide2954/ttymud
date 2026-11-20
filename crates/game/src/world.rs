@@ -11,6 +11,7 @@ mod complete;
 mod contract;
 mod crews;
 mod darknet;
+mod duels;
 mod files;
 mod grep;
 mod heat;
@@ -21,6 +22,7 @@ mod ignore;
 mod instance;
 mod jobs;
 mod market;
+mod matches;
 mod moderation;
 mod movement;
 mod news;
@@ -49,7 +51,7 @@ use std::net::IpAddr;
 use ttymud_text::{Kind, Message, Style, sanitize};
 
 use crate::commands::{self, Command, Item, Verb};
-use crate::content::{Content, CorpDef, File, IceDef, NetworkDef, TemplateDef, Zone};
+use crate::content::{Content, CorpDef, File, HostDef, IceDef, NetworkDef, TemplateDef, Zone};
 use crate::contract::Event;
 use crate::heat::Security;
 use crate::kits::Kit;
@@ -68,9 +70,11 @@ pub use chat::is_chat;
 pub use complete::Completion;
 use contract::{Contract, Job};
 use crews::Crews;
+use duels::Challenge;
 use instance::{Instance, InstanceId};
 use jobs::Fixer;
 use market::Market;
+use matches::{End, Match};
 use moderation::Moderation;
 use news::News;
 use rig::Rig;
@@ -101,11 +105,13 @@ struct Network {
     keys: Vec<(String, Level)>,
     corp: Option<usize>,
     vault: Option<Vault>,
+    bases: Vec<HostId>,
 }
 
-impl From<NetworkDef> for Network {
-    fn from(def: NetworkDef) -> Self {
+impl Network {
+    fn new(def: NetworkDef, find: impl Fn(&str) -> HostId) -> Self {
         Self {
+            bases: def.bases.iter().map(|id| find(id)).collect(),
             name: def.name,
             security: def.security,
             zone: def.zone,
@@ -235,6 +241,9 @@ pub struct World {
     instances: BTreeMap<InstanceId, Instance>,
     next_instance: u64,
     drops: Vec<(HostId, File)>,
+    arena: Option<NetworkId>,
+    matches: Vec<Match>,
+    challenges: Vec<Challenge>,
     now: u64,
     next_player: u64,
     outbox: Vec<Output>,
@@ -272,30 +281,7 @@ impl World {
                 .position(|&known| known == id)
                 .map(NetworkId)
         };
-        let mut hosts = Vec::with_capacity(content.hosts.len());
-        let mut links = Vec::new();
-        for (index, def) in content.hosts.into_iter().enumerate() {
-            links.extend(
-                def.routes
-                    .iter()
-                    .map(|target| (HostId(index), find(target))),
-            );
-            hosts.push(Host {
-                id: def.id,
-                name: def.name,
-                description: def.description,
-                network: def.network.as_deref().and_then(network),
-                routes: Vec::new(),
-                files: def.files,
-                ice: def.ice,
-                security: None,
-                software: None,
-            });
-        }
-        for (from, to) in links {
-            link(&mut hosts, from, to);
-            link(&mut hosts, to, from);
-        }
+        let hosts = hosts(content.hosts, find, network);
         let offer = content
             .contract
             .as_deref()
@@ -306,7 +292,15 @@ impl World {
             .into_iter()
             .map(|def| Contract::hand_made(def, &fixers, network))
             .collect();
-        let networks: Vec<Network> = content.networks.into_iter().map(Network::from).collect();
+        let networks: Vec<Network> = content
+            .networks
+            .into_iter()
+            .map(|def| Network::new(def, find))
+            .collect();
+        let arena = networks
+            .iter()
+            .position(|network| network.zone == Zone::Arena)
+            .map(NetworkId);
         let darknet = |host: HostId| {
             let network = hosts[host.0].network;
             network.is_some_and(|network| networks[network.0].zone == Zone::Darknet)
@@ -351,6 +345,9 @@ impl World {
             instances: BTreeMap::new(),
             next_instance: 0,
             drops: Vec::new(),
+            arena,
+            matches: Vec::new(),
+            challenges: Vec::new(),
             now: 0,
             next_player: 0,
             outbox: Vec::new(),
@@ -396,6 +393,7 @@ impl World {
             Ok(stages) => self.run(player, &stages),
             Err(error) => vec![parse_error(error)],
         };
+        self.settle_matches();
         self.deliver(player, messages)
     }
 
@@ -416,6 +414,8 @@ impl World {
             outputs.extend(self.tick_soc(id));
             outputs.extend(self.tick_vault(id));
         }
+        self.time_matches();
+        self.settle_matches();
         for &player in &players {
             let mut shown: Vec<Message> = self.hint(player).into_iter().collect();
             if let Some((before, after)) = self.cool(player) {
@@ -434,6 +434,10 @@ impl World {
     }
 
     pub fn leave(&mut self, player: PlayerId) -> Vec<Output> {
+        self.lose(player, End::Gone);
+        self.settle_matches();
+        let mut outputs = std::mem::take(&mut self.outbox);
+        outputs.retain(|output| output.player != player);
         if self.running(player) {
             let _ = self.jackout(player);
             self.outbox.clear();
@@ -441,12 +445,13 @@ impl World {
         self.keep(player);
         self.touch(player);
         let Some(state) = self.players.remove(&player) else {
-            return Vec::new();
+            return outputs;
         };
         if let (Phase::Playing, Some(&host)) = (&state.phase, state.chain.last()) {
             self.notify(host, player, &presence::named(&state.name, " disconnects."));
         }
-        std::mem::take(&mut self.outbox)
+        outputs.append(&mut self.outbox);
+        outputs
     }
 
     fn deliver(&mut self, player: PlayerId, messages: Vec<Message>) -> Vec<Output> {
@@ -572,6 +577,7 @@ impl World {
             Verb::Pretext => self.pretext(player, args, input),
             Verb::Exploit => self.exploit(player),
             Verb::Tip => self.tip(player, args),
+            Verb::Duel => self.duel(player, args),
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Tell => Err(Message::error("Usage: tell <handle> <text>.")),
@@ -860,6 +866,38 @@ fn parse_error(error: ParseError) -> Message {
         ParseError::OpenQuote => "A quote is not closed.",
         ParseError::EmptyStage => "Each side of | needs a command.",
     })
+}
+
+fn hosts(
+    defs: Vec<HostDef>,
+    find: impl Fn(&str) -> HostId,
+    network: impl Fn(&str) -> Option<NetworkId>,
+) -> Vec<Host> {
+    let mut hosts = Vec::with_capacity(defs.len());
+    let mut links = Vec::new();
+    for (index, def) in defs.into_iter().enumerate() {
+        links.extend(
+            def.routes
+                .iter()
+                .map(|target| (HostId(index), find(target))),
+        );
+        hosts.push(Host {
+            id: def.id,
+            name: def.name,
+            description: def.description,
+            network: def.network.as_deref().and_then(&network),
+            routes: Vec::new(),
+            files: def.files,
+            ice: def.ice,
+            security: None,
+            software: None,
+        });
+    }
+    for (from, to) in links {
+        link(&mut hosts, from, to);
+        link(&mut hosts, to, from);
+    }
+    hosts
 }
 
 fn link(hosts: &mut [Host], from: HostId, to: HostId) {

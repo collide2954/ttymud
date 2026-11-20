@@ -24,6 +24,11 @@ pub(crate) const DARK: &str = "\
 [network dark]\nname = The Undercity\nzone = darknet\n\
 [host alley]\nname = Alley\ndesc = An alley.\nnetwork = dark\nroute = den\n\
 [host den]\nname = Den\ndesc = A den.\nnetwork = dark\n\
+[network grid]\nname = The Grid\nzone = arena\nbase = west\nbase = east\n\
+[host west]\nname = West\ndesc = The west base.\nnetwork = grid\nroute = mid\n\
+[host mid]\nname = Mid\ndesc = The middle.\nnetwork = grid\nroute = east\n\
+[host east]\nname = East\ndesc = The east base.\nnetwork = grid\n\
+[file mid/map.txt]\nline = A map.\n\
 [shop hub]\n[shop den]\nblueprint = crack 3 2500\n";
 
 pub(crate) fn world() -> World {

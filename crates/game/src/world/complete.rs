@@ -67,6 +67,7 @@ impl World {
                 .into_iter()
                 .map(|(_, name)| name)
                 .collect(),
+            (Verb::Duel, 1) => self.duel_names(player),
             (Verb::Crew, 2) => self.crew_choices(player, &words[1]),
             (Verb::Tell | Verb::Ignore | Verb::Block | Verb::Report, 1) => self.online_names(),
             (Verb::Unignore | Verb::Unblock, 1) => {

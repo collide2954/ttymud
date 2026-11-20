@@ -196,9 +196,16 @@ impl Reader {
                 Zone::Target
             }),
         };
-        let bases = section.pairs.iter().filter(|pair| pair.key == "base");
-        self.bases
-            .extend(bases.map(|pair| (section.id.to_owned(), pair.value.to_owned(), pair.line)));
+        let bases: Vec<(String, usize)> = section
+            .pairs
+            .iter()
+            .filter(|pair| pair.key == "base")
+            .map(|pair| (pair.value.to_owned(), pair.line))
+            .collect();
+        let named = bases
+            .iter()
+            .map(|(host, line)| (section.id.to_owned(), host.clone(), *line));
+        self.bases.extend(named);
         let security = match self.optional(section, "security") {
             None => Security::Low,
             Some((word, line)) => Security::find(&word).unwrap_or_else(|| {
@@ -215,6 +222,7 @@ impl Reader {
             name,
             security,
             zone,
+            bases: bases.into_iter().map(|(host, _)| host).collect(),
         };
         self.networks.push((network, section.line));
     }

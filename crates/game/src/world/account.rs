@@ -224,13 +224,17 @@ impl World {
         else {
             return;
         };
+        let (integrity, files) = match self.saved_rig(player) {
+            Some(fighter) => (fighter.integrity, &fighter.files),
+            None => (state.rig.integrity, &state.rig.files),
+        };
         let saved = Saved {
             name: state.name.clone(),
             kit,
             heat: state.heat,
             cooled: state.cooled,
             tipped: state.tipped,
-            integrity: state.rig.integrity,
+            integrity,
             credits: state.credits,
             ram: state.rig.ram,
             cpu: state.rig.cpu,
@@ -239,7 +243,7 @@ impl World {
             done: state.done.clone(),
             posting: None,
             channels: Some(state.channels.clone()),
-            files: state.rig.files.clone(),
+            files: files.clone(),
             loads: state.rig.loads.clone(),
             builds: state.rig.builds.clone(),
             contract: state.contract,

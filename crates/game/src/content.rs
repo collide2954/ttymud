@@ -113,6 +113,7 @@ pub(crate) struct NetworkDef {
     pub(crate) name: String,
     pub(crate) security: Security,
     pub(crate) zone: Zone,
+    pub(crate) bases: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

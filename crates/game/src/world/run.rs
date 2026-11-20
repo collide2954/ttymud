@@ -4,6 +4,7 @@ use super::alert::{Alert, TRACE_ALERT};
 use super::heat::FAST_HEAT;
 use super::ice::deploy;
 use super::instance::{Instance, InstanceId, decoy_on, name_of, witnesses};
+use super::matches::End;
 use super::{HostId, NetworkId, Output, PlayerId, Step, World};
 use crate::content::Zone;
 use crate::contract::Event;
@@ -31,6 +32,24 @@ pub(super) struct Run {
     pub(super) shells: Vec<(HostId, Level)>,
 }
 
+impl Run {
+    pub(super) fn new(instance: InstanceId, network: NetworkId, start: usize) -> Self {
+        Self {
+            instance,
+            network,
+            start,
+            trace: 0,
+            loot: Vec::new(),
+            firewall: 0,
+            mask: 0,
+            decoy: 0,
+            proxy: false,
+            access: Level::Guest,
+            shells: Vec::new(),
+        }
+    }
+}
+
 impl World {
     pub(super) fn may_enter(&self, player: PlayerId, target: HostId) -> Result<(), Message> {
         let Some(state) = self.players.get(&player) else {
@@ -53,6 +72,9 @@ impl World {
     }
 
     pub(super) fn jackout(&mut self, player: PlayerId) -> Result<Step, Message> {
+        if self.lose(player, End::GiveUp) {
+            return Ok(Step::default());
+        }
         let Some(state) = self.players.get_mut(&player) else {
             return Ok(Step::default());
         };
@@ -89,7 +111,7 @@ impl World {
             return Vec::new();
         };
         state.rig.integrity = state.rig.integrity.saturating_sub(amount);
-        if state.rig.integrity > 0 {
+        if state.rig.integrity > 0 || self.lose(player, End::Crash) {
             return Vec::new();
         }
         if let Some(shown) = self.darknet_crash(player) {
@@ -286,19 +308,7 @@ impl World {
         let Some(state) = self.players.get_mut(&player) else {
             return Vec::new();
         };
-        state.run = Some(Run {
-            instance: id,
-            network,
-            start: state.chain.len() - 1,
-            trace: 0,
-            loot: Vec::new(),
-            firewall: 0,
-            mask: 0,
-            decoy: 0,
-            proxy: false,
-            access: Level::Guest,
-            shells: Vec::new(),
-        });
+        state.run = Some(Run::new(id, network, state.chain.len() - 1));
         let name = &self.networks[network.0].name;
         let alert = self.network_alert(network);
         let start = if darknet {

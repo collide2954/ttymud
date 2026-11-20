@@ -361,6 +361,7 @@ impl World {
             keys: target.keys.clone(),
             corp: Some(corp),
             vault: target.vault.as_ref().map(|vault| vault.moved(base)),
+            bases: Vec::new(),
         });
         network
     }

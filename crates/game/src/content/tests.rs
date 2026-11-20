@@ -709,6 +709,7 @@ fn hosts_can_be_in_a_network() {
         name: "The Lab".to_owned(),
         security: Security::Low,
         zone: Zone::Target,
+        bases: Vec::new(),
     };
     assert_eq!(content.networks, [lab]);
     assert_eq!(content.hosts[2].network.as_deref(), Some("lab"));
@@ -759,7 +760,11 @@ network = ring
 #[test]
 fn an_arena_is_a_network_with_two_bases_and_no_route_from_the_city() {
     assert_eq!(errors(ARENA), Vec::<String>::new());
-    assert_eq!(Content::parse(ARENA).unwrap().networks[0].zone, Zone::Arena);
+    let ring = &Content::parse(ARENA).unwrap().networks[0];
+    assert_eq!(
+        (ring.zone, ring.bases.as_slice()),
+        (Zone::Arena, &["west".to_owned(), "east".to_owned()][..])
+    );
 }
 
 #[test]

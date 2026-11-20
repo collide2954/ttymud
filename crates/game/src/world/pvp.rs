@@ -12,7 +12,7 @@ const CREWMATE: &str = " is in your crew. Crewmates cannot attack each other.";
 
 impl World {
     pub(super) fn pvp(&self, player: PlayerId) -> bool {
-        self.run_zone(player) == Some(Zone::Darknet)
+        matches!(self.run_zone(player), Some(Zone::Darknet | Zone::Arena))
     }
 
     pub(super) fn strangers(&self, player: PlayerId) -> Vec<(PlayerId, HostId, &str)> {
@@ -32,11 +32,13 @@ impl World {
     }
 
     pub(super) fn rivals(&self, player: PlayerId) -> Vec<(PlayerId, &str)> {
-        if !self.pvp(player) {
-            return Vec::new();
-        }
+        let others = match self.run_zone(player) {
+            Some(Zone::Darknet) => self.strangers(player),
+            Some(Zone::Arena) => self.foes(player),
+            _ => return Vec::new(),
+        };
         let here = self.here(player);
-        self.strangers(player)
+        others
             .into_iter()
             .filter(|&(_, host, _)| host == here)
             .map(|(other, _, name)| (other, name))
@@ -70,7 +72,9 @@ impl World {
         words
             .iter()
             .map(|word| {
-                self.spare_crew(player, word)?;
+                if self.run_zone(player) == Some(Zone::Darknet) {
+                    self.spare_crew(player, word)?;
+                }
                 let name = choose(Thing::Target, word, &names)?.to_owned();
                 let weak = false;
                 Ok(if ice.contains(&name.as_str()) {
