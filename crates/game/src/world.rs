@@ -37,6 +37,7 @@ mod roles;
 mod rumors;
 mod run;
 mod save;
+mod scripts;
 mod shop;
 mod soc;
 mod software;
@@ -581,6 +582,8 @@ impl World {
             Verb::Duel => self.duel(player, args),
             Verb::Match => self.crew_match(player, args),
             Verb::Grep => grep::grep(args, input.unwrap_or_default()),
+            Verb::Echo => self.echo(player, args),
+            Verb::Rm => self.rm(player, args),
             Verb::Say => Err(Message::error("Usage: say <text>.")),
             Verb::Tell => Err(Message::error("Usage: tell <handle> <text>.")),
             Verb::Reply => Err(Message::error("Usage: reply <text>.")),
@@ -762,6 +765,7 @@ fn listed<'a>(
 enum Thing {
     Route,
     File,
+    Script,
     Ice,
     Target,
     Program,
@@ -775,7 +779,7 @@ impl Thing {
     fn style(self) -> Style {
         match self {
             Self::Route => Style::Host,
-            Self::File => Style::File,
+            Self::File | Self::Script => Style::File,
             Self::Ice => Style::Ice,
             Self::Program | Self::Ware | Self::Channel => Style::Command,
             Self::Target | Self::Handle | Self::Member => Style::Player,
@@ -786,6 +790,7 @@ impl Thing {
         match self {
             Self::Route => format!("No route to {word}"),
             Self::File => format!("No file named {word}"),
+            Self::Script => format!("No script named {word}"),
             Self::Ice => format!("No ICE named {word}"),
             Self::Target => format!("No target named {word}"),
             Self::Program => format!("No program named {word}"),
@@ -800,6 +805,7 @@ impl Thing {
         match self {
             Self::Route => "Routes",
             Self::File => "Files",
+            Self::Script => "Scripts",
             Self::Ice => "ICE",
             Self::Target => "Targets",
             Self::Program => "Programs",

@@ -1,5 +1,5 @@
 use super::reader::Reader;
-use super::{Content, ContentError, HostDef, Zone};
+use super::{Content, ContentError, HostDef, Zone, is_script};
 
 impl Reader {
     pub(super) fn finish(mut self) -> Result<Content, Vec<ContentError>> {
@@ -54,6 +54,10 @@ impl Reader {
             if !self.networks.iter().any(|(known, _)| &known.id == network) {
                 let message = format!("contract {id} is for an unknown network: {network}");
                 problems.push((*network_line, message));
+                continue;
+            }
+            if is_script(goal) {
+                problems.push((*goal_line, format!("goal cannot be a script: {goal}")));
                 continue;
             }
             let found = self.hosts.iter().any(|(host, _)| {

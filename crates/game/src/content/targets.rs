@@ -1,5 +1,5 @@
 use super::reader::{Name, Reader};
-use super::{CorpDef, File, FixerDef, TemplateDef};
+use super::{CorpDef, File, FixerDef, TemplateDef, is_script};
 use crate::heat::{MAX_HEAT, Security};
 use crate::ini::{Pair, Section};
 use crate::target::Layer;
@@ -143,6 +143,9 @@ impl Reader {
         };
         let name = name.trim();
         self.check_name(pair.line, name, Name::File);
+        if is_script(name) {
+            self.error(pair.line, format!("data cannot be a script: {name}"));
+        }
         Some(File::new(name, vec![line.trim().to_owned()]))
     }
 

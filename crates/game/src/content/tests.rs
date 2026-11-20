@@ -324,6 +324,22 @@ fn bad_corps_and_templates_fail() {
     );
 }
 
+#[test]
+fn data_and_goals_cannot_be_scripts() {
+    let text =
+        with_contract("[contract job]\nfixer = pell\nnetwork = n\ngoal = x.sh\noffer = Go.\n")
+            .replace("[file c/x.db]", "[file c/x.sh]");
+    assert_eq!(errors(&text), ["line 25: goal cannot be a script: x.sh"]);
+    let corp =
+        format!("{NET}{TEMPLATES}[corp kh]\nname = K\nbudget = low\ndata = run.sh: A script.\n");
+    let found = errors(&corp);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].ends_with(": data cannot be a script: run.sh"),
+        "{found:?}"
+    );
+}
+
 fn with_contract(contract: &str) -> String {
     let city = NET.replace("start = a", "start = a\ncontract = job");
     format!("{city}[file c/x.db]\nline = X.\n{contract}[fixer pell]\nname = Pell\nhost = a\n")

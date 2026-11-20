@@ -56,6 +56,7 @@ impl World {
                 Verb::Lots | Verb::Bid => self.auction.host == Some(here),
                 Verb::Jobs | Verb::Accept | Verb::Rumors => self.has_fixer(here),
                 Verb::Read => readable,
+                Verb::Rm => !self.scripts(player).is_empty(),
                 Verb::Download => !self.files_on(here, player).is_empty(),
                 Verb::Recovery | Verb::Link | Verb::Keys | Verb::Revoke | Verb::Available => false,
                 _ => true,
@@ -340,8 +341,9 @@ mod tests {
     fn question_mark_lists_what_works_here() {
         assert_eq!(
             run("?")[0],
-            "Here you can use: look, ls, go, read, download, inventory, status, stash, grep, say, channels, join, leave, who, news, crew, tell, ignore, block, report, help"
+            "Here you can use: look, ls, go, read, download, inventory, status, stash, grep, echo, say, channels, join, leave, who, news, crew, tell, ignore, block, report, help"
         );
+        check(&available(&["echo ls > a.sh"]), &["rm"], &[]);
     }
 
     #[test]

@@ -193,9 +193,19 @@ impl File {
 }
 
 const BLUEPRINT: &str = ".blueprint";
+const SCRIPT_NAME: usize = 16;
 
 pub(crate) fn blueprint_name(verb: Verb, version: u32) -> String {
     format!("{}-v{version}", commands::name_of(verb))
+}
+
+pub(crate) fn is_script(name: &str) -> bool {
+    name.strip_suffix(".sh").is_some_and(|stem| {
+        (1..=SCRIPT_NAME).contains(&stem.len())
+            && stem
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    })
 }
 
 impl Content {

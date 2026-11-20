@@ -21,7 +21,7 @@ pub(crate) fn pipeline(line: &str) -> Result<Vec<Stage>, ParseError> {
 }
 
 pub(crate) fn tail(line: &str) -> Option<Tail> {
-    let builder = feed(line).ok().filter(|builder| !builder.quoted)?;
+    let builder = feed(line).ok().filter(|builder| builder.quote.is_none())?;
     Some(Tail {
         words: builder.words,
         word: builder.word,
@@ -31,11 +31,12 @@ pub(crate) fn tail(line: &str) -> Option<Tail> {
 fn feed(line: &str) -> Result<Builder, ParseError> {
     let mut builder = Builder::default();
     for c in line.chars() {
-        match c {
-            '"' => builder.toggle_quote(),
-            '|' if !builder.quoted => builder.end_stage()?,
-            c if c.is_whitespace() && !builder.quoted => builder.end_word(),
-            c => builder.push(c),
+        match (builder.quote, c) {
+            (None, '"' | '\'') => builder.quote(Some(c)),
+            (Some(quote), c) if c == quote => builder.quote(None),
+            (None, '|') => builder.end_stage()?,
+            (None, c) if c.is_whitespace() => builder.end_word(),
+            (_, c) => builder.push(c),
         }
     }
     Ok(builder)
@@ -47,12 +48,12 @@ struct Builder {
     words: Vec<String>,
     word: String,
     in_word: bool,
-    quoted: bool,
+    quote: Option<char>,
 }
 
 impl Builder {
-    fn toggle_quote(&mut self) {
-        self.quoted = !self.quoted;
+    fn quote(&mut self, quote: Option<char>) {
+        self.quote = quote;
         self.in_word = true;
     }
 
@@ -80,7 +81,7 @@ impl Builder {
     }
 
     fn finish(mut self) -> Result<Vec<Stage>, ParseError> {
-        if self.quoted {
+        if self.quote.is_some() {
             return Err(ParseError::OpenQuote);
         }
         self.end_word();
@@ -160,6 +161,22 @@ mod tests {
     #[test]
     fn empty_quotes_give_an_empty_argument() {
         assert_eq!(pipeline("grep \"\""), Ok(vec![stage("grep", &[""])]));
+        assert_eq!(pipeline("grep ''"), Ok(vec![stage("grep", &[""])]));
+    }
+
+    #[test]
+    fn single_quotes_keep_double_quotes_and_pipes() {
+        assert_eq!(
+            pipeline("echo 'status | grep \"Trace: 9\"' >> watch.sh"),
+            Ok(vec![stage(
+                "echo",
+                &["status | grep \"Trace: 9\"", ">>", "watch.sh"]
+            )])
+        );
+        assert_eq!(
+            pipeline("grep \"it's\""),
+            Ok(vec![stage("grep", &["it's"])])
+        );
     }
 
     #[test]
@@ -177,5 +194,7 @@ mod tests {
     #[test]
     fn open_quotes_fail() {
         assert_eq!(pipeline("grep \"abc"), Err(ParseError::OpenQuote));
+        assert_eq!(pipeline("grep 'abc"), Err(ParseError::OpenQuote));
+        assert_eq!(tail("echo 'a b"), None);
     }
 }

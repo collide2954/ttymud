@@ -4,7 +4,7 @@ A crowded public node.
 Routes: market, back-room, bazaar
 Files: motd.txt, rules.txt
 > ?
-Here you can use: look, ls, go, read, download, inventory, status, stash, grep, say, channels, join, leave, who, news, crew, tell, ignore, block, report, help
+Here you can use: look, ls, go, read, download, inventory, status, stash, grep, echo, say, channels, join, leave, who, news, crew, tell, ignore, block, report, help
 > help go
 go <place>
 Move to a host through a route.
@@ -24,6 +24,8 @@ buy <item>        Buy a program or a rig upgrade at a shop.
 lots              Show the lots of the police auction: the data, hardware, and programs from the rigs of burned handles.
 probe <ice>       Find the weak point of an ICE. In a darknet, it also shows the rig of a handle.
 crack <ice>       Attack an ICE. At zero integrity, the ICE breaks. In a darknet, it also attacks the rig of a handle.
+echo <text> [> script] Show the text. With > or >>, write it to a script on your rig. > replaces the script, and >> adds a line.
+rm <script>       Delete a script from your rig.
 > lok
 Unknown command: lok. Did you mean look?
 > xyzzy
