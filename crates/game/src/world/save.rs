@@ -4,7 +4,7 @@ use std::str::FromStr;
 use super::account::{Account, Saved};
 use super::alert::CorpState;
 use super::bans::BANS;
-use super::builds::{Build, TOP_VERSION, step};
+use super::builds::{Build, TOP_VERSION, versioned};
 use super::burns::Burn;
 use super::contract::Job;
 use super::crews::CREWS;
@@ -145,6 +145,10 @@ impl World {
         }
         for &verb in &account.know {
             text.pair("know", commands::name_of(verb));
+        }
+        for &(verb, version) in &account.blueprints {
+            let name = commands::name_of(verb);
+            text.pair("blueprint", &format!("{name} {version}"));
         }
         if let Some(handle) = &account.handle {
             self.handle_text(&mut text, handle);
@@ -423,17 +427,17 @@ fn program_version(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<(V
     let parsed = pair.value.split_once(' ').and_then(|(name, version)| {
         let verb = commands::find(name)
             .map(|command| command.verb)
-            .filter(|&verb| step(verb) > 0)?;
+            .filter(|&verb| versioned(verb))?;
         let version = version.trim().parse().ok()?;
         (2..=TOP_VERSION)
             .contains(&version)
             .then_some((verb, version))
     });
     if parsed.is_none() {
-        let value = pair.value;
+        let (key, value) = (pair.key, pair.value);
         errors.push(problem(
             pair.line,
-            format!("bad version: {value} (use a program and 2 or 3)"),
+            format!("bad {key}: {value} (use a program and 2 or 3)"),
         ));
     }
     parsed
@@ -585,12 +589,23 @@ fn program(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<Verb> {
 fn read_account(section: &Section<'_>, account: &mut Account, errors: &mut Vec<ContentError>) {
     allow(
         section,
-        &["know", "created", "warned", "muted", "ignore", "block"],
+        &[
+            "know",
+            "blueprint",
+            "created",
+            "warned",
+            "muted",
+            "ignore",
+            "block",
+        ],
         errors,
     );
     let values = |key: &'static str| section.pairs.iter().filter(move |pair| pair.key == key);
     account.know = values("know")
         .filter_map(|pair| program(pair, errors))
+        .collect();
+    account.blueprints = values("blueprint")
+        .filter_map(|pair| program_version(pair, errors))
         .collect();
     let mut time = |key| -> u64 {
         let pair = values(key).next();

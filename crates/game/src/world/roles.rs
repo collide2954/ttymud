@@ -7,16 +7,13 @@ use super::{PlayerId, Step, World};
 use crate::commands::{Item, Verb};
 use crate::ice::IceKind;
 
-const MASK_TICKS: u32 = 5;
-const DECOY_TICKS: u32 = 10;
-
 impl World {
     fn run_mut(&mut self, player: PlayerId) -> Option<&mut Run> {
         self.players.get_mut(&player)?.run.as_mut()
     }
 
     pub(super) fn firewall(&mut self, player: PlayerId) -> Result<Step, Message> {
-        let charges = self.boost(player, Verb::Firewall, 1);
+        let charges = self.power(player, Verb::Firewall);
         let Some(run) = self.run_mut(player) else {
             return Ok(Step::default());
         };
@@ -34,7 +31,7 @@ impl World {
     }
 
     pub(super) fn mask(&mut self, player: PlayerId) -> Step {
-        let ticks = self.boost(player, Verb::Mask, MASK_TICKS);
+        let ticks = self.power(player, Verb::Mask);
         let Some(run) = self.run_mut(player) else {
             return Step::default();
         };
@@ -49,7 +46,7 @@ impl World {
         let Some(id) = self.instance_id(player) else {
             return Step::default();
         };
-        let ticks = self.boost(player, Verb::Decoy, DECOY_TICKS);
+        let ticks = self.power(player, Verb::Decoy);
         if let Some(run) = self.run_mut(player) {
             run.decoy = ticks;
         }

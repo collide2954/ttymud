@@ -41,10 +41,12 @@ impl World {
         state.kit = None;
         state.chain = vec![start];
         let (know, stash) = (state.know.clone(), state.stash.clone());
+        let blueprints = state.blueprints.clone();
         if let Some(account) = state.account.clone() {
             let entry = self.accounts.entry(account).or_default();
             entry.handle = None;
             entry.know = know;
+            entry.blueprints = blueprints;
             entry.stash = stash;
         }
         if let Some(id) = closed {

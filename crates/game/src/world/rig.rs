@@ -8,7 +8,6 @@ use crate::heat::MAX_HEAT;
 use crate::kits::{CYCLES, RAM};
 
 pub(super) const MAX_INTEGRITY: u32 = 100;
-const PATCH: u32 = 20;
 const FREE_REPAIR: u32 = 50;
 const REPAIR_PRICE: u32 = 2;
 const LOADS: [Verb; 5] = [
@@ -81,7 +80,7 @@ impl World {
         if before == MAX_INTEGRITY {
             return Err(Message::error("Your rig needs no patch."));
         }
-        rig.integrity = (before + rig.boosted(Verb::Patch, PATCH)).min(MAX_INTEGRITY);
+        rig.integrity = (before + rig.power(Verb::Patch)).min(MAX_INTEGRITY);
         let after = rig.integrity;
         Ok(Step::show(vec![Message::game(format!(
             "patch repairs your rig. Integrity: {before} -> {after}."

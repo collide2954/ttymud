@@ -68,7 +68,7 @@ impl World {
             .collect()
     }
 
-    fn program_named(
+    pub(super) fn program_named(
         &self,
         player: PlayerId,
         command: &str,
@@ -100,7 +100,7 @@ impl World {
     }
 }
 
-fn named_error(name: &str, rest: &str) -> Message {
+pub(super) fn named_error(name: &str, rest: &str) -> Message {
     Message::new(Kind::Error)
         .span(Style::Command, name)
         .text(rest)

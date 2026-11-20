@@ -127,6 +127,7 @@ struct Player {
     chain: Vec<HostId>,
     rig: Rig,
     know: Vec<Verb>,
+    blueprints: Vec<(Verb, u32)>,
     run: Option<Run>,
     contract: Option<Job>,
     account: Option<String>,
@@ -167,6 +168,7 @@ impl Player {
             know: commands::programs()
                 .map(|(command, _)| command.verb)
                 .collect(),
+            blueprints: Vec::new(),
             run: None,
             contract: None,
             account: None,
@@ -525,6 +527,7 @@ impl World {
             Verb::Sell => self.sell(player, args, input),
             Verb::Load => self.load(player, args),
             Verb::Unload => self.unload(player, args),
+            Verb::Compile => self.compile(player, args),
             Verb::Stash => self.stash(player, args),
             Verb::Unstash => self.unstash(player, args),
             Verb::Scan => self.scan(player),

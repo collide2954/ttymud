@@ -40,7 +40,9 @@ impl World {
                 verb if verb.program().is_some() => {
                     running && state.is_some_and(|state| state.rig.loads.contains(&verb))
                 }
-                Verb::Repair | Verb::Load | Verb::Unload | Verb::Unstash => self.home == Some(here),
+                Verb::Repair | Verb::Load | Verb::Unload | Verb::Compile | Verb::Unstash => {
+                    self.home == Some(here)
+                }
                 Verb::Contract => hired,
                 Verb::Reply => state.is_some_and(|state| state.reply_to.is_some()),
                 Verb::Unignore => state.is_some_and(|state| !state.social.ignores.is_empty()),
@@ -352,7 +354,7 @@ mod tests {
         let home = available(&["go back-room"]);
         check(
             &home,
-            &["back", "repair", "load", "unload", "unstash"],
+            &["back", "repair", "load", "unload", "compile", "unstash"],
             &["download"],
         );
     }

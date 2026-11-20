@@ -1,8 +1,15 @@
+use ttymud_text::{Message, Style};
+
+use super::ram::named_error;
 use super::rig::Rig;
-use super::{PlayerId, World};
+use super::{Player, PlayerId, Step, World, lines, listed};
 use crate::commands::{self, Program, Verb};
 
 pub(super) const TOP_VERSION: u32 = 3;
+const QUIET_PRICE: u32 = 400;
+const USAGE: &str = "Usage: compile [program] [quiet|plain].";
+
+type Change = fn(&mut Player, Verb, &str) -> Result<Message, Message>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct Build {
@@ -19,12 +26,34 @@ impl Default for Build {
     }
 }
 
-pub(super) fn step(verb: Verb) -> u32 {
+fn base_and_step(verb: Verb) -> Option<(u32, u32)> {
     match verb {
-        Verb::Crack | Verb::Scrub | Verb::Patch => 5,
-        Verb::Decoy => 2,
-        Verb::Firewall | Verb::Mask => 1,
-        _ => 0,
+        Verb::Crack | Verb::Scrub => Some((15, 5)),
+        Verb::Patch => Some((20, 5)),
+        Verb::Decoy => Some((10, 2)),
+        Verb::Mask => Some((5, 1)),
+        Verb::Firewall => Some((1, 1)),
+        _ => None,
+    }
+}
+
+pub(super) fn versioned(verb: Verb) -> bool {
+    base_and_step(verb).is_some()
+}
+
+fn price(version: u32) -> u32 {
+    if version == 2 { 1_000 } else { 3_000 }
+}
+
+fn effect(verb: Verb, power: u32) -> String {
+    match verb {
+        Verb::Crack => format!("It does {power} damage."),
+        Verb::Scrub => format!("It lowers a trace by {power}%."),
+        Verb::Patch => format!("It repairs {power} integrity."),
+        Verb::Firewall => format!("It stops {power} attacks."),
+        Verb::Mask => format!("It hides your noise for {power} ticks."),
+        Verb::Decoy => format!("It draws the ICE to you for {power} ticks."),
+        _ => String::new(),
     }
 }
 
@@ -34,8 +63,16 @@ impl Rig {
         found.map_or_default(|&(_, build)| build)
     }
 
-    pub(super) fn boosted(&self, verb: Verb, base: u32) -> u32 {
-        base + step(verb) * (self.build(verb).version - 1)
+    fn set_build(&mut self, verb: Verb, build: Build) {
+        self.builds.retain(|&(known, _)| known != verb);
+        if build != Build::default() {
+            self.builds.push((verb, build));
+        }
+    }
+
+    pub(super) fn power(&self, verb: Verb) -> u32 {
+        let version = self.build(verb).version;
+        base_and_step(verb).map_or(0, |(base, step)| base + step * (version - 1))
     }
 
     pub(super) fn program(&self, verb: Verb) -> Option<Program> {
@@ -61,9 +98,139 @@ impl Rig {
 }
 
 impl World {
-    pub(super) fn boost(&self, player: PlayerId, verb: Verb, base: u32) -> u32 {
+    pub(super) fn power(&self, player: PlayerId, verb: Verb) -> u32 {
         let state = self.players.get(&player);
-        state.map_or(base, |state| state.rig.boosted(verb, base))
+        state.map_or(0, |state| state.rig.power(verb))
+    }
+
+    pub(super) fn compile(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
+        self.at_home(player, "compile programs")?;
+        let (word, change): (&String, Change) = match args {
+            [] => return Ok(self.compile_options(player)),
+            [word] => (word, Player::next_version),
+            [word, mode] if mode.eq_ignore_ascii_case("quiet") => (word, Player::add_quiet),
+            [word, mode] if mode.eq_ignore_ascii_case("plain") => (word, Player::remove_quiet),
+            _ => return Err(Message::error(USAGE)),
+        };
+        let (verb, name) = self.program_named(player, "compile", std::slice::from_ref(word))?;
+        let Some(state) = self.players.get_mut(&player) else {
+            return Ok(Step::default());
+        };
+        Ok(Step::show(vec![change(state, verb, name)?]))
+    }
+
+    fn compile_options(&self, player: PlayerId) -> Step {
+        let Some(state) = self.players.get(&player) else {
+            return Step::default();
+        };
+        let owned: Vec<(Verb, u32)> = commands::programs()
+            .flat_map(|(command, _)| (2..=TOP_VERSION).map(move |version| (command.verb, version)))
+            .filter(|blueprint| state.blueprints.contains(blueprint))
+            .collect();
+        let label =
+            |&(verb, version): &(Verb, u32)| format!("{} v{version}", commands::name_of(verb));
+        let mut shown = Vec::new();
+        if owned.is_empty() {
+            shown.push(Message::game(
+                "You have no blueprints. Find them in targets, or buy them at a shop.",
+            ));
+        } else {
+            let names: Vec<String> = owned.iter().map(label).collect();
+            let message = Message::game("Blueprints: ");
+            shown.push(listed(
+                message,
+                Style::Command,
+                names.iter().map(String::as_str),
+            ));
+            let next: Vec<String> = owned
+                .iter()
+                .filter(|&&(verb, version)| {
+                    state.know.contains(&verb) && state.rig.build(verb).version + 1 == version
+                })
+                .map(|blueprint| format!("{} for {} cr", label(blueprint), price(blueprint.1)))
+                .collect();
+            shown.push(if next.is_empty() {
+                Message::game("You cannot compile a new version now.")
+            } else {
+                Message::game(format!("You can compile: {}.", next.join(", ")))
+            });
+        }
+        shown.push(
+            Message::game("Type ")
+                .span(Style::Command, "compile <program> quiet")
+                .text(format!(" to add the quiet mod for {QUIET_PRICE} cr, or "))
+                .span(Style::Command, "compile <program> plain")
+                .text(" to remove it."),
+        );
+        lines(shown)
+    }
+}
+
+impl Player {
+    fn next_version(&mut self, verb: Verb, name: &str) -> Result<Message, Message> {
+        if !versioned(verb) {
+            return Err(named_error(name, " has no versions."));
+        }
+        let mut build = self.rig.build(verb);
+        if build.version == TOP_VERSION {
+            return Err(named_error(
+                name,
+                &format!(" is already at v{TOP_VERSION}."),
+            ));
+        }
+        build.version += 1;
+        let (version, price, credits) = (build.version, price(build.version), self.credits);
+        if !self.blueprints.contains(&(verb, version)) {
+            return Err(Message::error("You need the blueprint for ")
+                .span(Style::Command, name)
+                .text(format!(" v{version}.")));
+        }
+        if credits < price {
+            let text = format!(" v{version} costs {price} cr to compile. You have {credits} cr.");
+            return Err(named_error(name, &text));
+        }
+        self.credits -= price;
+        self.rig.set_build(verb, build);
+        let effect = effect(verb, self.rig.power(verb));
+        Ok(Message::game("You compile ")
+            .span(Style::Command, name)
+            .text(format!(" v{version} for {price} cr. {effect}")))
+    }
+
+    fn add_quiet(&mut self, verb: Verb, name: &str) -> Result<Message, Message> {
+        let mut build = self.rig.build(verb);
+        if build.quiet {
+            return Err(named_error(name, " is already quiet."));
+        }
+        if verb.program().is_none_or(|program| program.noise == 0) {
+            return Err(named_error(name, " makes no noise."));
+        }
+        let credits = self.credits;
+        if credits < QUIET_PRICE {
+            return Err(Message::error(format!(
+                "The quiet mod costs {QUIET_PRICE} cr. You have {credits} cr."
+            )));
+        }
+        self.credits -= QUIET_PRICE;
+        build.quiet = true;
+        self.rig.set_build(verb, build);
+        Ok(Message::game("You add the quiet mod to ")
+            .span(Style::Command, name)
+            .text(format!(
+                " for {QUIET_PRICE} cr. It makes 1 less noise and needs 1 more cycle."
+            )))
+    }
+
+    fn remove_quiet(&mut self, verb: Verb, name: &str) -> Result<Message, Message> {
+        let mut build = self.rig.build(verb);
+        if !build.quiet {
+            return Err(named_error(name, " has no mod."));
+        }
+        build.quiet = false;
+        self.rig.set_build(verb, build);
+        Ok(Message::game("You take the quiet mod off ")
+            .span(Style::Command, name)
+            .text("."))
     }
 }
 
@@ -179,6 +346,149 @@ mod tests {
         assert_eq!(
             said(&mut world, player, "status | grep programs"),
             ["Programs: scan, probe, crack v2 (quiet), scrub, patch, firewall, decoy, mask"]
+        );
+    }
+
+    fn at_home(credits: u32, blueprints: &[(Verb, u32)]) -> (World, PlayerId) {
+        let (mut world, player) = joined();
+        if let Some(state) = world.players.get_mut(&player) {
+            state.credits = credits;
+            state.blueprints = blueprints.to_vec();
+        }
+        world.command(player, "go back-room");
+        (world, player)
+    }
+
+    #[test]
+    fn compile_needs_the_home_host_and_a_blueprint() {
+        let (mut world, player) = joined();
+        assert_eq!(
+            said(&mut world, player, "compile crack"),
+            ["You can compile programs only at back-room."]
+        );
+        let (mut world, player) = at_home(5_000, &[]);
+        assert_eq!(
+            said(&mut world, player, "compile"),
+            [
+                "You have no blueprints. Find them in targets, or buy them at a shop.",
+                "Type compile <program> quiet to add the quiet mod for 400 cr, or compile <program> plain to remove it."
+            ]
+        );
+        assert_eq!(
+            said(&mut world, player, "compile crack"),
+            ["You need the blueprint for crack v2."]
+        );
+        assert_eq!(
+            said(&mut world, player, "compile scan"),
+            ["scan has no versions."]
+        );
+    }
+
+    #[test]
+    fn compile_makes_the_next_version_for_credits() {
+        let (mut world, player) = at_home(4_500, &[(Verb::Crack, 2), (Verb::Crack, 3)]);
+        assert_eq!(
+            said(&mut world, player, "compile")[..2],
+            [
+                "Blueprints: crack v2, crack v3",
+                "You can compile: crack v2 for 1000 cr."
+            ]
+        );
+        assert_eq!(
+            said(&mut world, player, "compile crack"),
+            ["You compile crack v2 for 1000 cr. It does 20 damage."]
+        );
+        assert_eq!(
+            said(&mut world, player, "compile crack"),
+            ["You compile crack v3 for 3000 cr. It does 25 damage."]
+        );
+        assert_eq!(
+            said(&mut world, player, "compile crack"),
+            ["crack is already at v3."]
+        );
+        assert_eq!(
+            said(&mut world, player, "compile")[1],
+            "You cannot compile a new version now."
+        );
+        assert_eq!(
+            said(&mut world, player, "status | grep credits"),
+            ["Credits: 500 cr"]
+        );
+        let (mut world, player) = at_home(500, &[(Verb::Mask, 2)]);
+        assert_eq!(
+            said(&mut world, player, "compile mask"),
+            ["mask v2 costs 1000 cr to compile. You have 500 cr."]
+        );
+    }
+
+    #[test]
+    fn compile_adds_or_removes_the_quiet_mod() {
+        let (mut world, player) = at_home(500, &[]);
+        assert_eq!(
+            said(&mut world, player, "compile crack quiet"),
+            [
+                "You add the quiet mod to crack for 400 cr. It makes 1 less noise and needs 1 more cycle."
+            ]
+        );
+        assert_eq!(
+            said(&mut world, player, "compile crack quiet"),
+            ["crack is already quiet."]
+        );
+        assert_eq!(
+            said(&mut world, player, "compile probe quiet"),
+            ["The quiet mod costs 400 cr. You have 100 cr."]
+        );
+        assert_eq!(
+            said(&mut world, player, "compile scrub quiet"),
+            ["scrub makes no noise."]
+        );
+        assert_eq!(
+            said(&mut world, player, "compile crack plain"),
+            ["You take the quiet mod off crack."]
+        );
+        assert_eq!(
+            said(&mut world, player, "compile crack plain"),
+            ["crack has no mod."]
+        );
+        assert_eq!(
+            said(&mut world, player, "compile crack loud"),
+            ["Usage: compile [program] [quiet|plain]."]
+        );
+    }
+
+    #[test]
+    fn blueprints_stay_with_the_account_after_a_burn() {
+        let mut world = crate::testing::world();
+        let (player, _) = world.connect("a");
+        for line in ["nyx", "breaker"] {
+            world.command(player, line);
+        }
+        if let Some(state) = world.players.get_mut(&player) {
+            state.blueprints = vec![(Verb::Crack, 2)];
+        }
+        world.burn(player);
+        for line in ["zer0", "face", "go back-room"] {
+            world.command(player, line);
+        }
+        assert_eq!(
+            said(&mut world, player, "compile")[0],
+            "Blueprints: crack v2"
+        );
+        world.leave(player);
+        let saves = world.saves();
+        let text = saves
+            .iter()
+            .find(|(path, _)| path == "accounts/a.ini")
+            .map_or_default(|(_, text)| text.clone());
+        assert!(text.contains("\nblueprint = crack 2\n"), "{text}");
+        let mut fresh = crate::testing::world();
+        for (path, text) in &saves {
+            fresh.restore(path, text).unwrap();
+        }
+        let (player, _) = fresh.connect("a");
+        assert_eq!(
+            said(&mut fresh, player, "compile")[0],
+            "Blueprints: crack v2"
         );
     }
 

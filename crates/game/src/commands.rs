@@ -14,6 +14,7 @@ pub(crate) enum Verb {
     Repair,
     Load,
     Unload,
+    Compile,
     Stash,
     Unstash,
     Contract,
@@ -352,6 +353,15 @@ pub(crate) const COMMANDS: &[Command] = &[
         example: "unload patch",
         takes: Takes::Nothing,
         gives: Gives::Nothing,
+    },
+    Command {
+        verb: Verb::Compile,
+        names: &["compile"],
+        usage: "compile [program] [quiet|plain]",
+        summary: "Use a blueprint to make the next version of a program, or add or remove the quiet mod. This works only at home.",
+        example: "compile crack",
+        takes: Takes::Nothing,
+        gives: Gives::Items(Kinds::LINES),
     },
     Command {
         verb: Verb::Stash,

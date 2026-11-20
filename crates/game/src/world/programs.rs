@@ -5,9 +5,6 @@ use super::presence::named;
 use super::{HostId, Output, PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::{self, Command, Item, Program, Verb};
 
-const CRACK: u32 = 15;
-const SCRUB: u32 = 15;
-
 impl World {
     pub(super) fn ready(&self, player: PlayerId, found: &[&Command]) -> Result<(), Message> {
         let programs: Vec<&str> = found
@@ -113,7 +110,7 @@ impl World {
             _ => return Err(Message::error("Usage: scrub [handle].")),
         };
         let whom = mate.as_ref().map_or(player, |&(mate, _)| mate);
-        let scrub = self.boost(player, Verb::Scrub, SCRUB);
+        let scrub = self.power(player, Verb::Scrub);
         let Some((before, after)) = self.wipe(id, (here, whom), scrub) else {
             return Err(Message::error(match &mate {
                 None => "There is no trace to scrub.".to_owned(),
@@ -169,7 +166,7 @@ impl World {
         let [(name, weak)] = targets.as_slice() else {
             return Err(Message::error("crack takes one ICE at a time."));
         };
-        let crack = self.boost(player, Verb::Crack, CRACK);
+        let crack = self.power(player, Verb::Crack);
         let (strength, point) = if *weak {
             (crack * 2, (" in its weak point", " through its weak point"))
         } else {

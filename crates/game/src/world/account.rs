@@ -22,6 +22,7 @@ pub(super) enum Phase {
 pub(super) struct Account {
     pub(super) handle: Option<Saved>,
     pub(super) know: Vec<Verb>,
+    pub(super) blueprints: Vec<(Verb, u32)>,
     pub(super) stash: Vec<File>,
     pub(super) social: Social,
 }
@@ -95,6 +96,7 @@ impl World {
         });
         state.know = know;
         learn(&mut state.know, saved.kit.knows);
+        state.blueprints = known.blueprints;
         state.stash = stash;
         let player = self.add(state);
         let name = &saved.name;
@@ -119,6 +121,7 @@ impl World {
         state.phase = Phase::Naming;
         if let Some(known) = self.accounts.get(account) {
             state.know.clone_from(&known.know);
+            state.blueprints.clone_from(&known.blueprints);
             state.stash.clone_from(&known.stash);
             state.social.clone_from(&known.social);
         } else {
@@ -238,14 +241,16 @@ impl World {
             builds: state.rig.builds.clone(),
             contract: state.contract,
         };
-        let (know, stash, social) = (
+        let (know, blueprints, stash, social) = (
             state.know.clone(),
+            state.blueprints.clone(),
             state.stash.clone(),
             state.social.clone(),
         );
         let entry = self.accounts.entry(account.clone()).or_default();
         entry.handle = Some(saved);
         entry.know = know;
+        entry.blueprints = blueprints;
         entry.stash = stash;
         entry.social = social;
     }

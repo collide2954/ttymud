@@ -109,6 +109,12 @@ impl World {
                 };
                 files.iter().map(|file| file.name.as_str()).collect()
             }
+            (Verb::Compile, 1) => self
+                .known_programs(player)
+                .into_iter()
+                .map(|(_, name)| name)
+                .collect(),
+            (Verb::Compile, 2) => vec!["quiet", "plain"],
             (Verb::Load | Verb::Unload, 1) => {
                 let loads = self
                     .players
@@ -185,9 +191,15 @@ mod tests {
         assert_eq!(
             names("c"),
             [
-                "cd", "connect", "cat", "contract", "crack", "channels", "crew"
+                "cd", "connect", "cat", "compile", "contract", "crack", "channels", "crew"
             ]
         );
+    }
+
+    #[test]
+    fn compile_completes_the_programs_and_the_mods() {
+        assert_eq!(names("compile cr"), ["crack"]);
+        assert_eq!(names("compile crack "), ["quiet", "plain"]);
     }
 
     #[test]
