@@ -69,7 +69,7 @@ This table records the main design decisions. When a decision changes, change th
 | Chat | IRC style: same-host chat, public channels, crew channels, and private messages. |
 | Chat security | Encrypted traffic, sanitized text, rate limits, ignore, block, and moderator tools. No end-to-end encryption. |
 | Identity | A key pair is the account. A recovery code can replace a lost key. |
-| Connection | A TTYmud client and a TTYmud server that use the Noise protocol. |
+| Connection | A TTYmud client and a TTYmud server that use the Noise protocol. With the `ssh` feature, a normal SSH client can also connect. |
 | Interface | Adaptive layers: line mode for all terminals, and a HUD when the terminal can show it. |
 | Code | A Cargo workspace with two binaries: `ttymud` and `ttymud-server`. |
 | Text model | A small `ttymud-text` crate holds styles, spans, and messages. |

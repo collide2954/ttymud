@@ -89,6 +89,14 @@ If the terminal cannot show UTF-8, the client uses ASCII for all symbols and lin
 
 The settings file is `settings.ini` in the configuration directory. An option on the command line has priority over the file. The client never uses a layer that the terminal cannot show.
 
+## Over SSH
+
+With the `ssh` feature, the server also lets a player use a normal SSH client. Then the server runs the display of the client for the SSH terminal: line mode, edit mode, color mode, or the HUD. The same display code works for both ways in.
+
+- The SSH client sends the terminal type, the window size, and some environment variables. The server uses them as the client uses its own environment. Without a locale, the server uses UTF-8.
+- The words after the address select the layer, ASCII or UTF-8, and verbose output, for example `ssh -t -p 7332 ostra.example.net edit ascii`.
+- Without a terminal, for example with `ssh -T`, the terminal of the player edits the lines, so the server uses line mode. With a terminal, the server edits the line, so the lowest layer is edit mode.
+
 ## Text from the server
 
 The server does not send terminal escape codes. It sends text with style marks, for example `danger`, `chat`, or `host`. The client changes the style marks into the correct codes for the terminal. As a result, the same game data works on all terminals. Also, another player cannot send escape codes to your terminal.

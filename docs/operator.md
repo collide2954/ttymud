@@ -44,13 +44,29 @@ If the key of a server changes, each client that knows the server stops with a w
 
 Players connect with TCP to port 7331, or to the port that you set with `--listen`. If the server is behind a firewall or a router, open that port for TCP.
 
+## Let players connect with SSH
+
+Players can also play with a normal SSH client, without the TTYmud client. This option needs the `ssh` feature. Build the server with this command:
+
+    cargo build --release -p ttymud-server --features ssh
+
+Then use the `--ssh` option to open an SSH port, for example:
+
+    ttymud-server run ostra-data --ssh 0.0.0.0:7332
+
+At the first start with `--ssh`, the server makes an SSH host key in the file `ssh_host.key`. When the server starts, it shows the fingerprint of the host key, for example `SHA256:Q5gUh4RSjjUh7ojxU5lxmXO89X7C0GxR4cB3JTo9STc`. Publish this fingerprint with the fingerprint of the server key. An SSH client shows it at the first connection.
+
+The SSH port accepts only public keys. The SSH key of a player is the key of an account, so the server keeps no password and no private key of a player. Open the SSH port in your firewall too.
+
+> CAUTION: Keep the file `ssh_host.key` secret. A person with this file can pretend to be your server to SSH players.
+
 ## Limits
 
 The server has these limits:
 
-- A maximum of 256 connections at the same time.
+- A maximum of 256 connections at the same time. SSH connections count too.
 - A maximum of 8 connections from one IP address.
-- A maximum of 10 seconds for each handshake.
+- A maximum of 10 seconds for each handshake, and for each SSH login.
 - Rate limits for commands and chat. The [protocol](protocol.md) document gives the values.
 
 ## Moderators

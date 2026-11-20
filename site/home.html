@@ -80,6 +80,10 @@ Pell takes patients.db and pays you <span class="y">250 cr</span>.
 <h3>Scripts on your rig</h3>
 <p>Write a script with <code>echo</code>, as in a shell, and run it with <code>sh</code>. It runs one command on each tick and uses the RAM and the cycles of your rig.</p>
 </article>
+<article class="card">
+<h3>Play over SSH</h3>
+<p>On a server with an SSH port, a normal SSH client is enough. Your SSH key is your account, and you get the same HUD as the client.</p>
+</article>
 </div>
 </div>
 </section>
@@ -117,6 +121,8 @@ cargo run -p ttymud-server -- play</code></pre>
 <pre class="code"><code>cargo build --release -p ttymud
 target/release/ttymud connect ostra.example.net</code></pre>
 <p>At the first start, the client makes your identity key. Compare the fingerprint of a new server with the fingerprint that its operator publishes.</p>
+<p>If the server has an SSH port, you can also connect with SSH and your SSH key:</p>
+<pre class="code"><code>ssh -p 7332 ostra.example.net</code></pre>
 </div>
 </div>
 <p class="more">The <a href="player.html">player guide</a> tells you how to play, from the first connection to crews and heists.</p>
@@ -155,11 +161,12 @@ target/release/ttymud-server run ostra-data</code></pre>
 <li>Economy</li>
 <li>PvP by consent</li>
 <li>Player scripts</li>
+<li>SSH gateway</li>
 </ol>
 </div>
 <div>
 <h3>Next</h3>
-<p>These parts come later: an SSH gateway as an optional Cargo feature, a public list of servers, and links between cities.</p>
+<p>These parts come later: a public list of servers, and links between cities.</p>
 <p>The <a href="https://github.com/collide2954/ttymud/blob/main/docs/roadmap.md">roadmap</a> gives the plan.</p>
 </div>
 </div>

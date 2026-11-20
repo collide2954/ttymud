@@ -128,9 +128,18 @@ M9 added crew channels.
 - A crash, a trace, a burn, or a disconnect stops the script.
 - The sample script `break.sh` at the Night Market of Port Ostra.
 
+### M13: SSH gateway (done)
+
+- The `ssh` feature of the server, with the `russh` crate. The default build stays without Tokio and without SSH code.
+- `ttymud-server run --ssh <address>`, and an Ed25519 host key in `ssh_host.key`.
+- Public keys only. The SHA-256 digest of an SSH key is an account key, and `link` adds an SSH key to an account.
+- All display layers over SSH: the server runs the display of the client for the SSH terminal, with a decoder for the key bytes.
+- Words after the address for the layer, ASCII or UTF-8, and verbose output.
+- The same connection limits and rate limits as the Noise port, and 10 seconds for a login.
+- A client that quits even when Windows refuses to shut down its socket.
+
 ## Later
 
-- An SSH gateway as an optional Cargo feature.
 - A public list of servers.
 - Links between cities.
 

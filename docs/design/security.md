@@ -31,6 +31,8 @@ The client and the server use the Noise protocol framework with the pattern `Noi
 - The prologue is `ttymud/1`. It contains the protocol name and the protocol version. As a result, a downgrade attack fails.
 - Each frame has a length prefix of two bytes. The maximum frame size is 65535 bytes.
 
+With the `ssh` feature, the server also accepts SSH connections. The `russh` crate supplies the SSH protocol, with the `ring` crate for the cryptography. The host key is an Ed25519 key in the file `ssh_host.key` of the data directory. The SSH port accepts only public keys. It refuses passwords, and it refuses logins without a key. The server disconnects a connection that does not log in within 10 seconds.
+
 ## Server keys
 
 The `ttymud-server init` command makes the static key of the server. The server keeps the key in the file `server.key` in its data directory.
@@ -42,6 +44,8 @@ A server operator can publish the fingerprint of the server key. In a later vers
 ## Identity
 
 The client makes a static key pair at its first run. The public key identifies the account. The Noise handshake proves that the client has the private key. There is no password.
+
+An SSH key can also identify an account. The SSH protocol proves that the player has the private key. The server keeps only the SHA-256 digest of the public key, and it shows the fingerprint in the format of `ssh-keygen`, for example `SHA256:Q5gU...`. The `link` command can add an SSH key to an account, so one account can have Noise keys and SSH keys.
 
 - **Recovery code.** When an account makes its first handle, the server shows a recovery code one time. The code contains 128 bits of random data, and the server keeps only a BLAKE2s hash of the code in `keys.ini`. At the handle prompt, `recover <code>` adds a new key to the account. Then the server gives a new code, and the old code stops. The `recovery` command also gives a new code.
 - **More devices.** On a connected device, the `link` command gives a link code with 64 bits of random data. The code works one time, for 10 minutes. At the handle prompt, a new device types `link <code>` to add its key to the account.
@@ -111,5 +115,6 @@ Version 0.1 has these parts of the design:
 - A secret world seed. The client never gets the seed, because a player with the seed can make the targets before a run.
 - Recovery codes, link codes, and key revocation, as the [identity](#identity) section tells.
 - All the tools in the [chat safety](#chat-safety) section.
+- The SSH port of the `ssh` feature, with public keys only. SSH connections have the same connection limits and rate limits as Noise connections, and a login has a maximum of 10 seconds.
 
 Until a player selects a handle, the Welcome message gives the name `anon-` and the first eight hexadecimal characters of the public key. Other players do not see a player without a handle. The server always uses the full key to identify an account.

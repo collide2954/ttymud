@@ -37,6 +37,27 @@ If the key of a known server changes, the client stops and shows a warning. A ch
 
 Do not continue if you are not sure. Ask the operator of the server. If the operator changed the key, remove the line for that server from the file `known_servers`. Then connect again.
 
+## Play over SSH
+
+If the server has an SSH port, you can play with a normal SSH client. You do not need the TTYmud client. Ask the operator for the port, for example 7332:
+
+    ssh -p 7332 ostra.example.net
+
+You need an SSH key. To make one, use the command `ssh-keygen -t ed25519`. The server accepts only keys, and your SSH key is the key of your account. At the first connection, the SSH client shows the fingerprint of the server. Compare it with the SSH fingerprint that the operator publishes.
+
+The server selects the HUD for your terminal. To select a different display, add words after the address, and add the `-t` option:
+
+    ssh -t -p 7332 ostra.example.net edit ascii
+
+| Word | Effect |
+| --- | --- |
+| `line`, `edit`, `color`, `hud` | The display layer. Without a terminal, for example with `ssh -T`, you get line mode. |
+| `ascii` | The display uses only ASCII characters. |
+| `utf8` | The display uses UTF-8 characters. |
+| `verbose` | The display writes the changes of state as lines, for screen readers. |
+
+One account can use the client and SSH. On the device that has the account, type `link`. Then connect with SSH, and type `link <code>` at the handle prompt. To quit, type `quit`, or push Ctrl+D on an empty line.
+
 ## Your files
 
 The client keeps your files in a configuration directory.

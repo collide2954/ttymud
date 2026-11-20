@@ -122,6 +122,7 @@ The check cannot find all STE problems. A person must also read each document.
 | hint | A help text for the next step of a contract. |
 | hole | A weakness in a software family. The `exploit` program uses it until the corporation patches the family. |
 | home host | The private hub host where a handle repairs the rig, changes the RAM, and uses the stash. |
+| host key | The SSH key of a server. An SSH client shows its fingerprint at the first connection. |
 | host | A computer in the game world. It is the TTYmud equivalent of a room. |
 | hub | A safe zone that an author makes by hand. |
 | HUD | The client display that fills the window, with two status bars, an output pane, a chat pane, and the input line. |

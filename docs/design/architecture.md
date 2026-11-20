@@ -16,7 +16,7 @@ TTYmud is a Cargo workspace.
     │   ├── wire/        ttymud-wire: protocol messages and their encoding
     │   ├── net/         ttymud-net: keys, Noise sessions, and frames
     │   ├── server/      ttymud-server: the server binary and the default city
-    │   └── client/      ttymud: the client binary
+    │   └── client/      ttymud: the client binary and the display library
     ├── tools/
     │   └── stelint/     stelint: the STE check for the documents
     └── docs/            the documents, in ASD-STE100
@@ -27,7 +27,7 @@ These rules control the dependencies between crates:
 
 - `text` has no dependencies. `game` and `wire` use only `text`. These three crates do no input or output. As a result, their tests are fast and always give the same result.
 - `net` uses only `snow`. It makes keys, does the Noise handshake, and encrypts the frames.
-- `server` uses `game`, `wire`, `net`, and `text`.
+- `server` uses `game`, `wire`, `net`, and `text`. With the `ssh` feature, it also uses the display library of `client` for SSH players.
 - `client` uses `wire`, `net`, and `text`, but not `game`. The client does not know the game rules. As a result, a modified client cannot change the rules.
 - `stelint` is a tool for the documents. The game does not use it.
 
@@ -41,7 +41,7 @@ These rules control the dependencies between crates:
     ttymud connect <host>[:<port>] [--accept-new] [--config <dir>] [--line]
 
     ttymud-server init <data-dir>
-    ttymud-server run <data-dir> [--listen <address>]
+    ttymud-server run <data-dir> [--listen <address>] [--ssh <address>]
     ttymud-server mod <data-dir> [add|remove <handle>]
     ttymud-server play [name]
 
@@ -51,9 +51,10 @@ The `mod` command shows, adds, and removes the moderators of a server. These com
 
 ## Server
 
-The server uses threads from the Rust standard library. It does not use an async runtime.
+The server uses threads from the Rust standard library. Without the `ssh` feature, it does not use an async runtime.
 
 - **Accept thread.** It accepts TCP connections and applies the connection limits. For each connection, it starts a session thread.
+- **SSH thread.** With the `ssh` feature, one thread runs a small Tokio runtime for the SSH connections. It applies the same connection limits. Each SSH session gets a thread that runs the display of the client library with the `remote` function. That thread sends commands to the game loop with the same rate limits as a session thread.
 - **Session threads.** Each session does the Noise handshake, decodes the messages, and applies the rate limits. It sends inputs to the game loop through a channel.
 - **Writer threads.** Each session has a writer thread. It receives outputs from the game loop through a different channel, and it encrypts and writes them.
 - **Game loop thread.** It owns the world state. No other thread can touch the world, so the world has no locks. The loop applies each input when it arrives. It also owns the keys of the accounts, and it does the commands for recovery codes and device links.
@@ -157,8 +158,11 @@ TTYmud keeps dependencies to a minimum. Each dependency must have a reason in th
 | --- | --- | --- |
 | `snow` | net | The Noise protocol. TTYmud does not write its own cryptography. |
 | `crossterm` | client | Raw mode, keys, and cursor control on Unix and Windows. It also supports the old Windows console. |
+| `russh` | server, only with the `ssh` feature | The SSH protocol, with the `ring` crate for the cryptography and RSA support for older player keys. |
+| `tokio` | server, only with the `ssh` feature | The async runtime that `russh` needs. One thread runs it. |
+| `rand` | server, only with the `ssh` feature | The random source for a new SSH host key. `russh` already uses it. |
 
-TTYmud does not use serde, tokio, clap, or a crate for logs. The standard library and small local code do these tasks.
+The default build does not use serde, tokio, clap, or a crate for logs. The standard library and small local code do these tasks.
 
 ## Code rules
 
@@ -176,9 +180,9 @@ TTYmud does not use serde, tokio, clap, or a crate for logs. The standard librar
 - **Scenario tests** for the game. Each file in `crates/game/tests/scenarios/` is a transcript of commands and their expected output. The test runs the commands on a test city and compares the outputs with the transcript. A comment line starts with `#`. A line such as `~ 3` lets three ticks go by.
 - **Screen tests** for the client. They compare the bytes that the screen view writes with the expected bytes. The color layers will add one test for each color depth.
 - **Round-trip tests** for the wire protocol.
-- **Integration tests** that start a server and a client in one process on a local port. Some tests use a small fake server.
+- **Integration tests** that start a server and a client in one process on a local port. Some tests use a small fake server. The tests for the `ssh` feature use a `russh` client.
 - **The STE check** for all documents.
 
 ## Continuous integration
 
-GitHub Actions runs `cargo fmt --check`, `cargo clippy`, and `cargo test` on Linux, macOS, and Windows. It runs for each push to `main` and for each pull request. The workflow uses only the official checkout action, pinned to a commit hash.
+GitHub Actions runs `cargo fmt --check`, `cargo clippy`, and `cargo test` on Linux, macOS, and Windows. It also runs `cargo clippy` and `cargo test` for the `ssh` feature of the server. It runs for each push to `main` and for each pull request. The workflow uses only the official checkout action, pinned to a commit hash.
