@@ -186,33 +186,67 @@ fn build(pair: &Pair<'_>, quiet: bool, errors: &mut Vec<ContentError>) -> Option
 }
 
 impl Seized {
-    fn shown(&self, message: Message) -> Message {
+    fn label(&self) -> String {
         match self {
-            Self::File(file) => {
-                let rest = match file.teaches() {
-                    Some((verb, version)) => {
-                        let name = commands::name_of(verb);
-                        format!(", the blueprint for {name} v{version}")
-                    }
-                    None => format!(", data worth {} cr", file.value),
-                };
-                message.span(Style::File, &file.name).text(rest)
-            }
-            Self::Ram(size) => message.text(format!("{size} GB of RAM")),
-            Self::Cpu(cycles) => message.text(format!("a CPU with {cycles} cycles")),
+            Self::File(file) => file.name.clone(),
+            Self::Ram(size) => format!("{size} GB of RAM"),
+            Self::Cpu(cycles) => format!("a CPU with {cycles} cycles"),
             Self::Build(verb, build) => {
-                let version = match build.version {
-                    1 => String::new(),
-                    version => format!(" v{version}"),
-                };
-                let quiet = if build.quiet {
-                    " with the quiet mod"
-                } else {
-                    ""
-                };
-                message
-                    .span(Style::Command, commands::name_of(*verb))
-                    .text(format!("{version}{quiet}"))
+                let mut label = commands::name_of(*verb).to_owned();
+                if build.version > 1 {
+                    label = format!("{label} v{}", build.version);
+                }
+                if build.quiet {
+                    label.push_str(" with the quiet mod");
+                }
+                label
+            }
+        }
+    }
+
+    fn shown(&self, message: Message) -> Message {
+        let Self::File(file) = self else {
+            return message.text(self.label());
+        };
+        let rest = match file.teaches() {
+            Some((verb, version)) => {
+                let name = commands::name_of(verb);
+                format!(", the blueprint for {name} v{version}")
+            }
+            None => format!(", data worth {} cr", file.value),
+        };
+        message.span(Style::File, &file.name).text(rest)
+    }
+}
+
+fn receive(
+    item: Seized,
+    files: &mut Vec<File>,
+    ram: &mut u32,
+    cpu: &mut u32,
+    builds: &mut Vec<(Verb, Build)>,
+    know: &mut Vec<Verb>,
+) {
+    match item {
+        Seized::File(file) => {
+            files.retain(|known| known.name != file.name);
+            files.push(file);
+        }
+        Seized::Ram(size) => *ram = (*ram).max(size),
+        Seized::Cpu(cycles) => *cpu = (*cpu).max(cycles),
+        Seized::Build(verb, build) => {
+            let old = builds.iter().find(|&&(known, _)| known == verb);
+            let old = old.map_or_default(|&(_, old)| old);
+            builds.retain(|&(known, _)| known != verb);
+            builds.push((
+                verb,
+                Build {
+                    version: old.version.max(build.version),
+                    quiet: old.quiet || build.quiet,
+                },
+            ));
+            if !know.contains(&verb) {
+                know.push(verb);
             }
         }
     }
@@ -375,6 +409,59 @@ impl World {
         ))]))
     }
 
+    pub(super) fn settle_lots(&mut self) {
+        let now = self.now;
+        let lots = std::mem::take(&mut self.auction.lots);
+        let (ended, open): (Vec<Lot>, Vec<Lot>) = lots.into_iter().partition(|lot| lot.ends <= now);
+        self.auction.lots = open;
+        if ended.is_empty() {
+            return;
+        }
+        self.auction.dirty = true;
+        for lot in ended {
+            let Some(bid) = lot.bid else {
+                continue;
+            };
+            let (label, number, credits) = (lot.item.label(), lot.number, bid.credits);
+            self.publish(format!(
+                "The police sell lot {number}, {label}, for {credits} cr."
+            ));
+            let message = Message::game(format!(
+                "You win lot {number}, {label}, for {credits} cr. It is on your rig now."
+            ));
+            self.award(&bid.key, lot.item, message);
+        }
+    }
+
+    fn award(&mut self, key: &str, item: Seized, message: Message) {
+        let online = self.players.iter().find(|(_, state)| state.key() == key);
+        if let Some(player) = online.map(|(&player, _)| player) {
+            if let Some(state) = self.players.get_mut(&player) {
+                let rig = &mut state.rig;
+                let (files, ram, cpu, builds) =
+                    (&mut rig.files, &mut rig.ram, &mut rig.cpu, &mut rig.builds);
+                receive(item, files, ram, cpu, builds, &mut state.know);
+            }
+            self.touch(player);
+            self.outbox.push(Output { player, message });
+            return;
+        }
+        let Some(account) = self.accounts.get_mut(key) else {
+            return;
+        };
+        let Some(handle) = account.handle.as_mut() else {
+            return;
+        };
+        let (files, ram, cpu, builds) = (
+            &mut handle.files,
+            &mut handle.ram,
+            &mut handle.cpu,
+            &mut handle.builds,
+        );
+        receive(item, files, ram, cpu, builds, &mut account.know);
+        self.dirty.insert(key.to_owned());
+    }
+
     fn refund(&mut self, bid: &Bid, number: u32) {
         let credits = bid.credits;
         let online = self
@@ -404,6 +491,7 @@ impl World {
 
 #[cfg(test)]
 mod tests {
+    use super::Seized;
     use crate::commands::Verb;
     use crate::content::File;
     use crate::testing::{hacker, heard, plain, world};
@@ -593,6 +681,90 @@ mod tests {
             plain(&world.command(moth, "bid 1 100")),
             ["There is no auction here. The police auction is at bazaar."]
         );
+    }
+
+    #[test]
+    fn the_top_bid_wins_the_lot_when_the_auction_ends() {
+        let (mut world, _) = seized();
+        let moth = bidder(&mut world, "b", "moth");
+        for line in ["bid 1 100", "bid 3 150", "bid 5 200"] {
+            world.command(moth, line);
+        }
+        world.set_time(START + 3 * 86_400 - 1);
+        assert_eq!(heard(&world.tick(), moth), Vec::<String>::new());
+        world.set_time(START + 3 * 86_400);
+        let won = "It is on your rig now.";
+        assert_eq!(
+            heard(&world.tick(), moth),
+            [
+                format!("You win lot 1, payroll.db, for 100 cr. {won}"),
+                format!("You win lot 3, 12 GB of RAM, for 150 cr. {won}"),
+                format!("You win lot 5, crack v3 with the quiet mod, for 200 cr. {won}"),
+            ]
+        );
+        assert_eq!(
+            plain(&world.command(moth, "lots")),
+            ["The police have no lots for auction now."]
+        );
+        assert_eq!(credits(&mut world, moth), ["Credits: 50 cr"]);
+        assert_eq!(plain(&world.command(moth, "inventory")), ["payroll.db"]);
+        let quiet = Build {
+            version: 3,
+            quiet: true,
+        };
+        assert_eq!(
+            world
+                .players
+                .get(&moth)
+                .map(|state| (state.rig.ram, state.rig.build(Verb::Crack))),
+            Some((12, quiet))
+        );
+        let news = plain(&world.command(moth, "news | grep \"police sell\""));
+        assert_eq!(news.len(), 3, "{news:?}");
+        assert!(
+            news[2].ends_with(" The police sell lot 1, payroll.db, for 100 cr."),
+            "{news:?}"
+        );
+        assert!(news.iter().all(|line| !line.contains("moth")), "{news:?}");
+    }
+
+    #[test]
+    fn a_won_version_teaches_its_program() {
+        let (mut world, _) = seized();
+        let moth = bidder(&mut world, "b", "moth");
+        let patch = Build {
+            version: 2,
+            quiet: false,
+        };
+        if let Some(lot) = world.auction.lots.last_mut() {
+            lot.item = Seized::Build(Verb::Patch, patch);
+        }
+        world.command(moth, "bid 5 100");
+        world.set_time(START + 3 * 86_400);
+        world.tick();
+        let state = world.players.get(&moth);
+        assert_eq!(
+            state.map(|state| (
+                state.know.contains(&Verb::Patch),
+                state.rig.build(Verb::Patch)
+            )),
+            Some((true, patch))
+        );
+    }
+
+    #[test]
+    fn an_offline_winner_gets_the_lot_in_the_save() {
+        let (mut world, _) = seized();
+        let moth = bidder(&mut world, "b", "moth");
+        for line in ["bid 1 100", "bid 4 100"] {
+            world.command(moth, line);
+        }
+        world.leave(moth);
+        world.set_time(START + 3 * 86_400);
+        world.tick();
+        let (moth, _) = world.connect("b");
+        assert_eq!(plain(&world.command(moth, "inventory")), ["payroll.db"]);
+        assert_eq!(world.players.get(&moth).map(|state| state.rig.cpu), Some(5));
     }
 
     #[test]

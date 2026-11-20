@@ -386,6 +386,7 @@ impl World {
 
     pub fn tick(&mut self) -> Vec<Output> {
         self.watch_corps();
+        self.settle_lots();
         let players: Vec<PlayerId> = self.players.keys().copied().collect();
         let mut outputs = Vec::new();
         for &player in &players {
