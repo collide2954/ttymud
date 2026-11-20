@@ -1,6 +1,7 @@
 use ttymud_text::{Message, Style};
 
 use super::builds::effect;
+use super::market::{FULL, Market};
 use super::{HostId, Player, PlayerId, Step, Thing, World, choose, lines, listed, usage};
 use crate::commands::{self, Item, Verb};
 use crate::content::{File, ShopDef, blueprint_name};
@@ -185,11 +186,12 @@ impl World {
         input: Option<Vec<Item>>,
     ) -> Result<Step, Message> {
         self.shop_here(player)?;
+        let now = self.now;
         let Some(state) = self.players.get_mut(&player) else {
             return Ok(Step::default());
         };
         let names: Vec<String> = match (args, input) {
-            ([], None) => return Err(wanted(&state.rig.files)),
+            ([], None) => return Err(wanted(&state.rig.files, &self.market, now)),
             ([], Some(items)) => items
                 .into_iter()
                 .filter_map(|item| match item {
@@ -230,14 +232,20 @@ impl World {
                 )));
                 continue;
             }
+            let percent = self.market.percent(&name, now);
+            let price = self.market.price(&name, value, now);
+            self.market.sell(&name, now);
+            self.state_dirty = true;
             state.rig.files.remove(index);
-            state.credits += value;
+            state.credits += price;
             state.sold.push(name.clone());
-            shown.push(
-                Message::game(format!("The fence pays you {value} cr for "))
-                    .span(Style::File, &name)
-                    .text("."),
-            );
+            let paid = Message::game(format!("The fence pays you {price} cr for "))
+                .span(Style::File, &name);
+            shown.push(if percent < FULL {
+                paid.text(format!(", {percent}% of its full price."))
+            } else {
+                paid.text(".")
+            });
         }
         Ok(Step::show(shown))
     }
@@ -298,7 +306,7 @@ impl World {
     }
 }
 
-fn wanted(files: &[File]) -> Message {
+fn wanted(files: &[File], market: &Market, now: u64) -> Message {
     let mut message = Message::error("Usage: sell <file>. The fence wants: ");
     let valued: Vec<&File> = files.iter().filter(|file| file.value > 0).collect();
     if valued.is_empty() {
@@ -308,9 +316,10 @@ fn wanted(files: &[File]) -> Message {
         if index > 0 {
             message = message.text(", ");
         }
+        let price = market.price(&file.name, file.value, now);
         message = message
             .span(Style::File, &file.name)
-            .text(format!(" ({} cr)", file.value));
+            .text(format!(" ({price} cr)"));
     }
     message
 }
@@ -509,7 +518,68 @@ mod tests {
         world.command(player, "contract drop");
         assert_eq!(
             plain(&world.command(player, "sell payroll.db")),
+            ["The fence pays you 36 cr for payroll.db, 90% of its full price."]
+        );
+    }
+
+    fn seller(world: &mut World, account: &str, handle: &str) -> PlayerId {
+        let (player, _) = world.connect(account);
+        for line in [handle, "ghost", "go market"] {
+            world.command(player, line);
+        }
+        carry(world, player, "payroll.db", 40);
+        player
+    }
+
+    #[test]
+    fn each_sale_of_a_file_name_lowers_its_price_for_a_time() {
+        let mut world = world();
+        world.set_time(10_000);
+        let (nyx, zero) = (
+            seller(&mut world, "a", "nyx"),
+            seller(&mut world, "b", "zer0"),
+        );
+        assert_eq!(
+            plain(&world.command(nyx, "sell payroll.db")),
             ["The fence pays you 40 cr for payroll.db."]
+        );
+        assert_eq!(
+            plain(&world.command(zero, "sell")),
+            ["Usage: sell <file>. The fence wants: payroll.db (36 cr)"]
+        );
+        assert_eq!(
+            plain(&world.command(zero, "sell payroll.db")),
+            ["The fence pays you 36 cr for payroll.db, 90% of its full price."]
+        );
+        world.set_time(10_000 + 2 * 3_600);
+        let moth = seller(&mut world, "c", "moth");
+        assert_eq!(
+            plain(&world.command(moth, "sell")),
+            ["Usage: sell <file>. The fence wants: payroll.db (36 cr)"]
+        );
+    }
+
+    #[test]
+    fn data_prices_come_back_from_the_save() {
+        let mut world = world();
+        world.set_time(10_000);
+        let nyx = seller(&mut world, "a", "nyx");
+        world.command(nyx, "sell payroll.db");
+        let saves = world.saves();
+        let text = saves
+            .iter()
+            .find(|(path, _)| path == "world.ini")
+            .map_or_default(|(_, text)| text.clone());
+        assert!(text.contains("\nprice = payroll.db 90 10000\n"), "{text}");
+        let mut fresh = crate::testing::world();
+        fresh.set_time(10_000);
+        for (path, text) in &saves {
+            fresh.restore(path, text).unwrap();
+        }
+        let zero = seller(&mut fresh, "b", "zer0");
+        assert_eq!(
+            plain(&fresh.command(zero, "sell")),
+            ["Usage: sell <file>. The fence wants: payroll.db (36 cr)"]
         );
     }
 

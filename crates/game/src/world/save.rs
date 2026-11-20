@@ -8,6 +8,7 @@ use super::builds::Build;
 use super::burns::Burn;
 use super::contract::Job;
 use super::crews::CREWS;
+use super::market::{FLOOR, FULL};
 use super::moderation::{AUDIT, MODERATORS};
 use super::news::NEWS;
 use super::reports::REPORTS;
@@ -22,6 +23,7 @@ use crate::kits::{CYCLES, KITS, RAM};
 const ACCOUNTS: &str = "accounts/";
 
 type Corps = Vec<(usize, CorpState)>;
+type Prices = Vec<(String, u32, u64)>;
 const BURNS: &str = "burns.ini";
 const WORLD: &str = "world.ini";
 
@@ -83,8 +85,11 @@ impl World {
             return Ok(());
         }
         if path == WORLD {
-            let (seed, corps) = self.parse_world(text)?;
+            let (seed, prices, corps) = self.parse_world(text)?;
             self.seed = seed;
+            for (name, percent, since) in prices {
+                self.market.restore(&name, percent, since);
+            }
             for (corp, state) in corps {
                 self.corp_states[corp] = state;
                 self.corp_states[corp].level = self.alert(corp);
@@ -217,6 +222,9 @@ impl World {
         let mut text = Text::new("# The TTYmud world. The server writes this file.");
         text.section("world", &self.city_id);
         text.pair("seed", &self.seed.to_string());
+        for (name, percent, since) in self.market.low(self.now) {
+            text.pair("price", &format!("{name} {percent} {since}"));
+        }
         for (corp, state) in self.corp_states.iter().enumerate() {
             self.corp_text(&mut text, corp, state);
         }
@@ -246,15 +254,17 @@ impl World {
         }
     }
 
-    fn parse_world(&self, text: &str) -> Result<(u64, Corps), Vec<ContentError>> {
+    fn parse_world(&self, text: &str) -> Result<(u64, Prices, Corps), Vec<ContentError>> {
         let (sections, mut errors) = ini::read(text);
-        let (mut seed, mut corps) = (None, Vec::new());
+        let (mut seed, mut prices, mut corps) = (None, Vec::new(), Vec::new());
         for section in &sections {
             match section.kind {
                 "world" if section.id == self.city_id => {
-                    allow(section, &["seed"], &mut errors);
+                    allow(section, &["seed", "price"], &mut errors);
                     let pair = section.pairs.iter().find(|pair| pair.key == "seed");
                     seed = pair.and_then(|pair| number(pair, &mut errors));
+                    let pairs = section.pairs.iter().filter(|pair| pair.key == "price");
+                    prices.extend(pairs.filter_map(|pair| price(pair, &mut errors)));
                 }
                 "world" => {
                     let (id, city) = (section.id, &self.city_id);
@@ -277,7 +287,7 @@ impl World {
         if !sections.iter().any(|section| section.kind == "world") {
             errors.push(problem(0, format!("{WORLD} has no world section")));
         }
-        checked(errors, (seed.unwrap_or_default(), corps))
+        checked(errors, (seed.unwrap_or_default(), prices, corps))
     }
 
     fn burns_text(&self) -> String {
@@ -438,6 +448,31 @@ fn program_version(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<(V
         errors.push(problem(
             pair.line,
             format!("bad {key}: {value} (use a program and 2 or 3)"),
+        ));
+    }
+    parsed
+}
+
+fn price(pair: &Pair<'_>, errors: &mut Vec<ContentError>) -> Option<(String, u32, u64)> {
+    let words: Vec<&str> = pair.value.split_whitespace().collect();
+    let parsed = match words.as_slice() {
+        [name, percent, since] => {
+            let percent = percent.parse().ok();
+            let percent = percent.filter(|percent| (FLOOR..=FULL).contains(percent));
+            let since = since.parse().ok();
+            percent
+                .zip(since)
+                .map(|(percent, since)| ((*name).to_owned(), percent, since))
+        }
+        _ => None,
+    };
+    if parsed.is_none() {
+        let value = pair.value;
+        errors.push(problem(
+            pair.line,
+            format!(
+                "bad price: {value} (use a file, a percent from {FLOOR} to {FULL}, and a time)"
+            ),
         ));
     }
     parsed
@@ -865,7 +900,7 @@ mod tests {
         }
         assert_eq!(
             plain(&fresh.command(player, "sell")),
-            ["Usage: sell <file>. The fence wants: clients.db (100 cr), payroll.db (40 cr)"]
+            ["Usage: sell <file>. The fence wants: clients.db (100 cr), payroll.db (36 cr)"]
         );
         assert_eq!(
             plain(&fresh.command(player, "sell payroll.db")),
@@ -956,6 +991,15 @@ mod tests {
             [
                 "line 2: bad number: x",
                 "line 3: unknown key in world test: color"
+            ]
+        );
+        assert_eq!(
+            errors(
+                &mut world,
+                "[world test]\nseed = 7\nprice = payroll.db 5 0\n"
+            ),
+            [
+                "line 3: bad price: payroll.db 5 0 (use a file, a percent from 30 to 100, and a time)"
             ]
         );
         assert_eq!(errors(&mut world, ""), ["world.ini has no world section"]);

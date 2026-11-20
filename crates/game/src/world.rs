@@ -18,6 +18,7 @@ mod ice;
 mod ignore;
 mod instance;
 mod jobs;
+mod market;
 mod moderation;
 mod movement;
 mod news;
@@ -64,6 +65,7 @@ use contract::{Contract, Job};
 use crews::Crews;
 use instance::{Instance, InstanceId};
 use jobs::Fixer;
+use market::Market;
 use moderation::Moderation;
 use news::News;
 use rig::Rig;
@@ -203,6 +205,7 @@ pub struct World {
     contracts: Vec<Contract>,
     offer: Option<usize>,
     shops: Vec<Shop>,
+    market: Market,
     corps: Vec<CorpDef>,
     corp_states: Vec<CorpState>,
     templates: Vec<TemplateDef>,
@@ -304,6 +307,7 @@ impl World {
             contracts,
             offer,
             shops,
+            market: Market::default(),
             corps: content.corps,
             corp_states,
             templates: content.templates,
