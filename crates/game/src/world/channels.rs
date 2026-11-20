@@ -1,6 +1,6 @@
 use ttymud_text::{Kind, Message, Style};
 
-use super::{Output, PlayerId, Step, Thing, World, choose, usage};
+use super::{Outgoing, Output, PlayerId, Step, Thing, World, choose, usage};
 use crate::content::ChannelDef;
 
 #[derive(Debug)]
@@ -154,7 +154,10 @@ impl World {
             return Vec::new();
         };
         if self.linked_channel().as_ref() == Some(&id) {
-            self.send_out(&name, text);
+            self.send_out(Outgoing::Chat {
+                handle: name.clone(),
+                text: text.to_owned(),
+            });
         }
         let message = Message::new(Kind::Chat)
             .text(format!("[{id}] <"))

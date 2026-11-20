@@ -211,7 +211,8 @@ mod tests {
         assert_eq!(
             names("c"),
             [
-                "cd", "connect", "cat", "compile", "contract", "crack", "channels", "crew"
+                "cd", "connect", "cat", "compile", "contract", "crack", "channels", "cities",
+                "crew"
             ]
         );
     }

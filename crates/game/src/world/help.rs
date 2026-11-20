@@ -49,6 +49,7 @@ impl World {
                     self.home == Some(here)
                 }
                 Verb::Contract => hired,
+                Verb::Cities => !self.longline.peers.is_empty(),
                 Verb::Reply => state.is_some_and(|state| state.reply_to.is_some()),
                 Verb::Unignore => state.is_some_and(|state| !state.social.ignores.is_empty()),
                 Verb::Unblock => state.is_some_and(|state| !state.social.blocks.is_empty()),

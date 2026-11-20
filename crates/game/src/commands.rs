@@ -53,6 +53,7 @@ pub(crate) enum Verb {
     Leave,
     Who,
     News,
+    Cities,
     Crew,
     Tell,
     Reply,
@@ -124,7 +125,7 @@ impl Verb {
                 | Self::Exploit
                 | Self::Channels
                 | Self::Who
-                | Self::News
+                | Self::Cities
                 | Self::Recovery
                 | Self::Link
                 | Self::Keys
@@ -752,9 +753,18 @@ pub(crate) const COMMANDS: &[Command] = &[
     Command {
         verb: Verb::News,
         names: &["news"],
-        usage: "news",
-        summary: "Show the latest news of the city: breaches, traces, burns, patches, and alerts.",
+        usage: "news [city]",
+        summary: "Show the latest news of the city, or of a linked city: breaches, traces, burns, patches, and alerts.",
         example: "news | grep alert",
+        takes: Takes::Nothing,
+        gives: Gives::Items(Kinds::LINES),
+    },
+    Command {
+        verb: Verb::Cities,
+        names: &["cities"],
+        usage: "cities",
+        summary: "Show the linked cities, and if each link is up.",
+        example: "cities",
         takes: Takes::Nothing,
         gives: Gives::Items(Kinds::LINES),
     },

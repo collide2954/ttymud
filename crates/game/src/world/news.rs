@@ -1,8 +1,7 @@
-use ttymud_text::Message;
-use ttymud_text::ini;
+use ttymud_text::{Message, ini, sanitize};
 
 use super::save::{Text, allow, checked, problem};
-use super::{HostId, Step, World, lines};
+use super::{HostId, Outgoing, Step, World, lines};
 use crate::content::{ContentError, File};
 use crate::date::stamp;
 
@@ -26,15 +25,40 @@ pub(super) struct News {
 
 impl World {
     pub(super) fn publish(&mut self, text: String) {
-        let headlines = &mut self.news.headlines;
-        headlines.push(Headline {
-            when: self.now,
-            text,
+        let when = self.now;
+        self.send_out(Outgoing::News {
+            when,
+            text: text.clone(),
         });
+        let headlines = &mut self.news.headlines;
+        headlines.push(Headline { when, text });
         let old = headlines.len().saturating_sub(KEEP);
         headlines.drain(..old);
         self.news.dirty = true;
         self.post_news();
+    }
+
+    pub fn peer_news(&mut self, name: &str, when: u64, text: &str) {
+        let text = sanitize(text).trim().to_owned();
+        let when = when.min(self.now);
+        let Some(peer) = self
+            .longline
+            .peers
+            .iter_mut()
+            .find(|peer| peer.name == name)
+        else {
+            return;
+        };
+        if !text.is_empty() {
+            peer.headlines.push(Headline { when, text });
+            let old = peer.headlines.len().saturating_sub(SHOWN);
+            peer.headlines.drain(..old);
+        }
+    }
+
+    pub(super) fn latest_headlines(&self) -> Vec<Headline> {
+        let headlines = &self.news.headlines;
+        headlines[headlines.len().saturating_sub(SHOWN)..].to_vec()
     }
 
     pub(super) fn watch_corps(&mut self) {
@@ -47,8 +71,29 @@ impl World {
         }
     }
 
-    pub(super) fn read_news(&self) -> Step {
-        lines(self.latest())
+    pub(super) fn read_news(&self, args: &[String]) -> Result<Step, Message> {
+        match args {
+            [] => Ok(lines(self.latest())),
+            [word] => {
+                let peer = self.find_peer(word)?;
+                let shown: Vec<Message> = peer
+                    .headlines
+                    .iter()
+                    .rev()
+                    .map(|headline| {
+                        Message::game(format!("{} {}", stamp(headline.when), headline.text))
+                    })
+                    .collect();
+                if shown.is_empty() {
+                    let name = &peer.name;
+                    return Ok(lines(vec![Message::game(format!(
+                        "No news from {name} yet."
+                    ))]));
+                }
+                Ok(lines(shown))
+            }
+            _ => Err(Message::error("Usage: news [city].")),
+        }
     }
 
     pub(super) fn headline(&self) -> String {
