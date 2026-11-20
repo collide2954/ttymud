@@ -305,7 +305,11 @@ impl World {
                     let (id, city) = (section.id, &self.city_id);
                     errors.push(problem(
                         section.line,
-                        format!("world {id} is not this city: {city}"),
+                        format!(
+                            "world {id} is not this city: {city}. To keep the accounts and \
+                             start a new world, delete {WORLD} and {NEWS}. Or use a new data \
+                             directory."
+                        ),
                     ));
                 }
                 "corp" => {
@@ -1033,7 +1037,10 @@ mod tests {
         };
         assert_eq!(
             errors(&mut world, "[world other]\nseed = 7\n"),
-            ["line 1: world other is not this city: test"]
+            [
+                "line 1: world other is not this city: test. To keep the accounts and start \
+                 a new world, delete world.ini and news.ini. Or use a new data directory."
+            ]
         );
         assert_eq!(
             errors(&mut world, "[world test]\nseed = x\ncolor = red\n"),
