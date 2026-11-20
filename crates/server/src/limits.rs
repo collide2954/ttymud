@@ -12,7 +12,7 @@ pub(crate) const TOO_FAST: &str = "You are sending commands too fast. Wait a mom
 pub(crate) const TALKING_TOO_FAST: &str = "You are talking too fast. Wait a moment.";
 
 #[derive(Debug, Clone, Copy)]
-struct Bucket {
+pub(crate) struct Bucket {
     capacity: f64,
     rate: f64,
     tokens: f64,
@@ -20,7 +20,7 @@ struct Bucket {
 }
 
 impl Bucket {
-    fn new(capacity: f64, rate: f64, now: Instant) -> Self {
+    pub(crate) fn new(capacity: f64, rate: f64, now: Instant) -> Self {
         Self {
             capacity,
             rate,
@@ -29,7 +29,7 @@ impl Bucket {
         }
     }
 
-    fn take(&mut self, now: Instant) -> bool {
+    pub(crate) fn take(&mut self, now: Instant) -> bool {
         let elapsed = now.saturating_duration_since(self.last).as_secs_f64();
         self.tokens = elapsed.mul_add(self.rate, self.tokens).min(self.capacity);
         self.last = now;

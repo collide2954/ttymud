@@ -166,9 +166,17 @@ fn run(dir: &Path, listen: &str, ssh: Option<&str>) -> io::Result<()> {
         let port = ttymud_server::SshPort::new(TcpListener::bind(address)?, key);
         println!("SSH is open on {}.", port.address()?);
         println!("SSH fingerprint: {}", port.fingerprint());
-        return ttymud_server::serve_with_ssh(&listener, port, keys, world, identity, Some(store));
+        return ttymud_server::serve_with_ssh(
+            &listener,
+            port,
+            keys,
+            world,
+            identity,
+            Some(store),
+            peers,
+        );
     }
-    ttymud_server::serve(&listener, keys, world, identity, Some(store))
+    ttymud_server::serve(&listener, keys, world, identity, Some(store), peers)
 }
 
 fn missing_key(dir: &Path, error: io::Error) -> io::Error {

@@ -3,12 +3,14 @@ use crate::codec::{DecodeError, Reader, Writer};
 const HELLO: u8 = 32;
 const CHAT: u8 = 33;
 const NEWS: u8 = 34;
+const PING: u8 = 35;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LinkMessage {
     Hello { city: String },
     Chat { handle: String, text: String },
     News { when: u64, text: String },
+    Ping,
 }
 
 impl LinkMessage {
@@ -30,6 +32,7 @@ impl LinkMessage {
                 writer.number(*when);
                 writer.text(text);
             }
+            Self::Ping => writer.byte(PING),
         }
         writer.finish()
     }
@@ -48,6 +51,7 @@ impl LinkMessage {
                 when: reader.number()?,
                 text: reader.text()?,
             },
+            PING => Self::Ping,
             other => return Err(DecodeError::UnknownType(other)),
         };
         reader.finish()?;
@@ -78,6 +82,7 @@ mod tests {
                 when: 1_700_000_000,
                 text: "Kestrel Health loses patients.db in a breach.".to_owned(),
             },
+            LinkMessage::Ping,
         ];
         for message in messages {
             assert_eq!(LinkMessage::decode(&message.encode()), Ok(message));
@@ -124,7 +129,7 @@ mod tests {
             state ^= state >> 7;
             state ^= state << 17;
             let mut bytes = state.to_le_bytes();
-            bytes[0] = 32 + bytes[0] % 4;
+            bytes[0] = 32 + bytes[0] % 5;
             let length = usize::from(bytes[1] % 9);
             let _ = LinkMessage::decode(&bytes[..length]);
         }

@@ -5,9 +5,9 @@ use std::net::IpAddr;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::Instant;
 
-use ttymud_game::{BANNED, Completion, Output, PlayerId, World};
+use ttymud_game::{BANNED, Completion, Outgoing, Output, PlayerId, World};
 use ttymud_text::{Message, Status};
-use ttymud_wire::ServerMessage;
+use ttymud_wire::{LinkMessage, ServerMessage};
 
 use crate::city::now;
 use crate::identity::Identity;
@@ -37,6 +37,21 @@ pub(crate) enum Event {
     Leave {
         connection: u64,
     },
+    PeerUp {
+        name: String,
+        city: String,
+        connection: u64,
+        outbox: mpsc::SyncSender<LinkMessage>,
+    },
+    PeerMessage {
+        name: String,
+        connection: u64,
+        message: LinkMessage,
+    },
+    PeerDown {
+        name: String,
+        connection: u64,
+    },
 }
 
 pub(crate) type Saves = mpsc::Sender<(String, String)>;
@@ -46,7 +61,13 @@ pub(crate) struct Game {
     identity: Identity,
     connections: HashMap<u64, PlayerId>,
     links: HashMap<PlayerId, Link>,
+    peers: HashMap<String, Peer>,
     store: Option<Saves>,
+}
+
+struct Peer {
+    connection: u64,
+    outbox: mpsc::SyncSender<LinkMessage>,
 }
 
 struct Link {
@@ -85,6 +106,7 @@ impl Game {
             identity,
             connections: HashMap::new(),
             links: HashMap::new(),
+            peers: HashMap::new(),
             store,
         }
     }
@@ -101,11 +123,65 @@ impl Game {
             Event::Command { connection, line } => self.command(connection, &line),
             Event::Complete { connection, text } => self.complete(connection, &text),
             Event::Leave { connection } => self.leave(connection),
+            Event::PeerUp {
+                name,
+                city,
+                connection,
+                outbox,
+            } => self.peer_up(name, &city, Peer { connection, outbox }),
+            Event::PeerMessage {
+                name,
+                connection,
+                message,
+            } => self.peer_message(&name, connection, message),
+            Event::PeerDown { name, connection } => self.peer_down(&name, connection),
         }
         for (player, reason) in self.world.drops() {
             self.close(player, reason);
         }
+        self.send_out();
         self.save();
+    }
+
+    fn peer_up(&mut self, name: String, city: &str, peer: Peer) {
+        for item in self.world.latest_news() {
+            let _ = peer.outbox.try_send(link_message(item));
+        }
+        let outputs = self.world.peer_up(&name, city);
+        self.peers.insert(name, peer);
+        self.deliver(outputs, None);
+    }
+
+    fn peer_message(&mut self, name: &str, connection: u64, message: LinkMessage) {
+        if self.peers.get(name).map(|peer| peer.connection) != Some(connection) {
+            return;
+        }
+        match message {
+            LinkMessage::Chat { handle, text } => {
+                let outputs = self.world.peer_chat(name, &handle, &text);
+                self.deliver(outputs, None);
+            }
+            LinkMessage::News { when, text } => self.world.peer_news(name, when, &text),
+            LinkMessage::Hello { .. } | LinkMessage::Ping => {}
+        }
+    }
+
+    fn peer_down(&mut self, name: &str, connection: u64) {
+        if self.peers.get(name).map(|peer| peer.connection) != Some(connection) {
+            return;
+        }
+        self.peers.remove(name);
+        let outputs = self.world.peer_down(name);
+        self.deliver(outputs, None);
+    }
+
+    fn send_out(&mut self) {
+        for item in self.world.outgoing() {
+            let message = link_message(item);
+            for peer in self.peers.values() {
+                let _ = peer.outbox.try_send(message.clone());
+            }
+        }
     }
 
     fn close(&mut self, player: PlayerId, reason: String) {
@@ -210,6 +286,7 @@ impl Game {
         for player in players {
             self.sync_status(player);
         }
+        self.send_out();
         self.save();
     }
 
@@ -272,6 +349,13 @@ impl Game {
     }
 }
 
+fn link_message(item: Outgoing) -> LinkMessage {
+    match item {
+        Outgoing::Chat { handle, text } => LinkMessage::Chat { handle, text },
+        Outgoing::News { when, text } => LinkMessage::News { when, text },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::net::IpAddr;
@@ -280,7 +364,7 @@ mod tests {
     use ttymud_game::{Content, World};
     use ttymud_net::{Keys, PublicKey};
     use ttymud_text::Status;
-    use ttymud_wire::ServerMessage;
+    use ttymud_wire::{LinkMessage, ServerMessage};
 
     use super::{Event, Game};
     use crate::identity::Identity;
@@ -745,6 +829,101 @@ mod tests {
             "{paths:?}"
         );
         assert!(paths.contains(&"keys.ini".to_owned()), "{paths:?}");
+    }
+
+    fn linked_game() -> Game {
+        let mut world = port_ostra(0).unwrap();
+        let news = "[news port-ostra]\nitem = 1700000000 One.\nitem = 1700000060 Two.\n";
+        world.restore("news.ini", news).unwrap();
+        world.set_peers(vec!["night-owl".to_owned()]);
+        with_world(world)
+    }
+
+    fn peer_up(game: &mut Game, connection: u64) -> mpsc::Receiver<LinkMessage> {
+        let (outbox, wire) = mpsc::sync_channel(64);
+        game.handle(Event::PeerUp {
+            name: "night-owl".to_owned(),
+            city: "Port Ostra".to_owned(),
+            connection,
+            outbox,
+        });
+        wire
+    }
+
+    fn from_peer(game: &mut Game, connection: u64, message: LinkMessage) {
+        game.handle(Event::PeerMessage {
+            name: "night-owl".to_owned(),
+            connection,
+            message,
+        });
+    }
+
+    fn chat(handle: &str, text: &str) -> LinkMessage {
+        LinkMessage::Chat {
+            handle: handle.to_owned(),
+            text: text.to_owned(),
+        }
+    }
+
+    #[test]
+    fn a_link_carries_the_longline_both_ways_and_gets_the_latest_news() {
+        let mut game = linked_game();
+        let mailbox = hacker(&mut game, 1, "ghost");
+        command(&mut game, 1, "join longline");
+        drain(&mailbox);
+        let wire = peer_up(&mut game, 9);
+        let news = |when, text: &str| LinkMessage::News {
+            when,
+            text: text.to_owned(),
+        };
+        assert_eq!(
+            wire.try_iter().collect::<Vec<_>>(),
+            [news(1_700_000_000, "One."), news(1_700_000_060, "Two.")]
+        );
+        assert_eq!(
+            texts(&drain(&mailbox)),
+            ["[longline] The link to night-owl (Port Ostra) is up."]
+        );
+        from_peer(&mut game, 9, chat("vex", "hi ostra"));
+        assert_eq!(
+            texts(&drain(&mailbox)),
+            ["[longline] <vex@night-owl> hi ostra"]
+        );
+        command(&mut game, 1, "#longline hi owl");
+        assert_eq!(
+            wire.try_iter().collect::<Vec<_>>(),
+            [chat("ghost", "hi owl")]
+        );
+        from_peer(&mut game, 9, news(1_700_000_100, "Owl news."));
+        command(&mut game, 1, "news night-owl");
+        assert_eq!(
+            texts(&drain(&mailbox)).last().map(String::as_str),
+            Some("2023-11-14 22:15 Owl news.")
+        );
+    }
+
+    #[test]
+    fn an_old_connection_of_a_link_changes_nothing() {
+        let mut game = linked_game();
+        let mailbox = hacker(&mut game, 1, "ghost");
+        command(&mut game, 1, "join longline");
+        let _first = peer_up(&mut game, 8);
+        let _second = peer_up(&mut game, 9);
+        drain(&mailbox);
+        from_peer(&mut game, 8, chat("vex", "old"));
+        game.handle(Event::PeerDown {
+            name: "night-owl".to_owned(),
+            connection: 8,
+        });
+        assert_eq!(texts(&drain(&mailbox)), Vec::<String>::new());
+        game.handle(Event::PeerDown {
+            name: "night-owl".to_owned(),
+            connection: 9,
+        });
+        assert_eq!(
+            texts(&drain(&mailbox)),
+            ["[longline] The link to night-owl is down."]
+        );
     }
 
     #[test]

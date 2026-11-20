@@ -4,6 +4,7 @@ mod game;
 mod identity;
 mod key;
 mod limits;
+mod longline;
 mod moderate;
 mod peers;
 mod play;

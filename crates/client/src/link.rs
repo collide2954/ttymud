@@ -1,10 +1,10 @@
 use std::fmt;
 use std::io;
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::TcpStream;
 use std::path::Path;
 use std::time::Duration;
 
-use ttymud_net::{Keys, PublicKey, Receiver, Sender, normalize};
+use ttymud_net::{Keys, PublicKey, Receiver, Sender, normalize, open};
 
 use crate::known::{KnownServers, Trust};
 
@@ -68,7 +68,7 @@ pub fn connect(
     ask: impl FnOnce(&str, PublicKey) -> io::Result<bool>,
 ) -> Result<Link, ConnectError> {
     let address = normalize(address);
-    let mut stream = open(&address)?;
+    let mut stream = open(&address, TIMEOUT)?;
     stream.set_read_timeout(Some(TIMEOUT))?;
     let session = ttymud_net::connect(&mut stream, keys)?;
     stream.set_read_timeout(None)?;
@@ -110,17 +110,6 @@ pub fn connect(
         control,
         server,
     })
-}
-
-fn open(address: &str) -> io::Result<TcpStream> {
-    let mut last = io::Error::new(io::ErrorKind::NotFound, format!("no address for {address}"));
-    for target in address.to_socket_addrs()? {
-        match TcpStream::connect_timeout(&target, TIMEOUT) {
-            Ok(stream) => return Ok(stream),
-            Err(error) => last = error,
-        }
-    }
-    Err(last)
 }
 
 #[cfg(test)]

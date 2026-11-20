@@ -1,4 +1,19 @@
+use std::io;
+use std::net::{TcpStream, ToSocketAddrs};
+use std::time::Duration;
+
 pub const DEFAULT_PORT: u16 = 7331;
+
+pub fn open(address: &str, timeout: Duration) -> io::Result<TcpStream> {
+    let mut last = io::Error::new(io::ErrorKind::NotFound, format!("no address for {address}"));
+    for target in address.to_socket_addrs()? {
+        match TcpStream::connect_timeout(&target, timeout) {
+            Ok(stream) => return Ok(stream),
+            Err(error) => last = error,
+        }
+    }
+    Err(last)
+}
 
 #[must_use]
 pub fn normalize(address: &str) -> String {

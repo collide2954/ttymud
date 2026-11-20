@@ -9,19 +9,15 @@ use ttymud_wire::{ClientMessage, ServerMessage};
 
 use crate::game::Event;
 use crate::limits::Limiter;
+use crate::longline;
+use crate::serve::Hub;
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 const LINGER: Duration = Duration::from_secs(5);
 
-pub(crate) fn run(
-    stream: TcpStream,
-    connection: u64,
-    address: IpAddr,
-    keys: &Keys,
-    events: &mpsc::Sender<Event>,
-) {
-    if let Err(error) = serve(stream, connection, address, keys, events) {
+pub(crate) fn run(stream: TcpStream, connection: u64, address: IpAddr, keys: &Keys, hub: &Hub) {
+    if let Err(error) = serve(stream, connection, address, keys, hub) {
         eprintln!("ttymud-server: connection {connection}: {error}");
     }
 }
@@ -31,13 +27,17 @@ fn serve(
     connection: u64,
     address: IpAddr,
     keys: &Keys,
-    events: &mpsc::Sender<Event>,
+    hub: &Hub,
 ) -> Result<(), Error> {
     stream.set_read_timeout(Some(HANDSHAKE_TIMEOUT))?;
     stream.set_write_timeout(Some(WRITE_TIMEOUT))?;
     let session = ttymud_net::accept(&mut stream, keys)?;
-    stream.set_read_timeout(None)?;
     let key = session.peer();
+    if let Some(peer) = hub.peers.iter().find(|peer| peer.key == key) {
+        return Ok(longline::accept(peer, session, stream, hub)?);
+    }
+    stream.set_read_timeout(None)?;
+    let events = &hub.events;
     let control = stream.try_clone()?;
     let (mut receiver, sender) = session.split(stream.try_clone()?, stream);
     let (outbox, mailbox) = mpsc::channel();

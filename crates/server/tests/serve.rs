@@ -3,9 +3,10 @@
 use std::io::{ErrorKind, Read};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ttymud_net::{Keys, PublicKey, Receiver, Sender};
+use ttymud_server::{Identity, Peer, port_ostra, serve};
 use ttymud_wire::{ClientMessage, ServerMessage};
 
 fn start() -> (SocketAddr, PublicKey) {
@@ -16,7 +17,7 @@ fn start() -> (SocketAddr, PublicKey) {
     thread::spawn(move || {
         let world = ttymud_server::port_ostra(0).unwrap();
         let identity = ttymud_server::Identity::default();
-        ttymud_server::serve(&listener, keys, world, identity, None)
+        ttymud_server::serve(&listener, keys, world, identity, None, Vec::new())
     });
     (address, public)
 }
@@ -230,6 +231,87 @@ fn too_many_connections_from_one_address_are_refused() {
         ),
     };
     assert!(closed, "{result:?}");
+}
+
+fn linked(both: bool) -> (SocketAddr, SocketAddr) {
+    let listeners = [(); 2].map(|()| TcpListener::bind("127.0.0.1:0").unwrap());
+    let addresses = listeners
+        .each_ref()
+        .map(|listener| listener.local_addr().unwrap());
+    let keys = [(); 2].map(|()| Keys::generate().unwrap());
+    let peer = |name: &str, index: usize| Peer {
+        name: name.to_owned(),
+        address: addresses[index].to_string(),
+        key: keys[index].public(),
+    };
+    let lists = [
+        vec![peer("bravo", 1)],
+        if both {
+            vec![peer("alpha", 0)]
+        } else {
+            Vec::new()
+        },
+    ];
+    for ((listener, keys), peers) in listeners.into_iter().zip(keys).zip(lists) {
+        thread::spawn(move || {
+            let world = port_ostra(0).unwrap();
+            serve(&listener, keys, world, Identity::default(), None, peers)
+        });
+    }
+    (addresses[0], addresses[1])
+}
+
+fn cities_until(client: &mut Client, line: &str) -> Vec<String> {
+    let start = Instant::now();
+    loop {
+        client.send("cities");
+        let shown = client.until_prompt();
+        if shown.iter().any(|known| known == line) || start.elapsed() > Duration::from_secs(10) {
+            return shown;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+}
+
+fn heard(client: &mut Client, expected: &str) -> String {
+    for _ in 0..10 {
+        let text = client.text();
+        if text == expected {
+            return text;
+        }
+    }
+    String::new()
+}
+
+#[test]
+fn linked_servers_carry_the_longline_both_ways() {
+    let (alpha, bravo) = linked(true);
+    let mut ghost = Client::joined(alpha, "ghost");
+    let mut nyx = Client::joined(bravo, "nyx");
+    for client in [&mut ghost, &mut nyx] {
+        client.send("join longline");
+        client.until_prompt();
+    }
+    let up = "bravo: Port Ostra. The link is up.";
+    assert!(cities_until(&mut ghost, up).contains(&up.to_owned()));
+    let up = "alpha: Port Ostra. The link is up.";
+    assert!(cities_until(&mut nyx, up).contains(&up.to_owned()));
+    ghost.send("#longline hello bravo");
+    assert_eq!(ghost.until_prompt(), ["[longline] <ghost> hello bravo"]);
+    let expected = "[longline] <ghost@alpha> hello bravo";
+    assert_eq!(heard(&mut nyx, expected), expected);
+    nyx.send("#longline hello alpha");
+    let expected = "[longline] <nyx@bravo> hello alpha";
+    assert_eq!(heard(&mut ghost, expected), expected);
+}
+
+#[test]
+fn a_link_needs_both_servers_to_list_each_other() {
+    let (alpha, _) = linked(false);
+    let mut ghost = Client::joined(alpha, "ghost");
+    thread::sleep(Duration::from_millis(500));
+    ghost.send("cities");
+    assert_eq!(ghost.until_prompt()[0], "bravo: The link is down.");
 }
 
 #[test]

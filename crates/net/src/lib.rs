@@ -5,7 +5,7 @@ mod frame;
 mod keys;
 mod session;
 
-pub use address::{DEFAULT_PORT, is_address, is_server_name, normalize};
+pub use address::{DEFAULT_PORT, is_address, is_server_name, normalize, open};
 pub use codes::{digest, random_code};
 pub use error::Error;
 pub use keys::{Keys, PublicKey};

@@ -38,7 +38,8 @@ fn start(name: &str) -> SocketAddr {
     thread::spawn(move || {
         let keys = Keys::generate().unwrap();
         let world = port_ostra(0).unwrap();
-        serve_with_ssh(&listener, port, keys, world, Identity::default(), None)
+        let identity = Identity::default();
+        serve_with_ssh(&listener, port, keys, world, identity, None, Vec::new())
     });
     address
 }
