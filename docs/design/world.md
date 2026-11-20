@@ -184,7 +184,7 @@ Each player has a separate trace. Noise from one player increases the trace of t
 
 TTYmud is a PvE game first. PvP occurs only when the player agrees to it.
 
-- **Duels and matches.** Two players or two crews agree to a match on a closed network, for example capture the flag. A match gives no heat and causes no loss.
-- **Darknet zones.** These zones are lawless. Before you go in, the game asks you to agree. In a darknet zone, other players can steal your loot and report you to the police. Each report adds 1 heat. Darknet zones have better prices and rare items.
+- **Duels and matches.** Two players or two crews agree to a fight in an arena: a duel, or capture the flag between crews. A fight gives no heat and causes no loss.
+- **Darknet zones.** These zones are lawless. Before you go in, the game asks you to agree. In a darknet zone, other players can crash your rig, take the data that it drops, and tip off the police. Each tip adds 1 heat. Darknet zones have better prices and rare blueprints.
 
-A player cannot burn a different player directly. Reports can add a maximum of 1 heat to a handle in each 24 hours.
+A player cannot burn a different player directly. Tips can add a maximum of 1 heat to a handle in each 24 hours, and never the fifth heat. The [gameplay](gameplay.md#pvp-by-consent) document gives the rules.
