@@ -9,11 +9,14 @@ impl World {
         host: HostId,
         except: PlayerId,
     ) -> impl Iterator<Item = (PlayerId, &str)> {
-        let shared = self.hosts[host.0].network.is_none() && self.home != Some(host);
+        let hub = self.hosts[host.0].network.is_none() && self.home != Some(host);
+        let copy = self.instance_id(except);
         self.players
             .iter()
             .filter(move |&(&id, state)| {
-                shared
+                let together =
+                    hub || (copy.is_some() && state.run.as_ref().map(|run| run.instance) == copy);
+                together
                     && id != except
                     && state.phase == Phase::Playing
                     && state.chain.last() == Some(&host)
@@ -29,13 +32,19 @@ impl World {
         }));
     }
 
-    pub(super) fn relocate(&mut self, player: PlayerId, from: HostId, to: HostId) {
+    pub(super) fn depart(&mut self, player: PlayerId, from: HostId, to: HostId) {
         let Some(name) = self.players.get(&player).map(|state| state.name.clone()) else {
             return;
         };
         let destination = self.hosts[to.0].id.clone();
         let leaves = named(&name, &format!(" leaves for {destination}."));
         self.notify(from, player, &leaves);
+    }
+
+    pub(super) fn appear(&mut self, player: PlayerId, to: HostId) {
+        let Some(name) = self.players.get(&player).map(|state| state.name.clone()) else {
+            return;
+        };
         self.notify(to, player, &named(&name, " arrives."));
     }
 }

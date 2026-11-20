@@ -3,7 +3,7 @@ use ttymud_text::{Message, Style};
 use super::alert::{Alert, TRACE_ALERT};
 use super::heat::FAST_HEAT;
 use super::ice::deploy;
-use super::instance::{Instance, InstanceId};
+use super::instance::{Instance, InstanceId, tell, witnesses};
 use super::{HostId, NetworkId, PlayerId, Step, World};
 use crate::contract::Event;
 use crate::heat::MAX_HEAT;
@@ -119,21 +119,26 @@ impl World {
         let Some(id) = self.instance_id(player) else {
             return Vec::new();
         };
-        let masked = self
-            .players
-            .get(&player)
-            .and_then(|state| state.run.as_ref())
-            .is_some_and(|run| run.mask > 0);
+        let Some(state) = self.players.get(&player) else {
+            return Vec::new();
+        };
+        let masked = state.run.as_ref().is_some_and(|run| run.mask > 0);
+        let name = state.name.clone();
+        let others = witnesses(&self.members(id), here, player);
         let Some(instance) = self.instances.get_mut(&id) else {
             return Vec::new();
         };
         if !masked {
-            match instance.logs.iter_mut().find(|(host, _)| *host == here) {
-                Some((_, logged)) => *logged += noise,
-                None => instance.logs.push((here, noise)),
+            let mine = instance
+                .logs
+                .iter_mut()
+                .find(|(host, owner, _)| *host == here && *owner == player);
+            match mine {
+                Some((_, _, logged)) => *logged += noise,
+                None => instance.logs.push((here, player, noise)),
             }
         }
-        let mut shown = Vec::new();
+        let (mut shown, mut seen) = (Vec::new(), Vec::new());
         let mut watched = false;
         for ice in instance
             .ice
@@ -144,12 +149,22 @@ impl World {
                 IceKind::Sentry => {
                     watched = true;
                     if ice.intent.is_none() {
+                        ice.target = Some(player);
                         shown.push(ice.compile_in(Action::Alert, alert));
+                        seen.push(ice.telegraph(Some(&name)));
                     }
                 }
-                IceKind::Scorch if !ice.awake => shown.push(ice.wake()),
+                IceKind::Scorch if !ice.awake => {
+                    ice.target = Some(player);
+                    let woke = ice.wake();
+                    seen.push(woke.clone());
+                    shown.push(woke);
+                }
                 _ => {}
             }
+        }
+        for message in &seen {
+            self.outbox.extend(tell(&others, message));
         }
         let gain = match (masked, watched) {
             (true, _) => noise / 2,
@@ -193,6 +208,11 @@ impl World {
 
     fn drop_link(&mut self, player: PlayerId, lose_loot: bool) -> Vec<Message> {
         let from = self.here(player);
+        let back = self.players.get(&player).and_then(|state| {
+            let start = state.run.as_ref()?.start;
+            state.chain.get(start.checked_sub(1)?).copied()
+        });
+        self.depart(player, from, back.unwrap_or(self.start));
         let mut closed = None;
         if let Some(state) = self.players.get_mut(&player)
             && let Some(run) = state.run.take()
@@ -210,7 +230,7 @@ impl World {
             self.close_instance(id);
         }
         let here = self.here(player);
-        self.relocate(player, from, here);
+        self.appear(player, here);
         self.scene(here, player)
     }
 
@@ -223,13 +243,16 @@ impl World {
     }
 
     fn start_run(&mut self, player: PlayerId, network: NetworkId) -> Vec<Message> {
-        let instance = Instance {
-            network,
-            ice: deploy(&self.hosts, network, self.ice_bonus(network)),
-            analysts: self.staff(network),
-            logs: Vec::new(),
-        };
-        let id = self.open_instance(instance);
+        let joined = self.crew_copy(player, network);
+        let id = joined.unwrap_or_else(|| {
+            let instance = Instance {
+                network,
+                ice: deploy(&self.hosts, network, self.ice_bonus(network)),
+                analysts: self.staff(network),
+                logs: Vec::new(),
+            };
+            self.open_instance(instance)
+        });
         let Some(state) = self.players.get_mut(&player) else {
             return Vec::new();
         };
@@ -247,12 +270,14 @@ impl World {
         });
         let name = &self.networks[network.0].name;
         let alert = self.network_alert(network);
+        let start = if joined.is_some() {
+            format!("You join your crew in the network of {name}.")
+        } else {
+            format!("You connect to the network of {name}.")
+        };
         let connect = match alert.filter(|&alert| alert > Alert::Green) {
-            Some(alert) => format!(
-                "You connect to the network of {name}. It is on {} alert.",
-                alert.word()
-            ),
-            None => format!("You connect to the network of {name}."),
+            Some(alert) => format!("{start} It is on {} alert.", alert.word()),
+            None => start,
         };
         if self.is_job(player, network) {
             self.advance(player, Event::Enter);

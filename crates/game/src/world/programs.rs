@@ -102,7 +102,9 @@ impl World {
         run.trace = before.saturating_sub(SCRUB);
         let after = run.trace;
         if let Some(instance) = self.instances.get_mut(&id) {
-            instance.logs.retain(|&(host, _)| host != here);
+            instance
+                .logs
+                .retain(|&(host, owner, _)| host != here || owner != player);
         }
         Ok(Step::show(vec![Message::game(format!(
             "scrub deletes your log lines. Trace: {before}% -> {after}%."

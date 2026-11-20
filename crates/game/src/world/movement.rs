@@ -45,8 +45,9 @@ impl World {
     }
 
     fn arrive(&mut self, player: PlayerId, from: HostId, to: HostId) -> Step {
-        self.relocate(player, from, to);
+        self.depart(player, from, to);
         let mut shown = self.cross(player, from, to);
+        self.appear(player, to);
         if self.home == Some(to) {
             self.advance(player, Event::Home);
         }

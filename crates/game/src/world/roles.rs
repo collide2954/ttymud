@@ -187,6 +187,7 @@ mod tests {
                 if ice.kind == IceKind::Hound {
                     ice.awake = true;
                     ice.host = gate;
+                    ice.target = Some(player);
                     let _ = ice.compile(Action::TraceBurst);
                 }
             }

@@ -1,8 +1,9 @@
 use ttymud_text::{Kind, Message, Style};
 
 use super::alert::MAX_VERSION;
+use super::instance::{InstanceId, host_of, name_of, tell, witnesses};
 use super::run::MAX_TRACE;
-use super::{Host, HostId, NetworkId, PlayerId, World};
+use super::{Host, HostId, NetworkId, Output, PlayerId, World, address};
 use crate::ice::{Action, Effect, IceKind};
 
 const ALERT_TRACE: u32 = 10;
@@ -19,6 +20,7 @@ pub(super) struct Ice {
     pub(super) awake: bool,
     pub(super) fooled: bool,
     pub(super) intent: Option<Intent>,
+    pub(super) target: Option<PlayerId>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -47,11 +49,22 @@ impl Ice {
 
     pub(super) fn compile_in(&mut self, action: Action, ticks: u32) -> Message {
         self.intent = Some(Intent { action, ticks });
+        self.telegraph(None)
+    }
+
+    pub(super) fn telegraph(&self, against: Option<&str>) -> Message {
+        let Some(Intent { action, ticks }) = self.intent else {
+            return self.named();
+        };
         let unit = if ticks == 1 { "tick" } else { "ticks" };
-        self.named()
+        let mut message = self
+            .named()
             .text(" starts to compile ")
-            .span(Style::Danger, action.name())
-            .text(format!(" ({ticks} {unit})."))
+            .span(Style::Danger, action.name());
+        if let Some(name) = against {
+            message = message.text(" against ").span(Style::Player, name);
+        }
+        message.text(format!(" ({ticks} {unit})."))
     }
 
     pub(super) fn wake(&mut self) -> Message {
@@ -100,6 +113,7 @@ pub(super) fn deploy(hosts: &[Host], network: NetworkId, bonus: u32) -> Vec<Ice>
                     awake: false,
                     fooled: false,
                     intent: None,
+                    target: None,
                 }
             })
         })
@@ -107,38 +121,60 @@ pub(super) fn deploy(hosts: &[Host], network: NetworkId, bonus: u32) -> Vec<Ice>
 }
 
 impl World {
-    pub(super) fn tick_ice(&mut self, player: PlayerId) -> Vec<Message> {
-        let here = self.here(player);
-        let Some(id) = self.instance_id(player) else {
-            return Vec::new();
-        };
-        let mut shown = Vec::new();
-        if let Some(run) = self
+    pub(super) fn tick_mask(&mut self, player: PlayerId) -> Vec<Message> {
+        let Some(run) = self
             .players
             .get_mut(&player)
             .and_then(|state| state.run.as_mut())
-            && run.mask > 0
-        {
-            run.mask -= 1;
-            if run.mask == 0 {
-                shown.push(Message::game("Your mask drops."));
-            }
-        }
-        let Some(instance) = self.instances.get_mut(&id) else {
-            return shown;
+            .filter(|run| run.mask > 0)
+        else {
+            return Vec::new();
         };
+        run.mask -= 1;
+        if run.mask > 0 {
+            return Vec::new();
+        }
+        vec![Message::game("Your mask drops.")]
+    }
+
+    pub(super) fn tick_ice(&mut self, id: InstanceId) -> Vec<Output> {
+        let members = self.members(id);
+        let Some(instance) = self.instances.get_mut(&id) else {
+            return Vec::new();
+        };
+        let mut outputs = Vec::new();
         let mut fired = Vec::new();
         for (index, ice) in instance.ice.iter_mut().enumerate() {
             if ice.broken() {
                 continue;
             }
-            if ice.kind == IceKind::Hound && ice.awake && ice.host != here {
-                ice.host = here;
-                shown.push(ice.named().text(" follows you."));
+            if ice
+                .target
+                .is_some_and(|target| host_of(&members, target).is_none())
+            {
+                ice.target = None;
             }
-            if ice.kind == IceKind::Scorch && ice.host != here && ice.intent.is_some() {
+            let at = ice.target.and_then(|target| host_of(&members, target));
+            if ice.kind == IceKind::Hound
+                && ice.awake
+                && let (Some(prey), Some(at)) = (ice.target, at)
+                && at != ice.host
+            {
+                ice.host = at;
+                outputs.push(Output {
+                    player: prey,
+                    message: ice.named().text(" follows you."),
+                });
+            }
+            if ice.kind == IceKind::Scorch && ice.intent.is_some() && at != Some(ice.host) {
                 ice.intent = None;
-                shown.push(ice.named().text(" loses your signal."));
+                if let Some(target) = ice.target.take() {
+                    let message = ice.named().text(" loses your signal.");
+                    outputs.push(Output {
+                        player: target,
+                        message,
+                    });
+                }
                 continue;
             }
             if let Some(intent) = &mut ice.intent {
@@ -149,70 +185,103 @@ impl World {
                 }
                 continue;
             }
+            if ice.kind == IceKind::Scorch && ice.awake && at != Some(ice.host) {
+                let near = members.iter().find(|member| member.host == ice.host);
+                ice.target = near.map(|member| member.player);
+            }
             let actions = ice.kind.actions();
-            if ice.awake && ice.host == here && !actions.is_empty() {
+            let target = ice
+                .target
+                .filter(|&target| host_of(&members, target) == Some(ice.host));
+            if ice.awake
+                && !actions.is_empty()
+                && let Some(target) = target
+            {
                 let action = actions[self.random.below(actions.len())];
-                shown.push(ice.compile(action));
+                let told = ice.compile(action);
+                outputs.push(Output {
+                    player: target,
+                    message: told,
+                });
+                let seen = ice.telegraph(Some(name_of(&members, target)));
+                outputs.extend(tell(&witnesses(&members, ice.host, target), &seen));
             }
         }
         for (index, action) in fired {
-            if !self.running(player) {
-                break;
-            }
-            shown.extend(self.fire(player, index, action));
+            outputs.extend(self.fire(id, index, action));
         }
-        shown
+        outputs
     }
 
-    fn fire(&mut self, player: PlayerId, index: usize, action: Action) -> Vec<Message> {
-        let here = self.here(player);
-        let Some(instance) = self.instance_mut(player) else {
+    fn fire(&mut self, id: InstanceId, index: usize, action: Action) -> Vec<Output> {
+        let members = self.members(id);
+        let Some(instance) = self.instances.get_mut(&id) else {
             return Vec::new();
         };
-        let source = instance.ice[index].named();
-        match action.effect() {
+        let Some((source, host, Some(player))) = instance
+            .ice
+            .get(index)
+            .map(|ice| (ice.named(), ice.host, ice.target))
+        else {
+            return Vec::new();
+        };
+        let Some(at) = host_of(&members, player) else {
+            return Vec::new();
+        };
+        let name = name_of(&members, player).to_owned();
+        let fired = |rest: String| {
+            source
+                .clone()
+                .text(" fires ")
+                .span(Style::Danger, action.name())
+                .text(rest)
+        };
+        let (shown, seen) = match action.effect() {
             Effect::Alert => {
-                let alert = source
-                    .text(" sends an ")
-                    .span(Style::Danger, action.name())
-                    .text(".");
+                let sends = |rest: String| {
+                    source
+                        .clone()
+                        .text(" sends an ")
+                        .span(Style::Danger, action.name())
+                        .text(rest)
+                };
                 let mut woken = Vec::new();
                 for ice in &mut instance.ice {
                     if ice.kind == IceKind::Hound && !ice.awake && !ice.broken() {
-                        ice.awake = true;
-                        ice.host = here;
+                        (ice.awake, ice.host, ice.target) = (true, at, Some(player));
                         woken.push(ice.named().text(" wakes up and hunts you."));
                     }
                 }
-                if woken.is_empty() {
-                    self.trace_hit(player, alert, ALERT_TRACE)
+                let shown = if woken.is_empty() {
+                    self.trace_hit(player, sends(".".to_owned()), ALERT_TRACE)
                 } else {
-                    std::iter::once(alert).chain(woken).collect()
-                }
+                    std::iter::once(sends(".".to_owned()))
+                        .chain(woken)
+                        .collect()
+                };
+                (shown, sends(format!(" about {name}.")))
             }
-            Effect::Trace(amount) => {
-                let hit = source
-                    .text(" fires ")
-                    .span(Style::Danger, action.name())
-                    .text(".");
-                self.trace_hit(player, hit, amount)
-            }
+            Effect::Trace(amount) => (
+                self.trace_hit(player, fired(".".to_owned()), amount),
+                fired(format!(" at {name}.")),
+            ),
             Effect::Damage(amount) => {
-                let hit = source
-                    .text(" fires ")
-                    .span(Style::Danger, action.name())
-                    .text(".");
                 let stopped = self
                     .players
                     .get_mut(&player)
                     .and_then(|state| state.run.as_mut())
                     .is_some_and(|run| std::mem::take(&mut run.firewall));
-                if stopped {
-                    return vec![hit.text(" Your firewall stops it.")];
-                }
-                self.damage_hit(player, hit, amount)
+                let shown = if stopped {
+                    vec![fired(". Your firewall stops it.".to_owned())]
+                } else {
+                    self.damage_hit(player, fired(".".to_owned()), amount)
+                };
+                (shown, fired(format!(" at {name}.")))
             }
-        }
+        };
+        let mut outputs = address(player, shown);
+        outputs.extend(tell(&witnesses(&members, host, player), &seen));
+        outputs
     }
 
     fn damage_hit(&mut self, player: PlayerId, line: Message, amount: u32) -> Vec<Message> {

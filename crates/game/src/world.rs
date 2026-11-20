@@ -370,22 +370,29 @@ impl World {
         self.watch_corps();
         let players: Vec<PlayerId> = self.players.keys().copied().collect();
         let mut outputs = Vec::new();
-        for player in players {
+        for &player in &players {
             if let Some(state) = self.players.get_mut(&player) {
                 state.rig.tick();
             }
-            let mut shown = self.tick_ice(player);
-            shown.extend(self.tick_soc(player));
-            shown.extend(self.hint(player));
+            outputs.extend(address(player, self.tick_mask(player)));
+        }
+        let copies: Vec<InstanceId> = self.instances.keys().copied().collect();
+        for id in copies {
+            outputs.extend(self.tick_ice(id));
+            outputs.extend(self.tick_soc(id));
+        }
+        for &player in &players {
+            let mut shown: Vec<Message> = self.hint(player).into_iter().collect();
             if let Some((before, after)) = self.cool(player) {
                 shown.push(Message::game(format!(
                     "Your heat cools down: {before} -> {after}."
                 )));
             }
-            if !shown.is_empty() {
-                self.touch(player);
-            }
             outputs.extend(address(player, shown));
+        }
+        let told: BTreeSet<PlayerId> = outputs.iter().map(|output| output.player).collect();
+        for player in told {
+            self.touch(player);
         }
         outputs.append(&mut self.outbox);
         outputs

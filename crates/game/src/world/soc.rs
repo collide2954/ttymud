@@ -1,7 +1,8 @@
 use ttymud_text::{Kind, Message, Style};
 
+use super::instance::{InstanceId, tell};
 use super::run::MAX_TRACE;
-use super::{HostId, NetworkId, PlayerId, Step, World};
+use super::{HostId, NetworkId, Output, PlayerId, Step, World, address};
 use crate::random::{Random, mix};
 use crate::target::Level;
 
@@ -161,9 +162,10 @@ impl World {
         Some(line.text("."))
     }
 
-    pub(super) fn tick_soc(&mut self, player: PlayerId) -> Vec<Message> {
-        let here = self.here(player);
-        let Some(id) = self.instance_id(player) else {
+    pub(super) fn tick_soc(&mut self, id: InstanceId) -> Vec<Output> {
+        let members = self.members(id);
+        let suspect = members.iter().rev().max_by_key(|member| member.trace);
+        let Some(here) = suspect.map(|member| member.host) else {
             return Vec::new();
         };
         let Some(instance) = self.instances.get_mut(&id) else {
@@ -174,8 +176,14 @@ impl World {
             .filter(|&index| self.hosts[index].network == Some(network))
             .map(HostId)
             .collect();
-        let noisiest = instance
-            .logs
+        let mut totals: Vec<(HostId, u32)> = Vec::new();
+        for &(host, _, noise) in &instance.logs {
+            match totals.iter_mut().find(|(known, _)| *known == host) {
+                Some((_, total)) => *total += noise,
+                None => totals.push((host, noise)),
+            }
+        }
+        let noisiest = totals
             .iter()
             .max_by_key(|&&(_, noise)| noise)
             .map(|&(host, _)| host);
@@ -206,77 +214,99 @@ impl World {
             analyst.wait = READ_TICKS;
             events.push((analyst.name.clone(), analyst.habit, host, false));
         }
-        let mut shown = Vec::new();
+        let mut outputs = Vec::new();
         for (name, habit, host, read) in events {
-            if !self.running(player) {
+            if self.members(id).is_empty() {
                 break;
             }
-            shown.extend(self.soc_event(player, (&name, habit), host, read));
+            outputs.extend(self.soc_event(id, (&name, habit), host, read));
         }
-        shown
+        outputs
     }
 
     fn soc_event(
         &mut self,
-        player: PlayerId,
+        id: InstanceId,
         (name, habit): (&str, Habit),
         host: HostId,
         read: bool,
-    ) -> Vec<Message> {
-        let id = self.hosts[host.0].id.clone();
-        let line = Message::new(Kind::Telegraph)
-            .text("[SOC] Analyst ")
-            .span(Style::Player, name);
+    ) -> Vec<Output> {
+        let members = self.members(id);
+        let everyone: Vec<PlayerId> = members.iter().map(|member| member.player).collect();
+        let place = self.hosts[host.0].id.clone();
+        let line = || {
+            Message::new(Kind::Telegraph)
+                .text("[SOC] Analyst ")
+                .span(Style::Player, name)
+        };
         if !read {
-            return vec![
-                line.text(" turns to the logs of ")
-                    .span(Style::Host, id)
-                    .text("."),
-            ];
+            let turns = line()
+                .text(" turns to the logs of ")
+                .span(Style::Host, &place)
+                .text(".");
+            return tell(&everyone, &turns);
         }
-        let line = line.text(" reads the logs of ").span(Style::Host, id);
-        let (Some(copy), Some(run)) = (
-            self.instance_id(player),
-            self.players
-                .get_mut(&player)
-                .and_then(|state| state.run.as_mut()),
-        ) else {
-            return Vec::new();
-        };
-        let logs = self
-            .instances
-            .get_mut(&copy)
-            .map(|instance| &mut instance.logs);
-        let found = match logs {
-            Some(logs) if run.mask == 0 => logs
+        let reads = || line().text(" reads the logs of ").span(Style::Host, &place);
+        let mut found = Vec::new();
+        for member in &members {
+            let masked = self
+                .players
+                .get(&member.player)
+                .and_then(|state| state.run.as_ref())
+                .is_some_and(|run| run.mask > 0);
+            let Some(instance) = self.instances.get_mut(&id) else {
+                break;
+            };
+            let mine =
+                |&(at, owner, _): &(HostId, PlayerId, u32)| at == host && owner == member.player;
+            let noise: u32 = instance
+                .logs
                 .iter()
-                .position(|&(known, _)| known == host)
-                .map_or(0, |index| logs.remove(index).1),
-            _ => 0,
-        };
-        if found == 0 {
-            return vec![line.text(" and finds nothing.")];
+                .filter(|&entry| mine(entry))
+                .map(|&(_, _, noise)| noise)
+                .sum();
+            if masked || noise == 0 {
+                continue;
+            }
+            instance.logs.retain(|entry| !mine(entry));
+            found.push((member.player, member.name.clone(), noise));
         }
-        let gain = FOUND_TRACE + found;
-        let before = run.trace;
-        let after = (before + gain).min(MAX_TRACE);
-        let mut shown = vec![line.text(format!(
-            " and finds your trail. Trace: {before}% -> {after}%."
-        ))];
-        if habit != Habit::Lazy && run.access > Level::Guest {
-            run.access = Level::Guest;
-            let network = &self.networks[run.network.0].name;
-            shown.push(
-                Message::new(Kind::Telegraph)
-                    .text("[SOC] Analyst ")
-                    .span(Style::Player, name)
-                    .text(format!(
+        if found.is_empty() {
+            return tell(&everyone, &reads().text(" and finds nothing."));
+        }
+        let mut outputs = Vec::new();
+        for (player, who, noise) in found {
+            let gain = FOUND_TRACE + noise;
+            let others: Vec<PlayerId> = everyone
+                .iter()
+                .copied()
+                .filter(|&other| other != player)
+                .collect();
+            let trail = reads().text(format!(" and finds the trail of {who}."));
+            outputs.extend(tell(&others, &trail));
+            let mut shown = Vec::new();
+            if let Some(run) = self
+                .players
+                .get_mut(&player)
+                .and_then(|state| state.run.as_mut())
+            {
+                let before = run.trace;
+                let after = (before + gain).min(MAX_TRACE);
+                shown.push(reads().text(format!(
+                    " and finds your trail. Trace: {before}% -> {after}%."
+                )));
+                if habit != Habit::Lazy && run.access > Level::Guest {
+                    run.access = Level::Guest;
+                    let network = &self.networks[run.network.0].name;
+                    shown.push(line().text(format!(
                         " locks your stolen account. Your access in {network}: guest."
-                    )),
-            );
+                    )));
+                }
+            }
+            shown.extend(self.raise_trace(player, gain));
+            outputs.extend(address(player, shown));
         }
-        shown.extend(self.raise_trace(player, gain));
-        shown
+        outputs
     }
 }
 
