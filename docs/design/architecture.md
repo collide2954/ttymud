@@ -113,7 +113,7 @@ The target generator is a pure function in the `target` module. It takes a corp,
 
 ## Storage
 
-The server keeps all data in plain text files in its data directory. Each account has its own file in `accounts/`, with its handle. The burn list is in `burns.ini`, and the world seed is in `world.ini`. Later, each crew will have its own file. An account file keeps a job from the board as its fixer, its day, and its number, and the server makes the network again. The storage thread writes a file in three steps:
+The server keeps all data in plain text files in its data directory. Each account has its own file in `accounts/`, with its handle. The burn list is in `burns.ini`, the world seed is in `world.ini`, and the crews are in `crews.ini`. An account file keeps a job from the board as its fixer, its day, and its number, and the server makes the network again. The storage thread writes a file in three steps:
 
 1. It writes the data to a temporary file.
 2. It flushes the temporary file to the disk.
@@ -145,7 +145,7 @@ All messages go in Noise transport frames. A message starts with a type byte, an
 | Close | The reason for the disconnection |
 | Refresh | A new prompt after text that is not an answer to a command |
 
-The [protocol](../protocol.md) document gives the full details. Two messages come later. Hello will give the protocol version, the client layer, and the terminal size. Status will give trace, integrity, heat, cycles, and RAM.
+The [protocol](../protocol.md) document gives the full details. One message comes later. Hello will give the protocol version, the client layer, and the terminal size.
 
 ## Dependencies
 

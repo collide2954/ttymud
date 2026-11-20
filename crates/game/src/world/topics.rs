@@ -3,7 +3,9 @@ use ttymud_text::{Kind, Message, Style};
 pub(super) const TOPICS: &[&str] = &[
     "alert",
     "burn",
+    "crews",
     "heat",
+    "heist",
     "ice",
     "patches",
     "pipes",
@@ -15,6 +17,7 @@ pub(super) const TOPICS: &[&str] = &[
 
 pub(super) fn topic(name: &str) -> Option<Vec<Message>> {
     match name {
+        "crews" | "heist" => Some(crews()),
         "heat" | "burn" => Some(heat()),
         "ice" => Some(ice()),
         "pipes" | "pipelines" => Some(pipes()),
@@ -25,7 +28,36 @@ pub(super) fn topic(name: &str) -> Option<Vec<Message>> {
 }
 
 pub(super) fn index() -> Message {
-    Message::game("Topics: heat, ice, pipes, runs, soc. Example: ").span(Style::Command, "help ice")
+    Message::game("Topics: crews, heat, ice, pipes, runs, soc. Example: ")
+        .span(Style::Command, "help ice")
+}
+
+fn crews() -> Vec<Message> {
+    let command = |text: &str| Message::new(Kind::Game).span(Style::Command, text);
+    vec![
+        title("Crews and heists"),
+        Message::game("A crew has up to 4 handles. Type ")
+            .span(Style::Command, "crew create <name>")
+            .text(", then ")
+            .span(Style::Command, "crew invite <handle>")
+            .text("."),
+        command("#crew <text>").text(" reaches your crewmates on all hosts."),
+        Message::game(
+            "Crewmates on the same job share one copy of the network, with its ICE, analysts, and logs.",
+        ),
+        Message::game("Each crewmate keeps a separate trace. ")
+            .span(Style::Command, "scrub <handle>")
+            .text(" helps a crewmate on your host. ")
+            .span(Style::Command, "decoy")
+            .text(" draws the ICE on your host to you."),
+        Message::game(
+            "Each fixer posts a heist each day for a crew of 2 to 4. Only the leader can accept it.",
+        ),
+        Message::game(
+            "The goal is in the vault. Wait on the maintenance laptop for its sync, or let a Face or a Phreak open a bridge.",
+        ),
+        Message::game("A clean exit with the goal pays each crewmate who entered the target."),
+    ]
 }
 
 fn soc() -> Vec<Message> {

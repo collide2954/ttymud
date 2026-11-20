@@ -75,7 +75,7 @@ This table records the main design decisions. When a decision changes, change th
 | Look and list | `look` describes the host in words. `ls` gives a short list. `cd` works like `go`, and `cd ..` goes back. |
 | Offline mode | `ttymud-server play` lets one player walk Port Ostra without a network. It uses real time, as the server does. It saves nothing. |
 | Programs | A program acts at once and costs cycles. The rig gets 1 cycle on each tick. |
-| Runs | Each run is a private copy of the target network. Crews share a copy later. |
+| Runs | Each run is a copy of the target network. Crewmates on the same job share one copy. |
 | Disconnect | A disconnect during a run counts as a jack out. |
 | Home host | It is private for each handle. A handle that connects again starts there. |
 | Storage | Plain text files in the data directory. A storage thread writes them. |
@@ -86,7 +86,7 @@ This table records the main design decisions. When a decision changes, change th
 | Repair | The `repair` command at the home host. It is free up to 50 integrity. Above 50, each point costs 2 credits. |
 | Job board | Each fixer posts 3 jobs each day. All players see the same jobs. One contract at a time, with no time limit. |
 | Reputation | Each clean contract adds 1 reputation with its fixer. Jobs against bigger budgets need more reputation. |
-| Targets | The server makes each target from the world seed: an edge, a LAN, and a core with 5 to 8 hosts. The vault comes later. |
+| Targets | The server makes each target from the world seed: an edge, a LAN, and a core with 5 to 8 hosts. A heist target also has a vault. |
 | Access | Guest, user, and admin. Stolen credentials raise the access quietly. The `exploit` program raises it with noise. |
 | Money | Credits for each handle. Contracts and the fence pay. Shops sell programs, RAM, and CPUs. |
 | World seed | The file `world.ini` keeps it. Targets and boards stay the same after a restart. |

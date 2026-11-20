@@ -60,7 +60,7 @@ In a terminal, the client shows the HUD. The HUD fills the window:
 
 - The top bar shows the host. During a run, it also shows the network, your access, the alert level of the company, and the trace.
 - The output pane shows the game text.
-- The chat pane shows `say` messages, channel messages, and private messages.
+- The chat pane shows `say` messages, channel messages, and private messages. During a group run, the line above it shows your crewmates in the run and their traces.
 - The line above the input line shows the latest headline of the news.
 - The input line shows the prompt and the text that you type.
 - The bottom bar shows the integrity of your rig, your heat, your RAM, your cycles, and your credits.
@@ -123,7 +123,7 @@ To keep your choices, write them in the file `settings.ini` in your configuratio
 
 An option on the command line has priority over the file. The client never uses a layer that your terminal cannot show.
 
-The `verbose` setting writes a line when a run starts or ends, and when your trace, access, alert level, integrity, or heat changes. An example is `Trace is now 50 percent.` It also writes each new headline of the news. Each telegraph also starts with `Alert`.
+The `verbose` setting writes a line when a run starts or ends, and when your trace, access, alert level, integrity, or heat changes. An example is `Trace is now 50 percent.` It also writes each new headline of the news, and each crewmate who comes into your run or leaves it. Each telegraph also starts with `Alert`.
 
 ## Play
 
@@ -229,6 +229,27 @@ When you take a job, your safehouse gets routes into the network of the target. 
 Type `news` on any host to see the 10 newest headlines of the city. The news reports breaches, traces, burns, patches, and changes of alert levels. It never gives the name of a handle, except for a burn. The Newsstand has the same headlines in the file `news.txt`.
 
 In the Back Room, type `rumors` to hear what the fixers know. Each fixer tells you 3 rumors each day, about alert levels, patches, and analysts. Some rumors are true, some are old, and some are false. With more reputation, a fixer tells you more true rumors. Rumors are free.
+
+## Crews
+
+A crew has up to 4 handles. Type `crew create <name>` to make one. Then type `crew invite <handle>` for each handle that you want. That handle then types `crew join <crew>`. Type `crew` to see your crew, and `#crew <text>` to talk to your crewmates on all hosts.
+
+When crewmates go into the network of the same job, they share one copy of it. You see your crewmates and hear their `say` messages. When one of you breaks an ICE, it is broken for all of you. Each of you keeps your own trace, and the ICE attacks one of you at a time. These programs help your crew:
+
+- `scrub <handle>` cleans the logs of a crewmate on your host and lowers the trace of that crewmate.
+- `decoy` makes the ICE on your host attack you for 10 ticks. Breakers know it, and the Night Market sells it.
+
+## Heists
+
+The board in the Back Room also lists heists for crews of 2 to 4. The leader of your crew types `accept` and the number of the heist. Then each safehouse of the crew has a way into the target. Type `contract` to see the stages of the heist.
+
+The goal is in the vault, and the vault has no route. To get in, use a bridge:
+
+- Wait on the maintenance laptop. Every 20 ticks, it syncs with the vault for 3 ticks.
+- If the target has an IT admin, a Face can trick the admin with `pretext`.
+- If the target has an old modem line, a Phreak can run `proxy` on its host.
+
+Type `scan` on a host to find the laptop, the admin, or the modem line. If the sync ends while you are in the vault, wait for the next sync or jack out. When a crewmate leaves clean with the goal file, the pay goes in equal parts to each crewmate who entered the target.
 
 ## Access
 

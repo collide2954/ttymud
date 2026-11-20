@@ -51,7 +51,7 @@ The HUD uses the full terminal window:
     │ $ probe sentry | crack                                               │
     │ crack: overflow lands. Sentry integrity 40 -> 12                     │
     │ Sentry v2 starts to compile TRACE BURST (2 ticks)                    │
-    ├ chat ────────────────────────────────────────────────────────────────┤
+    ├ chat ──────────────────────────────────────────── nyx 34% · zer0 12% ┤
     │ [ostra] <nyx> arcadia patched ledgerbase. anyone got a new hole?     │
     ├ news: Arcadia Bank raises its alert to red. ─────────────────────────┤
     │ ghost@arcadia-db $ _                                                 │
@@ -61,7 +61,7 @@ The HUD has these parts:
 
 - The top bar shows the host. During a run, it also shows the network, the access, the alert level of the corporation, and the trace.
 - The output pane shows the game text. It keeps the last 1,000 lines.
-- The chat pane shows `say` messages, channel messages, and private messages.
+- The chat pane shows `say` messages, channel messages, and private messages. During a group run, the line above it shows each crewmate in the run and the trace of that crewmate.
 - The line above the input line shows the latest headline of the news.
 - The input line shows the prompt and the line editor.
 - The bottom bar shows the integrity, the heat, the RAM, the cycles, and the credits.
@@ -103,7 +103,7 @@ TTYmud supports screen readers.
 
 - Line mode does not redraw the screen and does not show animations.
 - The prompt and the status use words, not only symbols.
-- The `verbose` setting tells the client to write important changes of state as text lines, for example "Trace is now 50 percent." The client writes a line when a run starts or ends. It writes a line when the trace, the access, the alert level, the integrity, or the heat changes. It also writes each new headline of the news.
+- The `verbose` setting tells the client to write important changes of state as text lines, for example "Trace is now 50 percent." The client writes a line when a run starts or ends. It writes a line when the trace, the access, the alert level, the integrity, or the heat changes. It also writes each new headline of the news, and each crewmate who comes into the run or leaves it.
 - When the `verbose` setting is on, each telegraph starts with the word "Alert". As a result, a screen reader user can recognize a telegraph immediately.
 
 ## First run

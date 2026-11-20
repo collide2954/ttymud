@@ -93,15 +93,18 @@ The check cannot find all STE problems. A person must also read each document.
 | analyst | An NPC who works in a SOC. |
 | audit log | The file where the server writes each action of the moderators. |
 | blueprint | Know-how that lets a handle compile a program. |
+| bridge | A way into a vault: the sync of a maintenance laptop, a USB drive, or an old modem line. |
 | budget | How much a corporation spends on security: low, medium, high, or top. |
 | burn list | The public list of the handles that burned on a server. |
 | channel | A chat room for the players of a server, on all hosts. |
 | contract | A job from a fixer. |
+| copy | The state of a target network for one run, or for the runs of one crew: its ICE, analysts, logs, and bridges. |
 | corp | A corporation in a content file. |
 | crate | A Rust package. |
 | credentials | Stolen login data that raises the access of a handle in a network. |
 | credit, cr | The money of the city. |
-| crew | A group of players. |
+| crew | A group of up to 4 handles, with a leader, a channel, and a reputation. |
+| crewmate | A handle in the same crew. |
 | cycle | One unit of CPU time on a rig. |
 | display layer | One level of the client display: line, edit, color, or HUD. |
 | fence | An NPC who buys stolen data. |
@@ -121,9 +124,10 @@ The check cannot find all STE problems. A person must also read each document.
 | integrity | The health of a rig, from 100 to 0. |
 | job board, board | The list of the jobs that the fixers post each day. |
 | know-how | The programs and blueprints that an account keeps after a burn. |
-| layer | One level of a target: the edge, the LAN, or the core. Later, also the vault. |
+| layer | One level of a target: the edge, the LAN, the core, or the vault. |
 | link code | A code for one use that adds a new device to an account. |
 | loot | Data and items that a handle takes from a target. |
+| maintenance laptop, laptop | A LAN host of a heist target that syncs with the vault at times. |
 | moderator | A player who can mute, kick, and ban other players. The operator selects the moderators. |
 | news feed, news | The public list of the latest events in a city. |
 | noise | The evidence that an action leaves in a target. Noise increases the trace. |
@@ -151,6 +155,7 @@ The check cannot find all STE problems. A person must also read each document.
 | template | A type of host for the targets that the server makes. |
 | tick | One step of game time, about two seconds. |
 | trace | How near the SOC is to the location of a handle, from 0% to 100%. |
+| vault | The last layer of a heist target. It has no route, so a crew needs a bridge. |
 | weak point | A flaw of an ICE that `probe` finds. |
 | workspace | A set of Rust crates that build together. |
 | world seed | The number that sets the job board and the targets of a server. |

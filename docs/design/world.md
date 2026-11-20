@@ -29,7 +29,7 @@ Hubs are content files. A server operator can change the hubs or add new hubs.
 
 A target is the network of a corporation. The server makes a new target network for each job on the job board. It uses the server seed, the day, the fixer, and the number of the job. As a result, two servers with different seeds have different targets. The same job also has the same network after a restart.
 
-In version 0.1, a target has an edge, a LAN, and a core. The vault comes with crews in M9. The first contract of a new handle uses a network that an author made by hand: the dental office Bright Smile Dental.
+A target for a job has an edge, a LAN, and a core. A target for a heist also has a vault. The first contract of a new handle uses a network that an author made by hand: the dental office Bright Smile Dental.
 
 Each target has layers. This is defense in depth.
 
@@ -42,11 +42,12 @@ Each target has layers. This is defense in depth.
 
 Deeper layers have stronger ICE, more analysts, and better loot.
 
-The vault has no network route. To get in, a crew must make a bridge. These are some possible bridges:
+The vault has no network route. To get in, a crew must make a bridge. Each heist target has two bridges:
 
-- A maintenance laptop connects to the vault at times that the server selects. A crew can hack the laptop and wait for its next connection.
-- A Face tricks an employee, who then puts a USB drive into a vault computer.
-- A Phreak finds an old modem line that the corporation forgot.
+- A maintenance laptop connects to the vault at times. A crew can hack the laptop and wait for its next connection.
+- A Face tricks an employee, who then puts a USB drive into a vault computer. Or, in a different target, a Phreak finds an old modem line that the corporation forgot.
+
+The [gameplay](gameplay.md#heists) document gives the rules.
 
 ### Generated targets in version 0.1
 
@@ -58,6 +59,12 @@ The server makes each target from the corp sections and the template sections of
 - ICE of version 1, 2, 3, or 4 for the security levels low, medium, high, and top.
 - The data files of the corporation on the LAN hosts and the core hosts. The goal of the job is on a core host.
 - Two credentials files. The first gives user access, and the second gives admin access.
+
+For a heist, the server adds these parts to the target:
+
+- A maintenance laptop on the LAN, from a template with the key `laptop = yes`.
+- A vault from a vault template, with a Sentry and a Scorch. The goal of the heist moves into the vault.
+- An IT admin on a LAN host, or an old modem line on a core host.
 
 The [gameplay](gameplay.md#access-in-version-01) document tells how access works.
 
@@ -163,16 +170,15 @@ In version 0.1, credits come from contracts and from the fence, which pays fixed
 
 ## Crews and heists
 
-A crew is a group of players. A crew has a name, a private channel, and a reputation.
+A crew is a group of up to 4 handles. A crew has a name, a private channel, and a reputation. Crewmates on the same job share one copy of the target network.
 
-A heist is a large contract for a crew. It has more than one stage, and each stage is for a different role. In a vault heist, for example, each role has a task:
+A heist is a large contract for a crew of 2 to 4. It has more than one stage, and each role can help in a different stage. In a vault heist, for example, each role has a task:
 
-- The Face tricks an employee.
-- The Phreak makes the bridge to the vault.
-- The Breaker holds the ICE.
-- The Ghost keeps the traces low.
+- The Face tricks an employee, or the Phreak uses an old modem line, to make a bridge to the vault.
+- The Breaker holds the ICE with `decoy`.
+- The Ghost keeps the traces low with `scrub <handle>`.
 
-Each player has a separate trace. Noise from one player increases the trace of that player and the alert level of the target. As a result, one player cannot get all of the crew traced. A Ghost can scrub the trace of a different player. A Breaker can pull ICE attacks to the Breaker.
+Each player has a separate trace. Noise from one player increases the trace of that player and the alert level of the target. As a result, one player cannot get all of the crew traced. A Ghost can scrub the trace of a different player. A Breaker can pull ICE attacks to the Breaker. The [gameplay](gameplay.md#crews) document gives the rules.
 
 ## PvP
 

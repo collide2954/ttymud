@@ -127,12 +127,15 @@ A template section describes one type of host for the targets. The server makes 
 
 | Key | Count | Meaning |
 | --- | --- | --- |
-| `layer` | 1 | `edge`, `lan`, or `core`. |
+| `layer` | 1 | `edge`, `lan`, `core`, or `vault`. |
 | `name` | 1 | The name of the host type, for example `VPN Gateway`. The server puts the name of the corporation before it. |
 | `desc` | 1 | The description of the host. |
 | `software` | 0 or 1 | The software family of the host, for example `Gatehouse VPN 4`. The `scan` command shows it. |
+| `laptop` | 0 or 1 | `yes` or `no`. The default is `no`. With `yes`, a `lan` template makes the maintenance laptop of a heist target. |
 
 A file section can put a file on a template, for example `[file vpn/banner.txt]`. Each host from the template gets the file. If the content file has corps, each layer must have at least one template. A template cannot have the name of a host.
+
+A `vault` template makes the vault of a heist target, and a laptop template makes its maintenance laptop. The fixers post heists only if the content file has both. Job targets do not use these templates, so each layer also needs a template that is not a laptop.
 
 Each corporation counts the uses of `exploit` against each software family, and it patches a family after too many uses. Two templates with the same `software` value share one count. On a host without software, `exploit` always works. The [gameplay](design/gameplay.md#exploit-decay) document gives the limits.
 
@@ -156,6 +159,8 @@ A channel section makes one chat channel. Players talk in a channel with `#<chan
 | --- | --- | --- |
 | `desc` | 1 | The description of the channel. The `channels` command shows it. |
 | `auto` | 0 or 1 | `yes` or `no`. The default is `no`. With `yes`, each new handle starts in the channel. |
+
+The channel name `crew` is for crews. The `#crew` command always sends to the crew of the player.
 
 ## Example
 
@@ -239,6 +244,17 @@ A channel section makes one chat channel. Players talk in a channel with `#<chan
     desc = The main database of the company.
     software = Ledgerbase 9
 
+    [template maint]
+    layer = lan
+    name = Maintenance Laptop
+    desc = The IT staff update the vault from it.
+    laptop = yes
+
+    [template vault]
+    layer = vault
+    name = Cold Vault
+    desc = An air-gapped server in a locked room.
+
     [file vpn/banner.txt]
     line = Authorized users only.
 
@@ -264,8 +280,9 @@ The server checks a content file before it uses the file. It finds these errors 
 - A `contract` key in the city section that names an unknown contract.
 - Fixers against unknown corps, and fixers without a corp with a low budget.
 - Corps without data, data lines without a colon, and corps without a template for each layer.
-- Templates with the name of a host.
+- Templates with the name of a host, laptop templates on a layer that is not `lan`, and vault templates without a laptop template.
+- A channel with the name `crew`.
 - Unknown programs in a shop, bad prices, and RAM or CPU steps that do not go up.
-- Bad values for `pay`, `max-heat`, and `auto`.
+- Bad values for `pay`, `max-heat`, `auto`, and `laptop`.
 
 The server shows all errors at the same time. As a result, you can correct all of them in one step.

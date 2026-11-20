@@ -192,7 +192,31 @@ mod tests {
     fn help_names_the_topics() {
         assert_eq!(
             run("help").last().map(String::as_str),
-            Some("Topics: heat, ice, pipes, runs, soc. Example: help ice")
+            Some("Topics: crews, heat, ice, pipes, runs, soc. Example: help ice")
+        );
+    }
+
+    #[test]
+    fn help_explains_crews_group_runs_and_heists() {
+        let crew = run("help crews");
+        assert_eq!(crew[0], "Crews and heists");
+        for word in [
+            "crew invite",
+            "#crew",
+            "scrub <handle>",
+            "decoy",
+            "laptop",
+            "leader",
+        ] {
+            assert!(
+                crew.iter().any(|line| line.contains(word)),
+                "{word}: {crew:?}"
+            );
+        }
+        assert_eq!(run("help heist"), crew);
+        assert_eq!(
+            run("help crew")[0],
+            "crew [create|invite|join|leave|kick|lead]"
         );
     }
 

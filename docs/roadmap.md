@@ -59,7 +59,7 @@ TTYmud grows in small milestones. At the end of each milestone, the game works a
 - Credits, contract pay, fees at heat 4, and repairs that cost credits above 50 integrity.
 - Shops with programs, RAM, and CPUs, and a fence that buys stolen data.
 
-The vault layer comes with bridges in M9.
+M9 added the vault layer, with bridges.
 
 ### M6: Chat relay (done)
 
@@ -70,7 +70,7 @@ The vault layer comes with bridges in M9.
 - Moderators that the operator selects, with mute, kick, ban, and an audit log.
 - Recovery codes, link codes for more devices, and key revocation.
 
-Crew channels come with crews in M9.
+M9 added crew channels.
 
 ## Version 0.2: the city comes alive
 
@@ -90,11 +90,14 @@ Crew channels come with crews in M9.
 - The news feed with `news` and `news.txt`, and the newest headline in the Status message and the HUD.
 - Rumors from the fixers with `rumors`: true, old, or false.
 
-### M9: Crews and heists
+### M9: Crews and heists (done)
 
-- Crews, crew channels, and crew reputation.
-- Group runs, and heist contracts with stages.
-- Bridges into vaults.
+- Crews of up to 4 handles with a leader, invites, the `#crew` channel, and crew reputation, in `crews.ini`.
+- Group runs: crewmates on the same job share one copy of the network, and ICE and analysts act against one player at a time.
+- `scrub <handle>` for a crewmate, and the `decoy` program, which Breakers know.
+- Heists on the board for crews of 2 to 4, with stages, pay for each crewmate who enters, and crew reputation.
+- Vaults with bridges: the sync of a maintenance laptop, a USB drive from a tricked admin, or an old modem line.
+- The crewmates in your copy and their traces in the Status message and the HUD.
 
 ### M10: Economy
 

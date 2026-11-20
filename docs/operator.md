@@ -96,6 +96,7 @@ The server keeps the game data in plain text files in the data directory:
 - `burns.ini`: the burn list.
 - `world.ini`: the seed of the world. The server makes the file at its first start. A `[corp]` section keeps the state of each corporation: its alert level, its exploit counts, and its patches.
 - `news.ini`: the last 50 headlines of the news feed.
+- `crews.ini`: the crews, with their members, their reputation, and their heists.
 - `moderators.ini`: the moderators. The `mod` command writes this file.
 - `audit.log`: the actions of the moderators, one on each line.
 - `reports.ini`: the reports of the players, with their chat.

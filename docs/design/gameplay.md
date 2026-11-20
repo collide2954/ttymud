@@ -82,7 +82,7 @@ If a command has an error, the game tells you the cause. It also gives the most 
     > crak sentry
     Unknown command: crak. Did you mean crack?
 
-In edit mode, the Tab key completes commands, routes, files, programs, ICE, and help topics. Later, it will also complete handles.
+In edit mode, the Tab key completes commands, routes, files, programs, ICE, analysts, handles, crewmates, channels, and help topics.
 
 ## Pipelines
 
@@ -146,7 +146,7 @@ Heat also has effects before a burn:
 
 When you disconnect, you go back to the hub host where the run started. If the shock of a jack out takes the last integrity, your rig crashes. A rig without integrity cannot connect to a target. If you disconnect from the server during a run, the game jacks you out. You get the shock, and you get heat if the trace is 75% or more.
 
-Each run is a private copy of the target network. Other players do not see you in a target, and your actions do not change their copy. Crews will share a copy in M9.
+Each run is a copy of the target network. Players outside your crew do not see you in a target, and your actions do not change their copy. Crewmates on the same job share one copy. The [group runs](#group-runs) section gives the rules.
 
 ## ICE
 
@@ -259,12 +259,13 @@ In version 0.1, a new rig has 8 GB of RAM, and its CPU holds 4 cycles. A shop se
 | `scan` | 1 GB | 1 | 1 | It shows the ICE and the software of this host, and the analysts on shift. After the scan, you know the names of the ICE. |
 | `probe` | 1 GB | 1 | 1 | It shows the weak point of an ICE. |
 | `crack` | 2 GB | 2 | 2 | It does 15 damage to an ICE. After a probe in the same pipeline, it does 30 damage. |
-| `scrub` | 2 GB | 2 | 0 | It decreases the trace by 15% and deletes your logs on this host. |
+| `scrub` | 2 GB | 2 | 0 | It decreases the trace by 15% and deletes your logs on this host. With a handle, it does this for a crewmate on your host. |
 | `patch` | 2 GB | 2 | 0 | It repairs 20 integrity. |
 | `firewall` | 2 GB | 2 | 0 | It stops the next ICE attack on your integrity. Only one firewall can be up. |
+| `decoy` | 2 GB | 2 | 1 | For 10 ticks, the ICE on this host attacks you before your crewmates. |
 | `mask` | 2 GB | 2 | 0 | For 5 ticks, ICE and analysts do not see your noise, and noise adds only half the trace. |
-| `proxy` | 2 GB | 3 | 1 | Until the run ends, ICE attacks on your trace do half damage. |
-| `pretext` | 2 GB | 2 | 2 | It tricks a Warden or an analyst who is not strict. Until the run ends, the Warden lets you through, or the analyst does not watch you. |
+| `proxy` | 2 GB | 3 | 1 | Until the run ends, ICE attacks on your trace do half damage. On the host of a modem line, it also opens a route to the vault. |
+| `pretext` | 2 GB | 2 | 2 | It tricks a Warden, an analyst who is not strict, or the IT admin of a vault. Until the run ends, the Warden lets you through, or the analyst does not watch you. |
 | `exploit` | 2 GB | 3 | 3 | It raises your access on this host by one level. It does not work on software that the corporation patched. |
 
 A new rig holds a maximum of 4 cycles. It gets 1 cycle on each tick. The programs work only in a target network. In a target network, a download also makes 2 noise.
@@ -294,12 +295,40 @@ TTYmud has no classes. The programs in your RAM set your role. A new handle sele
 
 | Kit | Role | Programs |
 | --- | --- | --- |
-| Breaker | Breaks ICE and takes the hits. | `scan`, `probe`, `crack`, `patch`, `firewall` |
+| Breaker | Breaks ICE and takes the hits. | `scan`, `probe`, `crack`, `patch`, `firewall`. It also knows `decoy`. |
 | Ghost | Stays hidden from Sentries. | `scan`, `probe`, `crack`, `scrub`, `mask` |
 | Phreak | Slows the trace. | `scan`, `probe`, `crack`, `scrub`, `proxy` |
 | Face | Talks past Wardens. | `scan`, `probe`, `crack`, `patch`, `pretext` |
 
-In a crew, the roles will help each other. For example, a Ghost will scrub logs for the crew, and a Breaker will pull ICE attacks away from the crew. Crews come in M9.
+In a crew, the roles help each other. A Ghost scrubs the logs of a crewmate, and a Breaker pulls ICE attacks away from the crew with `decoy`. In a heist, a Face or a Phreak can open a fast way into the vault.
+
+## Crews
+
+A crew is a group of up to 4 handles. Type `crew create <name>` to make a crew, and you lead it. A crew name follows the rules for a handle name. The leader uses these commands:
+
+- `crew invite <handle>` invites a handle that is online. The handle types `crew join <crew>` to join.
+- `crew kick <handle>` removes a member.
+- `crew lead <handle>` makes a different member the leader.
+- `crew drop` ends the heist of the crew.
+
+Each member can type `crew` to see the crew, and `crew leave` to leave it. When the leader leaves, the next member leads the crew. When the last member leaves, the crew ends. A burn takes the handle out of its crew.
+
+Type `#crew <text>` to talk to your crewmates on all hosts. Crew chat follows the same rules as the other chat: ignores, blocks, mutes, rate limits, and reports.
+
+## Group runs
+
+Crewmates on the same job share one copy of the target network. A crewmate who enters the network joins the copy of the crew. In the copy, crewmates see each other on hosts, and `say` reaches them. Players outside the crew get their own copy.
+
+The ICE, the analysts, and the logs are the same for the whole crew. When one crewmate breaks an ICE or tricks a Warden, the crew can pass. When one crewmate scans a host, the crew knows its ICE. Each crewmate keeps a separate trace, integrity, access, and loot.
+
+The ICE acts against one player at a time. The other crewmates on the host see each telegraph with the name of the target.
+
+- A Sentry sends its ALERT about the player whose noise it saw. The Hounds hunt that player.
+- A Scorch attacks the player whose noise woke it. If that player leaves its host, it turns to a different crewmate on its host.
+
+The noise of each player goes into the logs under the name of that player. An analyst who finds noise traces the player who made it. A strict analyst reads the host of the crewmate with the highest trace.
+
+Two programs help a crew. With a handle, `scrub` lowers the trace of a crewmate on your host and deletes the logs of that crewmate there. The `decoy` program makes the ICE on your host attack you for 10 ticks. The copy stays while a crewmate is in it.
 
 ## Money
 
@@ -316,14 +345,14 @@ The content file sets the prices of a shop. These are the prices in Port Ostra:
 | --- | --- |
 | `scrub`, `patch` | 300 cr |
 | `firewall`, `mask`, `pretext` | 400 cr |
-| `proxy` | 500 cr |
+| `proxy`, `decoy` | 500 cr |
 | `exploit` | 800 cr |
 | RAM: 12 GB, then 16 GB | 900 cr, then 1800 cr |
 | CPU: 5 cycles, then 6 cycles | 1200 cr, then 2400 cr |
 
 ## Jobs
 
-Fixers post jobs on a job board. Each day of UTC time, each fixer posts 3 jobs against the companies that the fixer works with. All players see the same jobs. Each run is a private copy of the network, so many players can do the same job.
+Fixers post jobs on a job board. Each day of UTC time, each fixer posts 3 jobs against the companies that the fixer works with. All players see the same jobs. Each player or crew gets a separate copy of the network, so many players can do the same job.
 
 Type `jobs` on the host of a fixer to see the board. Type `accept <number>` to take a job. You can have one contract at a time. When you take a job, the routes into its network start at your home host. A job has no time limit. You cannot take a job again on the day that you finish it.
 
@@ -335,6 +364,27 @@ Type `jobs` on the host of a fixer to see the board. Type `accept <number>` to t
 | Top | About 3000 cr | 9 |
 
 The pay of a job can be up to 20% more or less. Each clean contract adds 1 reputation with its fixer. The first job of each fixer is always against its company with the lowest budget. As a result, a new handle can always find work.
+
+## Heists
+
+Each day, each fixer also posts one heist for a crew of 2 to 4 handles. The board shows the heists after the jobs. Only the leader of a crew can accept a heist. The heist is the contract of the crew. It does not replace the contract of a member.
+
+| Budget of the company | Pay for the crew | Necessary crew reputation |
+| --- | --- | --- |
+| Low | About 900 cr | 0 |
+| Medium | About 2100 cr | 2 |
+| High | About 4500 cr | 5 |
+| Top | About 9000 cr | 9 |
+
+The goal of a heist is in the vault of the target. The vault has no route, and its ICE has the high or top security level. A heist target has a maintenance laptop on the LAN, and one more bridge:
+
+- The laptop syncs with the vault for 3 ticks every 20 ticks. Two ticks before the sync, a telegraph tells the players on the laptop. During the sync, the laptop has a route to the vault.
+- An IT admin works on a LAN host. A Face can type `pretext <admin>` there. Then the admin puts a USB drive into the vault, and that host has a route to the vault.
+- An old modem line is on a core host. A Phreak can type `proxy` there. Then that host has a route to the vault.
+
+Each target has the admin or the modem line, but not both. The USB drive and the modem line stay open until the copy ends. If the sync ends while you are in the vault, you must wait for the next sync, use a different bridge, or jack out. The `scan` command shows the laptop, the admin, and the modem line. The `contract` command shows the stages and the bridges of the heist.
+
+When a crewmate makes a clean exit with the goal file, the heist is complete. The pay goes in equal parts to the crewmates who entered the target during the heist. The crew gets 1 reputation, and the alert level of the company goes up by 30 points. The news reports the heist. A crew can do the heist of a fixer one time each day.
 
 ## News
 
