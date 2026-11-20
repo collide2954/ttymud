@@ -23,7 +23,8 @@ pub(crate) const DARK: &str = "\
 [host home]\nname = Home\ndesc = A home.\n\
 [network dark]\nname = The Undercity\nzone = darknet\n\
 [host alley]\nname = Alley\ndesc = An alley.\nnetwork = dark\nroute = den\n\
-[host den]\nname = Den\ndesc = A den.\nnetwork = dark\n";
+[host den]\nname = Den\ndesc = A den.\nnetwork = dark\n\
+[shop hub]\n[shop den]\nblueprint = crack 3 2500\n";
 
 pub(crate) fn world() -> World {
     World::new(Content::parse(CITY).unwrap(), 0)

@@ -306,8 +306,12 @@ impl World {
             .into_iter()
             .map(|def| Contract::hand_made(def, &fixers, network))
             .collect();
-        let networks = content.networks.into_iter().map(Network::from).collect();
-        let shops = shop::shops(content.shops, find);
+        let networks: Vec<Network> = content.networks.into_iter().map(Network::from).collect();
+        let darknet = |host: HostId| {
+            let network = hosts[host.0].network;
+            network.is_some_and(|network| networks[network.0].zone == Zone::Darknet)
+        };
+        let shops = shop::shops(content.shops, find, darknet);
         let corp_states = vec![CorpState::default(); content.corps.len()];
         let mut world = Self {
             city: content.city,

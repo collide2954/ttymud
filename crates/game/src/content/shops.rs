@@ -1,8 +1,10 @@
 use super::ShopDef;
 use super::reader::{Name, Reader};
-use crate::commands::{self, Verb};
+use crate::commands::{self, TOP_VERSION, Verb};
 use crate::ini::{Pair, Section};
 use crate::kits::{CYCLES, RAM};
+
+const SHOP_VERSION: u32 = 2;
 
 impl Reader {
     pub(super) fn shop(&mut self, section: &Section<'_>) {
@@ -50,12 +52,16 @@ impl Reader {
             self.error(pair.line, usage);
             return None;
         };
-        let Ok(price) = price.parse() else {
-            let message = format!("bad price: {price} (use a number of credits)");
-            self.error(pair.line, message);
-            return None;
-        };
-        Some((name, price))
+        Some((name, self.price(pair.line, price)?))
+    }
+
+    fn price(&mut self, line: usize, word: &str) -> Option<u32> {
+        let price = word.parse().ok();
+        if price.is_none() {
+            let message = format!("bad price: {word} (use a number of credits)");
+            self.error(line, message);
+        }
+        price
     }
 
     fn program_price(&mut self, pair: &Pair<'_>) -> Option<(Verb, u32)> {
@@ -69,8 +75,17 @@ impl Reader {
         Some((verb?, price))
     }
 
-    fn blueprint_price(&mut self, pair: &Pair<'_>) -> Option<(Verb, u32)> {
-        let (name, price) = self.priced(pair, "a program", "crack 600")?;
+    fn blueprint_price(&mut self, pair: &Pair<'_>) -> Option<(Verb, u32, u32)> {
+        let words: Vec<&str> = pair.value.split_whitespace().collect();
+        let (name, version, price) = match words.as_slice() {
+            [name, price] => (*name, None, *price),
+            [name, version, price] => (*name, Some(*version), *price),
+            _ => {
+                let usage = "blueprint needs a program, an optional version, and a price, for example blueprint = crack 3 2500";
+                self.error(pair.line, usage.to_owned());
+                return None;
+            }
+        };
         let verb = commands::find(name)
             .map(|command| command.verb)
             .filter(|verb| verb.power().is_some());
@@ -81,7 +96,20 @@ impl Reader {
             let message = format!("bad blueprint: {name} (use {names}, or {last})");
             self.error(pair.line, message);
         }
-        Some((verb?, price))
+        let version = match version.map(str::parse) {
+            None => SHOP_VERSION,
+            Some(Ok(version)) if (SHOP_VERSION..=TOP_VERSION).contains(&version) => version,
+            Some(_) => {
+                let word = version.unwrap_or_default();
+                let range = format!("use a version from {SHOP_VERSION} to {TOP_VERSION}");
+                self.error(
+                    pair.line,
+                    format!("bad blueprint version: {word} ({range})"),
+                );
+                return None;
+            }
+        };
+        Some((verb?, version, self.price(pair.line, price)?))
     }
 
     fn step_price(

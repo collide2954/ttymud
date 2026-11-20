@@ -1,5 +1,5 @@
 use super::reader::Reader;
-use super::{Content, ContentError, HostDef};
+use super::{Content, ContentError, HostDef, Zone};
 
 impl Reader {
     pub(super) fn finish(mut self) -> Result<Content, Vec<ContentError>> {
@@ -199,10 +199,17 @@ impl Reader {
             let Some((host, line)) = value else {
                 continue;
             };
-            if !self.has_host(&host) {
-                self.error(line, format!("{key} is an unknown host: {host}"));
-            } else if self.network_of(&host).is_some() {
-                self.error(line, format!("{key} is in a network: {host}"));
+            let zone = self.network_of(&host).map(|network| self.zone_of(network));
+            match zone {
+                _ if !self.has_host(&host) => {
+                    self.error(line, format!("{key} is an unknown host: {host}"));
+                }
+                Some(Some(Zone::Darknet)) if key == "shop" => {}
+                Some(_) if key == "shop" => {
+                    self.error(line, format!("shop is in a target network: {host}"));
+                }
+                Some(_) => self.error(line, format!("{key} is in a network: {host}")),
+                None => {}
             }
         }
     }

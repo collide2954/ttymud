@@ -25,6 +25,7 @@ const ACCOUNTS: &str = "accounts/";
 
 type Corps = Vec<(usize, CorpState)>;
 type Prices = Vec<(String, u32, u64)>;
+type Fences = Vec<(usize, Prices)>;
 const BURNS: &str = "burns.ini";
 const WORLD: &str = "world.ini";
 
@@ -87,10 +88,22 @@ impl World {
             return Ok(());
         }
         if path == WORLD {
-            let (seed, prices, corps) = self.parse_world(text)?;
+            let (seed, prices, corps, fences) = self.parse_world(text)?;
             self.seed = seed;
             for (name, percent, since) in prices {
                 self.market.restore(&name, percent, since);
+            }
+            for (shop, prices) in fences {
+                let Some(fence) = self
+                    .shops
+                    .get_mut(shop)
+                    .and_then(|shop| shop.fence.as_mut())
+                else {
+                    continue;
+                };
+                for (name, percent, since) in prices {
+                    fence.restore(&name, percent, since);
+                }
             }
             for (corp, state) in corps {
                 self.corp_states[corp] = state;
@@ -236,6 +249,18 @@ impl World {
         for (corp, state) in self.corp_states.iter().enumerate() {
             self.corp_text(&mut text, corp, state);
         }
+        for shop in &self.shops {
+            let Some(fence) = &shop.fence else {
+                continue;
+            };
+            let mut low = fence.low(self.now).peekable();
+            if low.peek().is_some() {
+                text.section("fence", &self.hosts[shop.host.0].id);
+            }
+            for (name, percent, since) in low {
+                text.pair("price", &format!("{name} {percent} {since}"));
+            }
+        }
         text.finish()
     }
 
@@ -262,9 +287,10 @@ impl World {
         }
     }
 
-    fn parse_world(&self, text: &str) -> Result<(u64, Prices, Corps), Vec<ContentError>> {
+    fn parse_world(&self, text: &str) -> Result<(u64, Prices, Corps, Fences), Vec<ContentError>> {
         let (sections, mut errors) = ini::read(text);
         let (mut seed, mut prices, mut corps) = (None, Vec::new(), Vec::new());
+        let mut fences = Vec::new();
         for section in &sections {
             match section.kind {
                 "world" if section.id == self.city_id => {
@@ -286,6 +312,18 @@ impl World {
                     let corp = self.corps.iter().position(|corp| corp.id == section.id);
                     corps.extend(corp.map(|corp| (corp, state)));
                 }
+                "fence" => {
+                    allow(section, &["price"], &mut errors);
+                    let low: Prices = section
+                        .pairs
+                        .iter()
+                        .filter_map(|pair| price(pair, &mut errors))
+                        .collect();
+                    let shop = self.shops.iter().position(|shop| {
+                        shop.fence.is_some() && self.hosts[shop.host.0].id == section.id
+                    });
+                    fences.extend(shop.map(|shop| (shop, low)));
+                }
                 kind => errors.push(problem(
                     section.line,
                     format!("unknown section type: {kind}"),
@@ -295,7 +333,7 @@ impl World {
         if !sections.iter().any(|section| section.kind == "world") {
             errors.push(problem(0, format!("{WORLD} has no world section")));
         }
-        checked(errors, (seed.unwrap_or_default(), prices, corps))
+        checked(errors, (seed.unwrap_or_default(), prices, corps, fences))
     }
 
     fn burns_text(&self) -> String {

@@ -6,29 +6,51 @@ use super::{HostId, Player, PlayerId, Step, Thing, World, choose, lines, listed,
 use crate::commands::{self, Item, Verb};
 use crate::content::{File, ShopDef, blueprint_name};
 
-const SHOP_VERSION: u32 = 2;
+const DARKNET_PAY: u32 = 150;
 
 #[derive(Debug)]
 pub(super) struct Shop {
     pub(super) host: HostId,
     pub(super) programs: Vec<(Verb, u32)>,
-    pub(super) blueprints: Vec<(Verb, String, u32)>,
+    pub(super) blueprints: Vec<Blueprint>,
     pub(super) ram: Vec<(u32, u32)>,
     pub(super) cpu: Vec<(u32, u32)>,
+    pub(super) fence: Option<Market>,
 }
 
-pub(super) fn shops(defs: Vec<ShopDef>, find: impl Fn(&str) -> HostId) -> Vec<Shop> {
+#[derive(Debug)]
+pub(super) struct Blueprint {
+    verb: Verb,
+    version: u32,
+    name: String,
+    price: u32,
+}
+
+pub(super) fn shops(
+    defs: Vec<ShopDef>,
+    find: impl Fn(&str) -> HostId,
+    darknet: impl Fn(HostId) -> bool,
+) -> Vec<Shop> {
     defs.into_iter()
-        .map(|def| Shop {
-            host: find(&def.host),
-            programs: def.programs,
-            blueprints: def
+        .map(|def| {
+            let host = find(&def.host);
+            let blueprints = def
                 .blueprints
                 .into_iter()
-                .map(|(verb, price)| (verb, blueprint_name(verb, SHOP_VERSION), price))
-                .collect(),
-            ram: def.ram,
-            cpu: def.cpu,
+                .map(|(verb, version, price)| Blueprint {
+                    verb,
+                    version,
+                    name: blueprint_name(verb, version),
+                    price,
+                });
+            Shop {
+                host,
+                programs: def.programs,
+                blueprints: blueprints.collect(),
+                ram: def.ram,
+                cpu: def.cpu,
+                fence: darknet(host).then(Market::default),
+            }
         })
         .collect()
 }
@@ -36,7 +58,7 @@ pub(super) fn shops(defs: Vec<ShopDef>, find: impl Fn(&str) -> HostId) -> Vec<Sh
 #[derive(Debug, Clone, Copy)]
 enum Ware {
     Program(Verb),
-    Blueprint(Verb),
+    Blueprint(Verb, u32),
     Ram(u32),
     Cpu(u32),
 }
@@ -51,8 +73,8 @@ impl Shop {
         let blueprints = self
             .blueprints
             .iter()
-            .filter(|&&(verb, ..)| !state.blueprints.contains(&(verb, SHOP_VERSION)))
-            .map(|&(verb, _, price)| (Ware::Blueprint(verb), price));
+            .filter(|plan| !state.blueprints.contains(&(plan.verb, plan.version)))
+            .map(|plan| (Ware::Blueprint(plan.verb, plan.version), plan.price));
         let ram = self
             .ram
             .iter()
@@ -74,13 +96,13 @@ impl Shop {
         if known {
             return Some(format!("You already know {word}."));
         }
-        let owned = self.blueprints.iter().find(|(verb, name, _)| {
-            name == word && state.blueprints.contains(&(*verb, SHOP_VERSION))
+        let owned = self.blueprints.iter().find(|plan| {
+            plan.name == word && state.blueprints.contains(&(plan.verb, plan.version))
         });
-        if let Some(&(verb, ..)) = owned {
-            let name = commands::name_of(verb);
+        if let Some(plan) = owned {
+            let (name, version) = (commands::name_of(plan.verb), plan.version);
             return Some(format!(
-                "You already have the blueprint for {name} v{SHOP_VERSION}."
+                "You already have the blueprint for {name} v{version}."
             ));
         }
         match word {
@@ -99,11 +121,11 @@ impl Ware {
     fn name(self, shop: &Shop) -> &str {
         match self {
             Self::Program(verb) => commands::name_of(verb),
-            Self::Blueprint(verb) => shop
+            Self::Blueprint(verb, version) => shop
                 .blueprints
                 .iter()
-                .find(|&&(known, ..)| known == verb)
-                .map_or("", |(_, name, _)| name),
+                .find(|plan| plan.verb == verb && plan.version == version)
+                .map_or("", |plan| plan.name.as_str()),
             Self::Ram(_) => "ram",
             Self::Cpu(_) => "cpu",
         }
@@ -112,9 +134,9 @@ impl Ware {
     fn describe(self, state: &Player) -> String {
         match self {
             Self::Program(verb) => commands::summary_of(verb).to_owned(),
-            Self::Blueprint(verb) => {
-                let (name, effect) = (commands::name_of(verb), effect(verb, SHOP_VERSION));
-                format!("The blueprint for {name} v{SHOP_VERSION}. {effect}")
+            Self::Blueprint(verb, version) => {
+                let (name, effect) = (commands::name_of(verb), effect(verb, version));
+                format!("The blueprint for {name} v{version}. {effect}")
             }
             Self::Ram(size) => format!("{size} GB of RAM, not {} GB.", state.rig.ram),
             Self::Cpu(cycles) => format!("{cycles} cycles, not {}.", state.rig.cpu),
@@ -170,8 +192,14 @@ impl World {
                     .text(rest),
             );
         }
+        let fence = if shop.fence.is_some() {
+            let more = DARKNET_PAY - FULL;
+            format!("The fence buys stolen data and pays {more}% more than in the city. Type ")
+        } else {
+            "The fence buys stolen data. Type ".to_owned()
+        };
         shown.push(
-            Message::game("The fence buys stolen data. Type ")
+            Message::game(fence)
                 .span(Style::Command, "sell <file>")
                 .text("."),
         );
@@ -186,12 +214,21 @@ impl World {
         input: Option<Vec<Item>>,
     ) -> Result<Step, Message> {
         self.shop_here(player)?;
-        let now = self.now;
+        let (here, now) = (self.here(player), self.now);
+        let fence = self
+            .shops
+            .iter_mut()
+            .find(|shop| shop.host == here)
+            .and_then(|shop| shop.fence.as_mut());
+        let (market, pay) = match fence {
+            Some(fence) => (fence, DARKNET_PAY),
+            None => (&mut self.market, FULL),
+        };
         let Some(state) = self.players.get_mut(&player) else {
             return Ok(Step::default());
         };
         let names: Vec<String> = match (args, input) {
-            ([], None) => return Err(wanted(&state.rig.files, &self.market, now)),
+            ([], None) => return Err(wanted(&state.rig.files, market, pay, now)),
             ([], Some(items)) => items
                 .into_iter()
                 .filter_map(|item| match item {
@@ -232,9 +269,9 @@ impl World {
                 )));
                 continue;
             }
-            let percent = self.market.percent(&name, now);
-            let price = self.market.price(&name, value, now);
-            self.market.sell(&name, now);
+            let percent = market.percent(&name, now);
+            let price = market.price(&name, value * pay / FULL, now);
+            market.sell(&name, now);
             self.state_dirty = true;
             state.rig.files.remove(index);
             state.credits += price;
@@ -288,8 +325,8 @@ impl World {
                 state.know.push(verb);
                 follow_up("Load")
             }
-            Ware::Blueprint(verb) => {
-                state.blueprints.push((verb, SHOP_VERSION));
+            Ware::Blueprint(verb, version) => {
+                state.blueprints.push((verb, version));
                 follow_up("Compile")
             }
             Ware::Ram(size) => {
@@ -306,7 +343,7 @@ impl World {
     }
 }
 
-fn wanted(files: &[File], market: &Market, now: u64) -> Message {
+fn wanted(files: &[File], market: &Market, pay: u32, now: u64) -> Message {
     let mut message = Message::error("Usage: sell <file>. The fence wants: ");
     let valued: Vec<&File> = files.iter().filter(|file| file.value > 0).collect();
     if valued.is_empty() {
@@ -316,7 +353,7 @@ fn wanted(files: &[File], market: &Market, now: u64) -> Message {
         if index > 0 {
             message = message.text(", ");
         }
-        let price = market.price(&file.name, file.value, now);
+        let price = market.price(&file.name, file.value * pay / FULL, now);
         message = message
             .span(Style::File, &file.name)
             .text(format!(" ({price} cr)"));
@@ -590,6 +627,91 @@ mod tests {
             plain(&world.command(player, "shop | grep fence")),
             ["The fence buys stolen data. Type sell <file>."]
         );
+    }
+
+    fn in_den(world: &mut World, name: &str) -> PlayerId {
+        let player = crate::testing::inside(world, name);
+        world.command(player, "go den");
+        carry(world, player, "payroll.db", 40);
+        player
+    }
+
+    #[test]
+    fn a_darknet_fence_pays_half_again_and_has_its_own_prices() {
+        let mut world = crate::testing::dark();
+        world.set_time(10_000);
+        let nyx = in_den(&mut world, "nyx");
+        assert_eq!(
+            plain(&world.command(nyx, "shop"))[1..3],
+            [
+                "crack-v3: 2500 cr. The blueprint for crack v3. It does 25 damage.",
+                "The fence buys stolen data and pays 50% more than in the city. Type sell <file>.",
+            ]
+        );
+        assert_eq!(
+            plain(&world.command(nyx, "sell payroll.db")),
+            ["The fence pays you 60 cr for payroll.db."]
+        );
+        let zer0 = in_den(&mut world, "zer0");
+        assert_eq!(
+            plain(&world.command(zer0, "sell")),
+            ["Usage: sell <file>. The fence wants: payroll.db (54 cr)"]
+        );
+        let (ghost, _) = world.join("ghost");
+        carry(&mut world, ghost, "payroll.db", 40);
+        assert_eq!(
+            plain(&world.command(ghost, "sell payroll.db")),
+            ["The fence pays you 40 cr for payroll.db."]
+        );
+    }
+
+    #[test]
+    fn darknet_fence_prices_come_back_from_the_save() {
+        let mut world = crate::testing::dark();
+        world.set_time(10_000);
+        let nyx = in_den(&mut world, "nyx");
+        world.command(nyx, "sell payroll.db");
+        let saves = world.saves();
+        let text = saves
+            .iter()
+            .find(|(path, _)| path == "world.ini")
+            .map_or_default(|(_, text)| text.clone());
+        assert!(
+            text.ends_with("[world d]\nseed = 0\n\n[fence den]\nprice = payroll.db 90 10000\n"),
+            "{text}"
+        );
+        let mut fresh = crate::testing::dark();
+        fresh.set_time(10_000);
+        for (path, text) in &saves {
+            fresh.restore(path, text).unwrap();
+        }
+        let zer0 = in_den(&mut fresh, "zer0");
+        assert_eq!(
+            plain(&fresh.command(zer0, "sell")),
+            ["Usage: sell <file>. The fence wants: payroll.db (54 cr)"]
+        );
+    }
+
+    #[test]
+    fn a_shop_can_sell_a_blueprint_for_version_3() {
+        let mut world = crate::testing::dark();
+        let nyx = in_den(&mut world, "nyx");
+        if let Some(state) = world.players.get_mut(&nyx) {
+            state.credits = 2_500;
+        }
+        assert_eq!(
+            plain(&world.command(nyx, "buy crack-v3")),
+            ["You buy crack-v3 for 2500 cr. Compile it at home."]
+        );
+        assert_eq!(
+            plain(&world.command(nyx, "buy crack-v3")),
+            ["You already have the blueprint for crack v3."]
+        );
+        let blueprints = world
+            .players
+            .get(&nyx)
+            .map(|state| state.blueprints.clone());
+        assert_eq!(blueprints, Some(vec![(crate::commands::Verb::Crack, 3)]));
     }
 
     #[test]

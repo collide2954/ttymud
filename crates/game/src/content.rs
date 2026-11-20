@@ -91,7 +91,7 @@ pub(crate) struct TemplateDef {
 pub(crate) struct ShopDef {
     pub(crate) host: String,
     pub(crate) programs: Vec<(Verb, u32)>,
-    pub(crate) blueprints: Vec<(Verb, u32)>,
+    pub(crate) blueprints: Vec<(Verb, u32, u32)>,
     pub(crate) ram: Vec<(u32, u32)>,
     pub(crate) cpu: Vec<(u32, u32)>,
 }

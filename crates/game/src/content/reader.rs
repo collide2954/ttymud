@@ -384,6 +384,11 @@ impl Reader {
             .and_then(|(host, _)| host.network.as_deref())
     }
 
+    pub(super) fn zone_of(&self, network: &str) -> Option<Zone> {
+        let found = self.networks.iter().find(|(def, _)| def.id == network);
+        found.map(|(def, _)| def.zone)
+    }
+
     pub(super) fn members_of(&self, network: &str) -> usize {
         self.hosts
             .iter()

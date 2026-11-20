@@ -133,12 +133,12 @@ fn a_channel_has_a_description_and_can_be_automatic() {
 #[test]
 fn a_shop_sells_programs_and_hardware() {
     let text = format!(
-        "{NET}[shop a]\nprogram = mask 400\nblueprint = crack 600\nram = 12 900\nram = 16 1800\ncpu = 5 1200\n"
+        "{NET}[shop a]\nprogram = mask 400\nblueprint = crack 600\nblueprint = mask 3 2500\nram = 12 900\nram = 16 1800\ncpu = 5 1200\n"
     );
     let shop = ShopDef {
         host: "a".to_owned(),
         programs: vec![(Verb::Mask, 400)],
-        blueprints: vec![(Verb::Crack, 600)],
+        blueprints: vec![(Verb::Crack, 2, 600), (Verb::Mask, 3, 2500)],
         ram: vec![(12, 900), (16, 1800)],
         cpu: vec![(5, 1200)],
     };
@@ -149,22 +149,31 @@ fn a_shop_sells_programs_and_hardware() {
 fn bad_shops_fail() {
     let text = format!(
         "{NET}[shop x]\n[shop b]\n[shop a]\nprogram = nuke 5\nprogram = mask\n\
-         ram = 6 100\ncpu = 5 lots\nblueprint = scan 600\nblueprint = crack\n[shop a]\n"
+         ram = 6 100\ncpu = 5 lots\nblueprint = scan 600\nblueprint = crack\n\
+         blueprint = crack 4 900\nblueprint = crack 3 lots\n[shop a]\n"
     );
     assert_eq!(
         errors(&text),
         [
             "line 19: shop is an unknown host: x",
-            "line 20: shop is in a network: b",
+            "line 20: shop is in a target network: b",
             "line 22: unknown program: nuke",
             "line 23: program needs a name and a price, for example program = mask 400",
             "line 24: each ram step must be more than 8 GB: 6",
             "line 25: bad price: lots (use a number of credits)",
             "line 26: bad blueprint: scan (use crack, scrub, patch, firewall, decoy, or mask)",
-            "line 27: blueprint needs a program and a price, for example blueprint = crack 600",
-            "line 28: shop a is defined more than once",
+            "line 27: blueprint needs a program, an optional version, and a price, for example blueprint = crack 3 2500",
+            "line 28: bad blueprint version: 4 (use a version from 2 to 3)",
+            "line 29: bad price: lots (use a number of credits)",
+            "line 30: shop a is defined more than once",
         ]
     );
+}
+
+#[test]
+fn a_shop_can_be_in_a_darknet() {
+    let text = NET.replace("name = N\n", "name = N\nzone = darknet\n");
+    assert_eq!(errors(&format!("{text}[shop b]\n")), Vec::<String>::new());
 }
 
 #[test]
