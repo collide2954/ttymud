@@ -5,6 +5,8 @@ use super::{PlayerId, Step, World};
 use crate::content::File;
 use crate::target::Level;
 
+const LOGIN_TRAIL: u32 = 1;
+
 impl World {
     pub(super) fn exploit(&mut self, player: PlayerId) -> Result<Step, Message> {
         let here = self.here(player);
@@ -65,6 +67,7 @@ impl World {
 
     pub(super) fn learn(&mut self, player: PlayerId, files: &[File]) -> Option<Message> {
         let day = self.now / DAY;
+        let here = self.here(player);
         let run = self.players.get_mut(&player)?.run.as_mut()?;
         let network = &self.networks[run.network.0];
         let found: Vec<&(String, Level)> = files
@@ -89,9 +92,17 @@ impl World {
         run.passwords
             .extend(fresh.iter().map(|(key, _)| key.clone()));
         let (name, level) = (&network.name, best.word());
-        Some(Message::game(format!(
+        let learned = Message::game(format!(
             "You learn the credentials. Your access in {name}: {level}."
-        )))
+        ));
+        if run.mask > 0 {
+            return Some(learned);
+        }
+        if let Some(instance) = self.instances.get_mut(&run.instance) {
+            instance.log(here, player, LOGIN_TRAIL);
+        }
+        let place = &self.hosts[here.0].id;
+        Some(learned.text(format!(" The login leaves a line in the logs of {place}.")))
     }
 }
 
@@ -163,10 +174,14 @@ mod tests {
         });
         visit(&mut world, player, edge);
         let shown = plain(&world.command(player, &format!("read {creds}")));
+        let id = &world.hosts[edge.0].id;
         assert_eq!(
-            shown.last().map(String::as_str),
-            Some("You learn the credentials. Your access in Acme Corp: user.")
+            shown.last(),
+            Some(&format!(
+                "You learn the credentials. Your access in Acme Corp: user. The login leaves a line in the logs of {id}."
+            ))
         );
+        assert_eq!(logs_of(&world, player), [(edge, 1)]);
         let (host, file) = holder(&world, |file| file.lock == Level::User && file.value > 0);
         visit(&mut world, player, host);
         assert_eq!(
@@ -190,10 +205,44 @@ mod tests {
             world.command(player, &format!("go {id}"));
         }
         let shown = plain(&world.command(player, &format!("read {creds}")));
+        assert!(
+            shown.last().is_some_and(|line| line
+                .starts_with("You learn the credentials. Your access in Acme Corp: user.")),
+            "{shown:?}"
+        );
+    }
+
+    fn logs_of(world: &World, player: PlayerId) -> Vec<(HostId, u32)> {
+        world.instance(player).map_or_default(|instance| {
+            instance
+                .logs
+                .iter()
+                .filter(|&&(_, owner, _)| owner == player)
+                .map(|&(host, _, noise)| (host, noise))
+                .collect()
+        })
+    }
+
+    #[test]
+    fn a_masked_login_leaves_no_line() {
+        let (mut world, player) = inside();
+        let (edge, creds) = holder(&world, |file| {
+            file.key.is_some() && file.lock == Level::Guest
+        });
+        visit(&mut world, player, edge);
+        if let Some(run) = world
+            .players
+            .get_mut(&player)
+            .and_then(|state| state.run.as_mut())
+        {
+            run.mask = 5;
+        }
+        let shown = plain(&world.command(player, &format!("read {creds}")));
         assert_eq!(
             shown.last().map(String::as_str),
             Some("You learn the credentials. Your access in Acme Corp: user.")
         );
+        assert_eq!(logs_of(&world, player), []);
     }
 
     fn armed() -> (World, PlayerId) {

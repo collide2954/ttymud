@@ -21,6 +21,19 @@ pub(super) struct Instance {
     pub(super) cutting: Vec<Cut>,
 }
 
+impl Instance {
+    pub(super) fn log(&mut self, host: HostId, player: PlayerId, amount: u32) {
+        let mine = self
+            .logs
+            .iter_mut()
+            .find(|(at, owner, _)| *at == host && *owner == player);
+        match mine {
+            Some((_, _, logged)) => *logged += amount,
+            None => self.logs.push((host, player, amount)),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct Cut {
     pub(super) analyst: String,

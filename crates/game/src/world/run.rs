@@ -165,14 +165,7 @@ impl World {
             return Vec::new();
         };
         if !masked {
-            let mine = instance
-                .logs
-                .iter_mut()
-                .find(|(host, owner, _)| *host == here && *owner == player);
-            match mine {
-                Some((_, _, logged)) => *logged += noise,
-                None => instance.logs.push((here, player, noise)),
-            }
+            instance.log(here, player, noise);
         }
         let mut told = Vec::new();
         let mut watched = false;

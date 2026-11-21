@@ -605,15 +605,12 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_reset_password_stops_the_stolen_credentials_until_the_next_day() {
-        let (mut world, player, _, _) = watched(NOON);
-        set_up(&mut world, player, &[Habit::Strict], Level::Guest);
+    fn give_helpdesk(world: &mut World, player: PlayerId) {
         let network = world
             .players
             .get(&player)
-            .and_then(|state| state.run.as_ref());
-        let network = network.map(|run| run.network);
+            .and_then(|state| state.run.as_ref())
+            .map(|run| run.network);
         let creds = world
             .hosts
             .iter()
@@ -624,12 +621,40 @@ mod tests {
         if let (Some(state), Some(creds)) = (world.players.get_mut(&player), creds) {
             state.rig.files.push(creds);
         }
+    }
+
+    #[test]
+    fn an_analyst_finds_a_stolen_login_and_locks_the_account() {
+        let (mut world, player, name, here) = watched(NOON);
+        set_up(&mut world, player, &[Habit::Strict], Level::Guest);
+        give_helpdesk(&mut world, player);
+        world.command(player, "read helpdesk.txt");
+        world.tick();
+        world.tick();
+        assert_eq!(
+            plain(&world.tick())[..2],
+            [
+                format!(
+                    "[SOC] Analyst {name} reads the logs of {here} and finds your trail. Trace: 0% -> 6%."
+                ),
+                format!(
+                    "[SOC] Analyst {name} locks your stolen account and resets its password. Your access in Acme Corp: guest."
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_reset_password_stops_the_stolen_credentials_until_the_next_day() {
+        let (mut world, player, _, _) = watched(NOON);
+        set_up(&mut world, player, &[Habit::Strict], Level::Guest);
+        give_helpdesk(&mut world, player);
         let learned = |world: &mut World| {
             let shown = plain(&world.command(player, "read helpdesk.txt"));
             shown.last().cloned().unwrap_or_default()
         };
         let user = "You learn the credentials. Your access in Acme Corp: user.";
-        assert_eq!(learned(&mut world), user);
+        assert!(learned(&mut world).starts_with(user));
         world.command(player, "scan");
         for _ in 0..3 {
             world.tick();
@@ -639,7 +664,7 @@ mod tests {
             "These credentials do not work. Somebody reset the password."
         );
         world.set_time(NOON + 86_400);
-        assert_eq!(learned(&mut world), user);
+        assert!(learned(&mut world).starts_with(user));
     }
 
     #[test]
