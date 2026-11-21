@@ -91,7 +91,9 @@ The check cannot find all STE problems. A person must also read each document.
 | account | The identity of a person on a server. A key pair identifies the account. |
 | alert level | The state of alarm of a corporation: green, yellow, orange, or red. |
 | analyst | An NPC who works in a SOC. |
+| archive | A compressed file with the binaries of one release, for one system. |
 | arena | A network for fights between handles: duels and crew matches. Each fight gets its own copy. |
+| attestation | A record from GitHub that a file came from a workflow of this repository. `gh attestation verify` checks it. |
 | audit log | The file where the server writes each action of the moderators. |
 | base | A host in an arena where one side of a fight starts. |
 | blueprint | Know-how that lets a handle compile one version of a program. |
@@ -99,6 +101,7 @@ The check cannot find all STE problems. A person must also read each document.
 | budget | How much a corporation spends on security: low, medium, high, or top. |
 | burn list | The public list of the handles that burned on a server. |
 | channel | A chat room for the players of a server, on all hosts. |
+| checksum | The SHA-256 value of a file. The file `SHA256SUMS` of a release lists the checksum of each archive. |
 | city file | The content file of the city of a server: `city.ini` in the data directory, or Port Ostra in the binary. |
 | contract | A job from a fixer. |
 | copy | The state of a target network for one run, or for the runs of one crew: its ICE, analysts, logs, and bridges. |

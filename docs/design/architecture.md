@@ -202,3 +202,9 @@ The default build does not use serde, tokio, clap, or a crate for logs. The stan
 ## Continuous integration
 
 GitHub Actions runs `cargo fmt --check`, `cargo clippy`, and `cargo test` on Linux, macOS, and Windows. It also runs `cargo clippy` and `cargo test` for the `ssh` feature of the server. It runs for each push to `main` and for each pull request. The workflow uses only the official checkout action, pinned to a commit hash.
+
+## Releases
+
+A second workflow builds the release archives for each tag that starts with `v`, for example `v0.5.0`. It builds five targets: static Linux for x86_64 and ARM64, macOS for ARM64 and x86_64, and Windows for x86_64. Each archive has the client and the server with the `ssh` feature. The workflow stops if the tag is not the version in `Cargo.toml`.
+
+A last job writes the file `SHA256SUMS` and makes a GitHub build attestation for the archives. Then it publishes the release. Only this job can write to the repository. The workflow uses only official GitHub actions, each pinned to a commit hash. A manual start builds the archives but does not publish them.

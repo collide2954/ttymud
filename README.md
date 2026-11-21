@@ -10,7 +10,7 @@ The website is at [collide2954.github.io/ttymud](https://collide2954.github.io/t
 
 ## Status
 
-TTYmud is in early development. Milestones M0 to M18 are complete. You can run a server and play the default city with other players over an encrypted connection. In a terminal, the client shows a HUD with status bars, an output pane, and a chat pane.
+TTYmud is in early development. Milestones M0 to M19 are complete. You can run a server and play the default city with other players over an encrypted connection. In a terminal, the client shows a HUD with status bars, an output pane, and a chat pane.
 
 You select a handle and a starter kit, and the server keeps them. Your first job is a hack into the network of a dental office. After that, fixers post new jobs each day against six corporations. The server makes a new network for each job. A job asks you to steal a file, to delete a file, or to put a false file on a host. You earn credits, buy programs and hardware, and sell stolen data to a fence.
 
@@ -31,6 +31,27 @@ The client and the website have a public list of servers. You can connect to a s
 Operators can make links between their servers. The players of linked cities talk in one channel, and each city sends its headlines to the others. An operator can also write a new city in one text file, and the `check` command finds its errors.
 
 If the targets trace you too often, your handle burns. You can talk in channels and send private messages. Moderators and safety tools keep the chat safe, and a recovery code keeps your account safe. The [roadmap](docs/roadmap.md) gives the plan.
+
+## Install
+
+Each release has archives for Linux, macOS, and Windows on the [releases page](https://github.com/collide2954/ttymud/releases). Each archive has the client `ttymud` and the server `ttymud-server`. The server has SSH support.
+
+| System | Archive |
+| --- | --- |
+| Linux on x86_64 | `ttymud-<version>-x86_64-unknown-linux-musl.tar.gz` |
+| Linux on ARM64 | `ttymud-<version>-aarch64-unknown-linux-musl.tar.gz` |
+| macOS on Apple silicon | `ttymud-<version>-aarch64-apple-darwin.tar.gz` |
+| macOS on Intel | `ttymud-<version>-x86_64-apple-darwin.tar.gz` |
+| Windows | `ttymud-<version>-x86_64-pc-windows-msvc.zip` |
+
+The Linux binaries are static, so they work on all distributions. Before you use an archive, check it. Compare it with the file `SHA256SUMS` of the release, or use the [GitHub CLI](https://cli.github.com):
+
+    sha256sum --check --ignore-missing SHA256SUMS
+    gh attestation verify ttymud-0.5.0-x86_64-unknown-linux-musl.tar.gz --repo collide2954/ttymud
+
+The binaries have no code signature, so macOS and Windows can show a warning. If macOS does not open a binary, remove its quarantine mark:
+
+    xattr -d com.apple.quarantine ttymud ttymud-server
 
 ## Build
 

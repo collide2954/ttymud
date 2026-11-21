@@ -2,9 +2,11 @@
 
 This guide tells you how to connect to a TTYmud server and how to play.
 
-## Build the client
+## Get the client
 
-Install Rust with [rustup](https://rustup.rs). Then use this command to build the client:
+Download the archive for your system from the [releases page](https://github.com/collide2954/ttymud/releases). The archive has the client `ttymud`. Before you use it, check it as the [README](../README.md#install) tells you.
+
+To build the client from source, install Rust with [rustup](https://rustup.rs). Then use this command:
 
     cargo build --release -p ttymud
 

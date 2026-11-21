@@ -2,9 +2,11 @@
 
 This guide tells you how to run a TTYmud server. A server runs one city. By default, it runs Port Ostra, but you can also write your own city.
 
-## Build the server
+## Get the server
 
-Install Rust with [rustup](https://rustup.rs). Then use this command to build the server:
+Download the archive for your system from the [releases page](https://github.com/collide2954/ttymud/releases). The archive has `ttymud-server` with SSH support. Before you use it, check it as the [README](../README.md#install) tells you.
+
+To build the server from source, install Rust with [rustup](https://rustup.rs). Then use this command:
 
     cargo build --release -p ttymud-server
 
@@ -48,7 +50,7 @@ Players connect with TCP to port 7331, or to the port that you set with `--liste
 
 ## Let players connect with SSH
 
-Players can also play with a normal SSH client, without the TTYmud client. This option needs the `ssh` feature. Build the server with this command:
+Players can also play with a normal SSH client, without the TTYmud client. This option needs the `ssh` feature. A release binary has it. To build the server from source with this feature, use this command:
 
     cargo build --release -p ttymud-server --features ssh
 

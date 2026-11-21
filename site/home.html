@@ -113,18 +113,16 @@ Pell takes patients.db and pays you <span class="y">250 cr</span>.
 <div class="columns">
 <div>
 <h3>Try it alone</h3>
-<p>Install Rust with <a href="https://rustup.rs">rustup</a>. Then get the code and walk Port Ostra alone, without a network:</p>
-<pre class="code"><code>git clone https://github.com/collide2954/ttymud
-cd ttymud
-cargo run -p ttymud-server -- play</code></pre>
+<p>Download the archive for your system from the <a href="https://github.com/collide2954/ttymud/releases">releases page</a>, and unpack it. The <a href="https://github.com/collide2954/ttymud#install">README</a> tells you how to check it. Then walk Port Ostra alone, without a network:</p>
+<pre class="code"><code>./ttymud-server play</code></pre>
 <p>Type a handle, and then select a starter kit. Type <code>help</code> to see the commands, and <code>contract</code> to see your first job.</p>
+<p>To build from source, install Rust with <a href="https://rustup.rs">rustup</a>. Then get the code, and type <code>cargo run -p ttymud-server -- play</code>.</p>
 </div>
 <div>
 <h3>Connect to a server</h3>
-<p>Build the client. Then connect to a server on the <a href="servers.html">server list</a> by its name, or to the address of a different server:</p>
-<pre class="code"><code>cargo build --release -p ttymud
-target/release/ttymud servers
-target/release/ttymud connect ostra.example.net</code></pre>
+<p>Connect to a server on the <a href="servers.html">server list</a> by its name, or to the address of a different server:</p>
+<pre class="code"><code>./ttymud servers
+./ttymud connect ostra.example.net</code></pre>
 <p>At the first start, the client makes your identity key. For a server on the list, the client checks the key of the server. For a different server, compare its fingerprint with the fingerprint that its operator publishes.</p>
 <p>If the server has an SSH port, you can also connect with SSH and your SSH key:</p>
 <pre class="code"><code>ssh -p 7332 ostra.example.net</code></pre>
@@ -137,14 +135,13 @@ target/release/ttymud connect ostra.example.net</code></pre>
 <section class="band" id="host">
 <div class="wrap">
 <h2>Host a city</h2>
-<p>One binary runs a city, and the server keeps its data in plain text files. Use these commands to make a data directory and to start the server:</p>
-<pre class="code"><code>cargo build --release -p ttymud-server
-target/release/ttymud-server init ostra-data
-target/release/ttymud-server run ostra-data</code></pre>
+<p>One binary runs a city, and the server keeps its data in plain text files. The archive on the releases page has the server. Use these commands to make a data directory and to start the server:</p>
+<pre class="code"><code>./ttymud-server init ostra-data
+./ttymud-server run ostra-data</code></pre>
 <p>The server listens on port 7331. The <a href="operator.html">operator guide</a> tells you about the server key, moderators, backups, and the game data.</p>
 <p>To make your own city, start from a copy of Port Ostra. Change the file <code>city.ini</code>, and then check the data directory:</p>
-<pre class="code"><code>target/release/ttymud-server city ostra-data
-target/release/ttymud-server check ostra-data</code></pre>
+<pre class="code"><code>./ttymud-server city ostra-data
+./ttymud-server check ostra-data</code></pre>
 </div>
 </section>
 
@@ -175,6 +172,7 @@ target/release/ttymud-server check ostra-data</code></pre>
 <li>New ICE, smarter analysts, and new jobs</li>
 <li>Custom cities</li>
 <li>A fair first job and harder runs</li>
+<li>Release binaries</li>
 </ol>
 </div>
 <div>

@@ -187,6 +187,13 @@ An offline playtest found the problems that this milestone repairs.
 - No two jobs or heists on a board have the same company and goal file.
 - `repair` does the free part and shows the price of the rest. `repair all` pays for it.
 
+### M19: Release binaries (done)
+
+- A release workflow builds five archives for each version tag: static Linux for x86_64 and ARM64, macOS for ARM64 and x86_64, and Windows for x86_64.
+- Each archive has the client and the server with SSH support. Players and operators do not need Rust.
+- Each release has the file `SHA256SUMS` and a GitHub build attestation.
+- The workspace version is 0.5.0, and the first release is `v0.5.0`.
+
 ## Later
 
 - Travel between linked cities.
