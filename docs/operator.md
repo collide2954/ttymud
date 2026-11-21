@@ -192,7 +192,7 @@ To delete an account and its data, stop the server. Then use the `delete` comman
 
 For an account without a handle, give the name of its file in `accounts/`, without `.ini`. The command deletes the file of the account and its keys in `keys.ini`. It also removes the account from its crew and from the moderators. The burn list, the reports, the bans, and the audit log do not change. As a result, a ban stays. A key that is not banned can connect again, but it starts a new account.
 
-The seed in `world.ini` sets the job board and the target networks. As a result, a job has the same network after a restart. Keep the file. If you lose it, the server makes a new seed. Then the jobs on the board and the accepted jobs change.
+The seed in `world.ini` sets the job board and the target networks. As a result, a job has the same network after a restart. Keep the file. If you lose it, the server makes a new seed. Then the jobs on the board and the accepted jobs change. A new version of the server can also change some jobs.
 
 Do not show the seed to players. With the seed and the server code, a person can make the same targets and find each goal file before a run.
 

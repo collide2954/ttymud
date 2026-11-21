@@ -82,16 +82,16 @@ This table records the main design decisions. When a decision changes, change th
 | Disconnect | A disconnect during a run counts as a jack out. |
 | Home host | It is private for each handle. A handle that connects again starts there. |
 | Storage | Plain text files in the data directory. A storage thread writes them. |
-| Noise | Noise raises the trace at once. A working Sentry doubles it. The trace does not increase while you wait. |
+| Noise | Noise raises the trace at once. A working Sentry doubles it, and it also sees you enter its host. The trace does not increase while you wait. |
 | ICE | Sentry, Warden, Hound, Scorch, Tarpit, and Lockjaw, and honeypot files. |
 | Job goals | Theft, wipe, or plant. A wipe deletes a record with `rm`, and a plant puts a false file on a host with `upload`. |
 | RAM | A new rig has 8 GB. A starter kit fills it with five programs. `load` and `unload` work only at the home host. |
-| First contract | The fixer Pell offers it to each new handle. Its steps and hints come from the content file. |
-| Repair | The `repair` command at the home host. It is free up to 50 integrity. Above 50, each point costs 2 credits. |
-| Job board | Each fixer posts 3 jobs each day. All players see the same jobs. One contract at a time, with no time limit. |
+| First contract | The fixer Pell offers it to each new handle. Its steps and hints come from the content file. A trace in it adds no heat. |
+| Repair | The `repair` command at the home host. It is free up to 50 integrity. Above 50, `repair all` pays 2 credits for each point. |
+| Job board | Each fixer posts 3 jobs each day. All players see the same jobs. No two jobs on a board have the same company and goal. One contract at a time, with no time limit. |
 | Reputation | Each clean contract adds 1 reputation with its fixer. Jobs against bigger budgets need more reputation. |
 | Targets | The server makes each target from the world seed: an edge, a LAN, and a core with 5 to 8 hosts. A heist target also has a vault. |
-| Access | Guest, user, and admin. Stolen credentials raise the access quietly. The `exploit` program raises it with noise. |
+| Access | Guest, user, and admin. Stolen credentials raise the access without noise, but each login leaves a line in the logs. The `exploit` program raises it with noise. |
 | Money | Credits for each handle. Contracts and the fence pay. Shops sell programs, RAM, and CPUs. |
 | World seed | The file `world.ini` keeps it. Targets and boards stay the same after a restart. |
 | Hosting | A public GitHub repository. The default branch is `main`. |

@@ -171,6 +171,7 @@ fn soc() -> Vec<Message> {
         Message::game(
             "An analyst reads the logs of one host. If your noise is there, your trace goes up.",
         ),
+        Message::game("A login with stolen credentials also leaves a line in the logs."),
         Message::game(
             "A careful or strict analyst also locks your stolen account. Then your access is guest again.",
         ),
@@ -184,7 +185,7 @@ fn soc() -> Vec<Message> {
             .span(Style::Command, "scrub")
             .text(" to delete your logs on this host. While ")
             .span(Style::Command, "mask")
-            .text(" is up, your noise stays out of the logs."),
+            .text(" is up, your noise and your logins stay out of the logs."),
         command("pretext <analyst>").text(
             " makes an analyst stop watching your run. A strict analyst does not believe you.",
         ),
@@ -227,6 +228,7 @@ fn heat() -> Vec<Message> {
         Message::game("Heat shows how much the police know about your handle, from 0 to 5."),
         Message::game("A trace adds 1 to 5 heat. A target with more security gives more heat."),
         Message::game("A jack out with a trace of 75% or more adds 1 heat."),
+        Message::game("In your first job, a trace or a jack out adds no heat."),
         Message::game("At heat 3 or more, a sentry sends its ALERT faster."),
         Message::game("Heat goes down by 1 for each day without new heat."),
         Message::game(
@@ -244,7 +246,7 @@ fn ice() -> Vec<Message> {
         Message::game("Before an ICE acts, it shows its next action and the ticks that are left."),
         kind(
             "sentry",
-            "It watches for noise. It doubles your trace and sends an ALERT.",
+            "It sees you enter its host, and it watches for noise. It doubles your trace and sends an ALERT.",
         ),
         kind("warden", "It blocks one route until you break it."),
         kind(

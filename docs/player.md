@@ -263,11 +263,14 @@ Do these steps:
 
 1. Go to your safehouse, where your rig is: `go safehouse`.
 2. Connect to the target: `go smile-gw`. The prompt now shows your trace and your integrity.
-3. Find the ICE on this host: `scan`.
-4. Find the weak point of the Sentry, and crack it in the same pipeline: `probe sentry | crack`.
-5. Find the host with the file `patients.db`. Then download the file: `download patients.db`.
-6. If your kit has `scrub`, lower your trace: `scrub`.
-7. Go back the way that you came in: `back`. Then the contract is complete, and Pell pays you 250 cr.
+3. Find the ICE on this host: `scan`. The Sentry saw you come in, and it compiles an ALERT.
+4. Find the weak point of the Sentry, and crack it in the same pipeline: `probe sentry | crack`. The pipeline needs 4 cycles, so wait 2 ticks after the scan.
+5. A Warden guards the route to `records`. Crack it: `probe warden | crack`, and then `crack warden`.
+6. Go to `records`, and download the file: `download patients.db`.
+7. If your kit has `scrub`, lower your trace: `scrub`.
+8. Go back the way that you came in: `back`. Then the contract is complete, and Pell pays you 250 cr.
+
+If the Sentry sends its ALERT, your trace goes up, but you can go on. If the target traces you in this first job, you lose the run but get no heat. Then the steps start again.
 
 ## The job board
 
@@ -335,13 +338,15 @@ Type `status` to see your credits. A clean exit with the goal file gets the pay 
 
 The fence pays less for a file name after each sale. Each sale of a name lowers its price by 10%, to a minimum of 30% of the value. The price goes up again by 10% every 2 hours. All players share these prices, so a file that many players sell is cheap for some hours.
 
-A repair up to 50 integrity is free. Each point above 50 costs 2 cr. A burn takes your credits and your hardware.
+At your safehouse, `repair` restores your rig to 50 integrity for free. Then it shows the price of a full repair. Above 50, each point costs 2 cr, and `repair all` pays for it. A burn takes your credits and your hardware.
 
 ## Cycles and noise
 
 Programs cost cycles. Your rig has a maximum of 4 cycles, and it gets 1 cycle on each tick of two seconds. If a command needs more cycles than you have, it does not run. Type `status` to see your cycles.
 
 Programs also make noise, and noise raises your trace. A Sentry on the host doubles the trace from noise. A pipeline makes less noise than the same commands on different lines.
+
+A working Sentry also sees you when you enter its host, and it starts to compile an ALERT. Crack the Sentry before the ALERT comes, or use `mask`. While `mask` is up, a Sentry does not see you. When you start `mask`, a Sentry on your host that compiles an ALERT against you loses you.
 
 ## Programs and RAM
 
@@ -391,16 +396,18 @@ Before an analyst reads the logs of a host, a telegraph shows it:
 
     [SOC] Analyst h.reyes turns to the logs of vpn.
 
-Two ticks later, the analyst reads the logs. If your noise is in the logs of that host, your trace goes up. A careful analyst reads the host with the most noise. A strict analyst reads the host where you are. A lazy analyst reads a random host, and reads less often.
+The telegraph comes only when the host has logs to find. If you leave logs on a host that an analyst watches, the telegraph comes at once. Two ticks later, the analyst reads the logs. If your noise is in the logs of that host, your trace goes up.
 
-If you have access from stolen credentials, a careful or a strict analyst who finds your noise locks the account. Then your access in the network is guest again. The analyst also resets the password, so those credentials do not work until the next day.
+A careful analyst reads the host with the most noise. A strict analyst reads the host where you are. A lazy analyst reads a random host, and reads less often.
+
+Stolen credentials make no noise, but each login leaves a line in the logs of the host where you read them. If you have access from stolen credentials, a careful or a strict analyst who finds your logs locks the account. Then your access in the network is guest again. The analyst also resets the password, so those credentials do not work until the next day.
 
 A strict analyst who finds your noise can also cut one route that leads deeper into the network. A telegraph comes two ticks before the cut. The cut lasts until the run ends, but the way back out stays open.
 
 These actions help you against the SOC:
 
 - `scrub` deletes your logs on the host where you are.
-- While `mask` is up, your noise does not go into the logs, and an analyst finds nothing.
+- While `mask` is up, your noise and your logins do not go into the logs.
 - `pretext <analyst>` tricks an analyst. Then the analyst does not watch your run. A strict analyst does not believe you.
 
 ## Alert levels
@@ -414,8 +421,8 @@ A higher alert level makes each new run more difficult. Each level above green a
 A run ends in one of four ways:
 
 - **Clean exit.** You leave through the host where you came in. You keep the loot. If you have the goal file of your contract, the fixer takes it and pays you.
-- **Jack out.** You type `jackout`. You keep the loot, but the shock costs your rig 20 integrity. If the trace is 75% or more, you also get 1 heat.
-- **Traced.** The trace gets to 100%. You lose the loot of the run, and you get heat.
+- **Jack out.** You type `jackout`. You keep the loot, but the shock costs your rig 20 integrity. If the trace is 75% or more, you also get 1 heat, but not in your first job.
+- **Traced.** The trace gets to 100%. You lose the loot of the run, and you get heat. In your first job, you get no heat.
 - **Crash.** The integrity of your rig gets to 0. You lose the loot of the run.
 
 If you disconnect from the server during a run, the game jacks you out. After a crash, your rig cannot connect to a target. Go to your safehouse and type `repair`.

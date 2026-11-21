@@ -240,6 +240,7 @@ The channel name `crew` is for crews. The `#crew` command always sends to the cr
     pay = 250
     offer = A client wants the patient files of a dentist.
     step = enter: Type go smile-gw to connect.
+    step = break: Type scan, and then probe sentry | crack.
     step = download: Type download patients.db.
     step = exit: Type back to leave the network.
 

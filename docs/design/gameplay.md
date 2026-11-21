@@ -64,7 +64,7 @@ Commands look like shell commands. Many commands have a shell name and a MUD nam
 | `status` | `st` | Show trace, access, heat, credits, integrity, cycles, RAM, and the programs in RAM. |
 | `say <text>` | `'` | Talk to all players on the same host. |
 | `jackout` | | Disconnect from the target immediately. |
-| `repair` | | Restore integrity at your home host. A repair up to 50 integrity is free. |
+| `repair [all]` | | Restore integrity at your home host. A repair up to 50 integrity is free. `repair all` also pays for the points above 50. |
 | `load <program>` | | Put a program into RAM. This command works only at your home host. |
 | `unload <program>` | | Remove a program from RAM. This command works only at your home host. |
 | `compile [program] [quiet\|plain]` | | Show your blueprints, compile the next version of a program, or add or remove the quiet mod. This command works only at your home host. |
@@ -146,9 +146,9 @@ The trace does not increase while you wait. The pressure comes from ICE and from
 
 **Integrity** is the health of your rig, from 100 to 0. Black ICE attacks decrease integrity. The `patch` program repairs some integrity during a run. When integrity gets to 0, your rig crashes.
 
-At your home host, the `repair` command restores integrity. A repair up to 50 integrity is free. Each point above 50 costs 2 credits. If you do not have enough credits, the repair stops at the integrity that you can pay for.
+At your home host, the `repair` command restores integrity up to 50 for free, and it shows the price of a full repair. The `repair all` command also pays 2 credits for each point above 50. If you do not have enough credits, the repair stops at the integrity that you can pay for.
 
-**Heat** shows how much the police know about your handle, from 0 to 5. Each trace adds heat. The security level of the host where the trace gets to 100% sets the quantity of heat. In a network that an author makes by hand, all hosts have the security level of the network. The [world](world.md) document gives the security levels.
+**Heat** shows how much the police know about your handle, from 0 to 5. Each trace adds heat. A trace in the first contract of a handle adds no heat. The security level of the host where the trace gets to 100% sets the quantity of heat. In a network that an author makes by hand, all hosts have the security level of the network. The [world](world.md) document gives the security levels.
 
 | Security level | Heat for one trace |
 | --- | --- |
@@ -203,7 +203,7 @@ The game has six types of ICE, and honeypot files. Each version above 1 adds 10 
 
 | Type | Integrity | Behavior | Actions |
 | --- | --- | --- | --- |
-| Sentry | 20 | Noise on its host starts an alert. | ALERT (3 ticks) wakes the Hounds of the network. If no Hound sleeps, the trace increases by 10%. |
+| Sentry | 20 | It starts an alert when you enter its host or make noise there. | ALERT (3 ticks) wakes the Hounds of the network. If no Hound sleeps, the trace increases by 10%. |
 | Warden | 40 | It blocks one route until it breaks. | None. |
 | Hound | 30 | An alert wakes it. Then it follows you from host to host. | TRACE BURST (2 ticks) adds 8% trace. DEEP TRACE (4 ticks) adds 20% trace. |
 | Scorch | 30 | Noise on its host wakes it. It attacks only while you are on its host. | BURN (2 ticks) does 20 damage. SPIKE (1 tick) does 8 damage. |
@@ -246,7 +246,7 @@ Each corporation has a SOC with a pool of 6 analysts. The world seed sets their 
 
 Each alert level above green adds 1 analyst to the shift. The `scan` command shows the analysts on shift and their habits.
 
-The noise of your actions goes into the logs of the host. Each analyst reads the logs of one host at a time. Two ticks before the read, a telegraph gives the name of the host. The habit of the analyst sets the host and the time between two reads:
+The noise of your actions goes into the logs of the host. A login with stolen credentials also leaves a line in the logs of the host where you read them. Each analyst reads the logs of one host at a time. Two ticks before the read, a telegraph gives the name of the host. The telegraph comes only when the host has logs to find, or at once when you leave logs on a host that an analyst watches. The habit of the analyst sets the host and the time between two reads:
 
 | Habit | Host | Time between reads |
 | --- | --- | --- |
@@ -254,14 +254,14 @@ The noise of your actions goes into the logs of the host. Each analyst reads the
 | Strict | The host where you are. | 6 ticks |
 | Lazy | A random host of the network. | 12 ticks |
 
-If the analyst finds your noise, the trace increases by 5% and by the noise in the logs. Then the logs of that host are empty. If your access comes from stolen credentials, a careful or a strict analyst also locks the account. Your access in the network goes back to guest, but a shell from `exploit` stays open. The analyst also resets the stolen password. Until the next day of UTC time, those credentials do not work in that network.
+If the analyst finds your logs, the trace increases by 5% and by the noise in the logs. Then the logs of that host are empty. If your access comes from stolen credentials, a careful or a strict analyst also locks the account. Your access in the network goes back to guest, but a shell from `exploit` stays open. The analyst also resets the stolen password. Until the next day of UTC time, those credentials do not work in that network.
 
 A strict analyst who finds your noise can also cut one route from that host to a host that is deeper in the network. A telegraph comes 2 ticks before the cut. The cut stops movement to the deeper host until the copy of the network ends. The routes back to the entry stay open. Each analyst cuts one route at most in each copy.
 
 Three programs work against the SOC:
 
 - `scrub` deletes your logs on the host where you are.
-- While `mask` is up, noise does not go into the logs, and an analyst finds nothing.
+- While `mask` is up, noise and logins do not go into the logs.
 - `pretext <analyst>` tricks an analyst who is not strict. Then the analyst does not watch your run.
 
 ## Programs
@@ -300,7 +300,7 @@ In version 0.1, a new rig has 8 GB of RAM, and its CPU holds 4 cycles. A shop se
 | `patch` | 2 GB | 2 | 0 | It repairs 20 integrity. |
 | `firewall` | 2 GB | 2 | 0 | It stops the next ICE attack on your integrity. Only one firewall can be up. |
 | `decoy` | 2 GB | 2 | 1 | For 10 ticks, the ICE on this host attacks you before your crewmates. |
-| `mask` | 2 GB | 2 | 0 | For 5 ticks, ICE and analysts do not see your noise, and noise adds only half the trace. |
+| `mask` | 2 GB | 2 | 0 | For 5 ticks, ICE and analysts do not see your noise, and noise adds only half the trace. Sentries do not see you enter, and a Sentry on your host stops its ALERT against you. |
 | `proxy` | 2 GB | 3 | 1 | Until the run ends, ICE attacks on your trace do half damage. On the host of a modem line, it also opens a route to the vault. |
 | `pretext` | 2 GB | 2 | 2 | It tricks a Warden, an analyst who is not strict, or the IT admin of a vault. Until the run ends, the Warden lets you through, or the analyst does not watch you. |
 | `exploit` | 2 GB | 3 | 3 | It raises your access on this host by one level. It does not work on software that the corporation patched. |
@@ -381,7 +381,7 @@ The ICE, the analysts, and the logs are the same for the whole crew. When one cr
 
 The ICE acts against one player at a time. The other crewmates on the host see each telegraph with the name of the target.
 
-- A Sentry sends its ALERT about the player whose noise it saw. The Hounds hunt that player.
+- A Sentry sends its ALERT about the player whose entry or noise it saw. The Hounds hunt that player.
 - A Scorch attacks the player whose noise woke it. If that player leaves its host, it turns to a different crewmate on its host.
 
 The noise of each player goes into the logs under the name of that player. An analyst who finds noise traces the player who made it. A strict analyst reads the host of the crewmate with the highest trace.
@@ -443,7 +443,7 @@ Type `jobs` on the host of a fixer to see the board. Type `accept <number>` to t
 | High | About 1500 cr | 5 |
 | Top | About 3000 cr | 9 |
 
-The pay of a job can be up to 20% more or less. Each clean contract adds 1 reputation with its fixer. The first job of each fixer is always against its company with the lowest budget. As a result, a new handle can always find work.
+The pay of a job can be up to 20% more or less. Each clean contract adds 1 reputation with its fixer. The first job of each fixer is always against its company with the lowest budget. As a result, a new handle can always find work. No two jobs on one board have the same company and the same goal file.
 
 A job has one of three goals. The first job of each fixer is always a theft. About one job in three is a wipe or a plant.
 

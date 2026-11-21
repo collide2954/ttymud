@@ -176,6 +176,17 @@ M9 added crew channels.
 - `ttymud-server play --city` walks a city file offline.
 - When `world.ini` is for a different city, the message tells the fix.
 
+### M18: A fair first job and harder runs (done)
+
+An offline playtest found the problems that this milestone repairs.
+
+- The first contract: one step for `probe sentry | crack`, a step for the Warden, and steps that start again after a failed run. It has no Hound, and a trace in it adds no heat.
+- A working Sentry sees you enter its host. `mask` makes a Sentry lose you.
+- A login with stolen credentials leaves a line in the logs, and analysts can find it.
+- An analyst shows only when the host has logs to find.
+- No two jobs on a board have the same company and goal file.
+- `repair` does the free part and shows the price of the rest. `repair all` pays for it.
+
 ## Later
 
 - Travel between linked cities.

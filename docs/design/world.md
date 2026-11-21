@@ -118,7 +118,7 @@ In Port Ostra, two fixers work in the Back Room. Pell works against Mosaic Media
 
 Each corporation has a security operations center (SOC). Analysts are NPCs who work in the SOC. They work in shifts on the server clock. The day shift has more analysts. The night shift has fewer analysts, but the automatic ICE is stronger.
 
-Analysts act like people. They read logs, lock stolen accounts, and reset the stolen passwords. A strict analyst can also cut a route between hosts. Each analyst has a habit: careful, lazy, or strict. The game shows their actions as log lines:
+Analysts act like people. They read logs, find the logins of stolen accounts, lock the accounts, and reset the stolen passwords. A strict analyst can also cut a route between hosts. Each analyst has a habit: careful, lazy, or strict. The game shows their actions as log lines:
 
     [SOC] Analyst m.ortiz reads the logs of mail-gw and finds your trail. Trace: 12% -> 20%.
 
