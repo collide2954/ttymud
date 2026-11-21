@@ -331,10 +331,19 @@ impl<W: Write> Hud<W> {
         }
     }
 
+    fn short_prompt(&self) -> &str {
+        let state = self.status.is_some().then(|| self.prompt.strip_prefix('['));
+        match state.flatten().and_then(|rest| rest.split_once("] ")) {
+            Some((_, prompt)) => prompt,
+            None => &self.prompt,
+        }
+    }
+
     fn input(&mut self, canvas: &mut Canvas, layout: Layout) -> (usize, usize) {
         let y = layout.height - 2;
         let (x, room) = (layout.left(), layout.inner());
-        let used = canvas.put(x, y, &self.prompt, Ink::Plain, room);
+        let prompt = self.short_prompt().to_owned();
+        let used = canvas.put(x, y, &prompt, Ink::Plain, room);
         let line: Vec<char> = self.editor.line().chars().collect();
         let cursor = self.editor.cursor();
         let space = room.saturating_sub(used + 1).max(1);
@@ -410,7 +419,8 @@ impl<W: Write> View for Hud<W> {
             Action::Quit => return Ok(Typed::Quit),
             Action::Redraw => Typed::Nothing,
             Action::Submit(line) => {
-                let echo = Message::game(self.prompt.clone()).span(Style::Command, line.clone());
+                let prompt = self.short_prompt().to_owned();
+                let echo = Message::game(prompt).span(Style::Command, line.clone());
                 self.add(echo);
                 (self.start, self.scroll) = (0, 0);
                 Typed::Line(line)
@@ -764,6 +774,19 @@ mod tests {
         hud.press(Key::Char('x')).unwrap();
         hud.press(Key::Enter).unwrap();
         assert_eq!(hud.rows()[11], framed("x"));
+    }
+
+    #[test]
+    fn the_prompt_drops_the_state_that_the_bars_show() {
+        let mut hud = hud(70, 20);
+        let full = "[trace 31% integ 82] ghost@arcadia-db $ ";
+        hud.show(Shown::Prompt(full.to_owned())).unwrap();
+        assert_eq!(hud.rows()[18], framed(full.trim_end()));
+        hud.show(Shown::Status(run_status())).unwrap();
+        assert_eq!(hud.rows()[18], framed("ghost@arcadia-db $"));
+        hud.press(Key::Char('l')).unwrap();
+        hud.press(Key::Enter).unwrap();
+        assert_eq!(hud.rows()[1], framed("ghost@arcadia-db $ l"));
     }
 
     #[test]
