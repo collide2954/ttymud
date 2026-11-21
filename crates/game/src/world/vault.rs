@@ -1,20 +1,12 @@
 use ttymud_text::{Kind, Message, Style};
 
 use super::instance::{InstanceId, tell};
-use super::{HostId, Output, PlayerId, Step, World};
+use super::{HostId, Output, PlayerId, Step, World, ticks};
 use crate::target::{RoleBridge, Vault};
 
 const SYNC_EVERY: u32 = 20;
 const SYNC_OPEN: u32 = 3;
 const SYNC_WARN: u32 = 2;
-
-fn ticks(count: u32) -> String {
-    if count == 1 {
-        "1 tick".to_owned()
-    } else {
-        format!("{count} ticks")
-    }
-}
 
 impl World {
     fn run_vault(&self, player: PlayerId) -> Option<Vault> {

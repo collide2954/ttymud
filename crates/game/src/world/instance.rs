@@ -423,7 +423,7 @@ mod tests {
         }
         let name = instance.analysts[0].name.clone();
         world.command(nyx, "scan");
-        let turns = format!("[SOC] Analyst {name} turns to the logs of {here}.");
+        let turns = format!("[SOC] Analyst {name} turns to the logs of {here} (2 ticks).");
         let outputs = world.tick();
         assert_eq!(heard(&outputs, nyx), std::slice::from_ref(&turns));
         assert_eq!(heard(&outputs, zer0), [turns]);

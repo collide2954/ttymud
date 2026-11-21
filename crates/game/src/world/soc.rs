@@ -4,7 +4,7 @@ use ttymud_text::{Kind, Message, Style};
 
 use super::instance::{Cut, InstanceId, tell};
 use super::run::MAX_TRACE;
-use super::{HostId, NetworkId, Output, PlayerId, Step, World, address};
+use super::{HostId, NetworkId, Output, PlayerId, Step, World, address, ticks};
 use crate::names::person;
 use crate::random::{Random, mix};
 use crate::target::Level;
@@ -65,11 +65,11 @@ fn soc_line(name: &str) -> Message {
         .span(Style::Player, name)
 }
 
-fn turns(name: &str, place: &str) -> Message {
+fn turns(name: &str, place: &str, wait: u32) -> Message {
     soc_line(name)
         .text(" turns to the logs of ")
         .span(Style::Host, place)
-        .text(".")
+        .text(format!(" ({}).", ticks(wait)))
 }
 
 pub(super) fn day_shift(now: u64) -> bool {
@@ -285,8 +285,8 @@ impl World {
             .filter(|analyst| analyst.target == Some(host) && !analyst.warned && !analyst.fooled);
         for analyst in watching {
             analyst.warned = true;
-            self.outbox
-                .extend(tell(&everyone, &turns(&analyst.name, place)));
+            let message = turns(&analyst.name, place, analyst.wait);
+            self.outbox.extend(tell(&everyone, &message));
         }
     }
 
@@ -303,7 +303,7 @@ impl World {
         let place = self.hosts[host.0].id.clone();
         let line = || soc_line(name);
         if !read {
-            return tell(&everyone, &turns(name, &place));
+            return tell(&everyone, &turns(name, &place, READ_TICKS));
         }
         let reads = || line().text(" reads the logs of ").span(Style::Host, &place);
         let mut found = Vec::new();
@@ -431,7 +431,7 @@ impl World {
             .span(Style::Host, &self.hosts[from.0].id)
             .text(" to ")
             .span(Style::Host, &self.hosts[to.0].id)
-            .text(format!(" ({CUT_TICKS} ticks)."));
+            .text(format!(" ({}).", ticks(CUT_TICKS)));
         tell(&everyone, &message)
     }
 
@@ -531,7 +531,9 @@ mod tests {
         world.command(player, "scan");
         assert_eq!(
             plain(&world.tick()),
-            [format!("[SOC] Analyst {name} turns to the logs of {here}.")]
+            [format!(
+                "[SOC] Analyst {name} turns to the logs of {here} (2 ticks)."
+            )]
         );
         assert_eq!(plain(&world.tick()), Vec::<String>::new());
         let shown = plain(&world.tick());
@@ -616,7 +618,7 @@ mod tests {
         assert_eq!(
             shown.last(),
             Some(&format!(
-                "[SOC] Analyst {name} turns to the logs of {here}."
+                "[SOC] Analyst {name} turns to the logs of {here} (2 ticks)."
             ))
         );
         world.tick();

@@ -751,6 +751,14 @@ fn minute_word(count: u64) -> &'static str {
     if count == 1 { "minute" } else { "minutes" }
 }
 
+fn ticks(count: u32) -> String {
+    if count == 1 {
+        "1 tick".to_owned()
+    } else {
+        format!("{count} ticks")
+    }
+}
+
 fn lines(shown: Vec<Message>) -> Step {
     let items = shown
         .iter()

@@ -396,9 +396,9 @@ Each company has a security operations center (SOC). Its analysts read the logs 
 
 Before an analyst reads the logs of a host, a telegraph shows it:
 
-    [SOC] Analyst h.reyes turns to the logs of vpn.
+    [SOC] Analyst h.reyes turns to the logs of vpn (2 ticks).
 
-The telegraph comes only when the host has logs to find. If you leave logs on a host that an analyst watches, the telegraph comes at once. Two ticks later, the analyst reads the logs. If your noise is in the logs of that host, your trace goes up.
+The telegraph comes only when the host has logs to find. If you leave logs on a host that an analyst watches, the telegraph comes at once. After the ticks in the telegraph, the analyst reads the logs. If your noise is in the logs of that host, your trace goes up.
 
 A careful analyst reads the host with the most noise. A strict analyst reads the host where you are. A lazy analyst reads a random host, and reads less often.
 
