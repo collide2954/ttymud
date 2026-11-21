@@ -115,6 +115,28 @@ fn the_first_job_has_a_step_for_the_sentry_and_for_the_warden() {
 }
 
 #[test]
+fn an_alert_in_the_first_job_wakes_no_hound() {
+    let mut world = port_ostra(0).unwrap();
+    let (player, _) = world.join("guest");
+    for line in ["go safehouse", "go smile-gw", "scan"] {
+        world.command(player, line);
+    }
+    let mut seen = Vec::new();
+    for _ in 0..12 {
+        seen.extend(world.tick().iter().map(|out| out.message.plain()));
+    }
+    assert!(
+        seen.iter()
+            .any(|line| line.starts_with("sentry sends an ALERT.")),
+        "{seen:?}"
+    );
+    assert!(
+        !seen.iter().any(|line| line.contains("hunts you")),
+        "{seen:?}"
+    );
+}
+
+#[test]
 fn the_sample_script_breaks_the_sentry_of_the_first_job() {
     let mut world = port_ostra(0).unwrap();
     let (player, _) = world.join("guest");

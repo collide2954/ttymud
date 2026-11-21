@@ -95,7 +95,7 @@ impl World {
         let mut shown = vec![Message::game(format!(
             "You jack out of {name}. The shock costs your rig {SHOCK} integrity."
         ))];
-        if late {
+        if late && self.first_job(player).is_none() {
             let heat = self.add_heat(player, 1);
             shown.push(Message::game("The trace was 75% or more. ").text(heat.plain()));
         }
@@ -262,11 +262,27 @@ impl World {
             let name = &self.corps[corp].name;
             self.publish(format!("{name} traces an intruder and calls the police."));
         }
-        shown.push(self.add_heat(player, heat));
+        match self.first_job(player) {
+            Some(fixer) => {
+                let (name, now) = (self.fixer_name(fixer), self.heat_of(player));
+                shown.push(Message::game(format!(
+                    "{name} keeps the police away from a first job. Your heat stays at {now}."
+                )));
+            }
+            None => shown.push(self.add_heat(player, heat)),
+        }
         shown.extend(self.stop_script(player));
         let scene = self.drop_link(player, true);
         shown.extend(self.burn_if_hot(player, scene));
         shown
+    }
+
+    fn first_job(&self, player: PlayerId) -> Option<usize> {
+        let state = self.players.get(&player)?;
+        let (job, run) = (state.contract?, state.run.as_ref()?);
+        let contract = self.contracts.get(job.contract())?;
+        let first = self.offer == Some(job.contract()) && contract.network == run.network;
+        first.then_some(contract.fixer)
     }
 
     fn drop_link(&mut self, player: PlayerId, lose_loot: bool) -> Vec<Message> {
@@ -380,8 +396,49 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use crate::testing::{joined, plain, run, walk};
+    use crate::testing::{hired, joined, plain, run, walk};
     use crate::{PlayerId, World};
+
+    fn in_the_first_job() -> (World, PlayerId) {
+        let (mut world, player) = hired();
+        for line in ["go back-room", "go gate"] {
+            world.command(player, line);
+        }
+        (world, player)
+    }
+
+    #[test]
+    fn a_trace_in_the_first_job_gives_no_heat() {
+        let (mut world, player) = in_the_first_job();
+        let shown: Vec<String> = world
+            .raise_trace(player, 100)
+            .iter()
+            .map(ttymud_text::Message::plain)
+            .collect();
+        assert_eq!(
+            shown[..2],
+            [
+                "Test Lab traces you. The link drops, and you lose the loot of this run.",
+                "Pell keeps the police away from a first job. Your heat stays at 0.",
+            ]
+        );
+        assert_eq!(world.heat_of(player), 0);
+    }
+
+    #[test]
+    fn a_late_jack_out_in_the_first_job_gives_no_heat() {
+        let (mut world, player) = in_the_first_job();
+        if let Some(run) = world
+            .players
+            .get_mut(&player)
+            .and_then(|state| state.run.as_mut())
+        {
+            run.trace = 80;
+        }
+        let shown = plain(&world.command(player, "jackout"));
+        assert!(!shown.iter().any(|line| line.contains("heat")), "{shown:?}");
+        assert_eq!(world.heat_of(player), 0);
+    }
 
     const LOOT: [&str; 4] = ["go back-room", "go gate", "go core", "get data.db"];
 
