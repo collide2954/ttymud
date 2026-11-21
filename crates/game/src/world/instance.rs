@@ -389,7 +389,7 @@ mod tests {
         let (mut world, nyx, zer0) = lab_crew();
         world.command(zer0, "go gate");
         world.command(nyx, "scan");
-        for _ in 0..3 {
+        for _ in 0..5 {
             world.tick();
         }
         let hound = world

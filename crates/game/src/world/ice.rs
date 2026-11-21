@@ -600,7 +600,7 @@ mod tests {
 
     #[test]
     fn noise_near_a_sentry_starts_an_alert() {
-        let shown = at_gate(&["~3", "scan"]);
+        let shown = at_gate(&["~5", "scan"]);
         assert_eq!(
             shown.last().map(String::as_str),
             Some("sentry starts to compile ALERT (3 ticks).")
@@ -609,16 +609,16 @@ mod tests {
 
     #[test]
     fn an_alert_wakes_the_hounds() {
-        assert_eq!(at_gate(&["scan", "~2"]), Vec::<String>::new());
+        assert_eq!(at_gate(&["scan", "~4"]), Vec::<String>::new());
         assert_eq!(
-            at_gate(&["scan", "~3"]),
+            at_gate(&["scan", "~5"]),
             [
                 "sentry sends an ALERT.",
                 "Unknown ICE wakes up and hunts you."
             ]
         );
         assert_eq!(
-            at_gate(&["scan", "~3", "look"]).last().map(String::as_str),
+            at_gate(&["scan", "~5", "look"]).last().map(String::as_str),
             Some("ICE: sentry, warden, 1 unknown. Type scan to see them.")
         );
     }
@@ -626,14 +626,14 @@ mod tests {
     #[test]
     fn a_hunting_hound_follows_you() {
         assert_eq!(
-            at_gate(&["scan", "~3", "go core", "~"])[0],
+            at_gate(&["scan", "~5", "go core", "~"])[0],
             "Unknown ICE follows you."
         );
     }
 
     #[test]
     fn a_second_alert_raises_the_trace() {
-        let shown = at_gate(&["scan", "~3", "scan", "~3"]);
+        let shown = at_gate(&["scan", "~5", "scan", "~3"]);
         assert!(
             shown.contains(&"sentry sends an ALERT. Trace: 8% -> 18%.".to_owned()),
             "{shown:?}"
@@ -642,7 +642,7 @@ mod tests {
 
     #[test]
     fn a_hunting_hound_telegraphs_its_attack() {
-        let shown = at_gate(&["scan", "~3", "~"]);
+        let shown = at_gate(&["scan", "~5", "~"]);
         let [line] = shown.as_slice() else {
             panic!("{shown:?}");
         };

@@ -15,6 +15,7 @@ use crate::target::Level;
 
 const SHOCK: u32 = 20;
 const LATE_TRACE: u32 = 75;
+const ENTRY_ALERT: u32 = 5;
 pub(super) const MAX_TRACE: u32 = 100;
 const CRASH: &str = "Your rig crashes, and you lose the loot of this run.";
 
@@ -155,7 +156,7 @@ impl World {
             self.raise_alert(corp, noise);
         }
         let here = self.here(player);
-        let alert = self.alert_ticks(player);
+        let alert = self.alert_ticks(player, Action::Alert.ticks());
         let Some(id) = self.instance_id(player) else {
             return Vec::new();
         };
@@ -204,7 +205,7 @@ impl World {
 
     pub(super) fn watch(&mut self, player: PlayerId) -> Vec<Message> {
         let here = self.here(player);
-        let alert = self.alert_ticks(player);
+        let alert = self.alert_ticks(player, ENTRY_ALERT);
         let Some(id) = self.instance_id(player).filter(|_| !self.masked(player)) else {
             return Vec::new();
         };
@@ -229,8 +230,7 @@ impl World {
             .is_some_and(|run| run.mask > 0)
     }
 
-    fn alert_ticks(&self, player: PlayerId) -> u32 {
-        let ticks = Action::Alert.ticks();
+    fn alert_ticks(&self, player: PlayerId, ticks: u32) -> u32 {
         if self.heat_of(player) >= FAST_HEAT {
             ticks - 1
         } else {

@@ -14,7 +14,7 @@ Lab Gate
 The way into the lab.
 Routes: back-room, core, vault
 ICE: 2 unknown. Type scan to see them.
-Unknown ICE starts to compile ALERT (3 ticks).
+Unknown ICE starts to compile ALERT (5 ticks).
 > scan
 sentry: Sentry v1, integrity 20/20
 warden: Warden v1, integrity 40/40, guards vault

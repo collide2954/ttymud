@@ -521,10 +521,7 @@ mod tests {
         let lines = ["scan", "~", "crack sentry", "~3", "crack sentry"];
         assert_eq!(at_gate(&lines), ["crack breaks sentry."]);
         let lines = [&lines[..], &["look"]].concat();
-        assert_eq!(
-            last(&at_gate(&lines)),
-            Some("ICE: sentry (broken), warden, 1 unknown. Type scan to see them.")
-        );
+        assert_eq!(last(&at_gate(&lines)), Some("ICE: sentry (broken), warden"));
     }
 
     #[test]

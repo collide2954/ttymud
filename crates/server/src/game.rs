@@ -791,7 +791,7 @@ mod tests {
         command(&mut game, 1, "go gate");
         command(&mut game, 1, "scan");
         drain(&mailbox);
-        for _ in 0..3 {
+        for _ in 0..5 {
             game.tick();
         }
         let messages = drain(&mailbox);

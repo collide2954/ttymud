@@ -99,7 +99,7 @@ mod tests {
         let shown = plain(&world.command(player, "go gate"));
         assert_eq!(
             shown.last().map(String::as_str),
-            Some("Unknown ICE starts to compile ALERT (2 ticks).")
+            Some("Unknown ICE starts to compile ALERT (4 ticks).")
         );
     }
 

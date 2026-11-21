@@ -219,9 +219,9 @@ mod tests {
         let (shown, _) = walk(&["go back-room", "go gate"]);
         assert_eq!(
             shown.last().map(String::as_str),
-            Some("Unknown ICE starts to compile ALERT (3 ticks).")
+            Some("Unknown ICE starts to compile ALERT (5 ticks).")
         );
-        let (shown, _) = walk(&["go back-room", "go gate", "~3"]);
+        let (shown, _) = walk(&["go back-room", "go gate", "~5"]);
         assert!(
             shown
                 .iter()
