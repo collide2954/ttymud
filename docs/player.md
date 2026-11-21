@@ -75,6 +75,7 @@ The server selects the HUD for your terminal. To select a different display, add
 | `ascii` | The display uses only ASCII characters. |
 | `utf8` | The display uses UTF-8 characters. |
 | `verbose` | The display writes the changes of state as lines, for screen readers. |
+| `nomouse` | The HUD does not use the mouse. Then your terminal can select text with the mouse. |
 
 One account can use the client and SSH. On the device that has the account, type `link`. Then connect with SSH, and type `link <code>` at the handle prompt. To quit, type `quit`, or push Ctrl+D on an empty line.
 
@@ -102,11 +103,23 @@ In a terminal, the client shows the HUD. The HUD fills the window:
 - The top bar shows the host. During a run, it also shows the network, your access, the alert level of the company, and the trace.
 - The output pane shows the game text.
 - The chat pane shows `say` messages, channel messages, and private messages. During a group run, the line above it shows your crewmates in the run and their traces.
-- The line above the input line shows the latest headline of the news.
-- The input line shows the prompt and the text that you type.
+- The threat line above the input line shows the telegraphs against you. When there are no threats, it shows the latest headline of the news.
+- The input line shows the prompt and the text that you type. The prompt does not show the state in brackets, because the bars show it.
 - The bottom bar shows the integrity of your rig, your heat, your RAM, your cycles, and your credits.
 
-Push PgUp and PgDn to scroll the output pane. When you scroll up, the line below the pane shows "more below". When you send a command, the pane shows the newest text again.
+For each telegraph against you, the threat line shows the action and the seconds until it occurs. The soonest action is first:
+
+    threats: h.reyes reads vpn 4s · sentry ALERT 6s
+
+When the action occurs, the threat goes away. It also goes away when the ICE loses you, or when you break the ICE. If the line cannot show all threats, it shows the first threats and the number of the other threats, for example `+2`.
+
+Push PgUp and PgDn to scroll the output pane. The mouse wheel also scrolls it, 3 rows at a time. When you scroll up, the line below the pane shows "more below". When you send a command, the pane shows the newest text again.
+
+While the HUD uses the mouse, your terminal cannot select text with the mouse alone. In many terminals, you can hold Shift to select text. To stop the use of the mouse, use the `--no-mouse` option, or write `mouse = no` in `settings.ini`.
+
+If a line of text is longer than its pane, it continues on the next rows. In a pane with 20 columns or more, these rows start two columns to the right.
+
+In a narrow window, each bar removes full parts. The top bar removes the alert level first, then the network, and then your access. The bottom bar removes your RAM first, then your credits, your heat, and your cycles. The host, the trace, and the integrity always stay.
 
 If the window is small, the HUD has no side borders and no chat pane. If the window is very small, the HUD asks for a larger window.
 
@@ -154,6 +167,7 @@ Use these options with `ttymud connect`:
 - `--color <depth>` sets the colors: `none`, `16`, `256`, or `true`.
 - `--ascii` draws lines and symbols with ASCII characters only.
 - `--verbose` writes changes of state as text, for screen readers.
+- `--no-mouse` stops the use of the mouse in the HUD.
 
 To keep your choices, write them in the file `settings.ini` in your configuration directory:
 
@@ -161,6 +175,7 @@ To keep your choices, write them in the file `settings.ini` in your configuratio
     color = 256
     ascii = no
     verbose = yes
+    mouse = no
 
 An option on the command line has priority over the file. The client never uses a layer that your terminal cannot show.
 

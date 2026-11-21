@@ -91,6 +91,8 @@ The main thread gives each event to a view. The display layer selects the view:
 - The screen view has a line editor, and it keeps the input line below the text from the server. In the color layer, it also writes the colors of the styles.
 - The HUD view draws the full window from a grid of cells. After each change, it compares the new grid with the old grid, and it writes only the rows that changed.
 
+A view can also give a time for its next redraw. If no event comes before that time, the main thread tells the view to draw again. The HUD uses this for the countdowns of the threat line.
+
 With the `verbose` setting, a narrator wraps the view. It writes the changes of state as lines, and it puts "Alert" before each telegraph.
 
 When the player quits, the client waits until each command has its prompt, for a maximum of 5 seconds. As a result, the player sees the answers to the last commands.

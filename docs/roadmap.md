@@ -194,6 +194,15 @@ An offline playtest found the problems that this milestone repairs.
 - Each release has the file `SHA256SUMS` and a GitHub build attestation.
 - The workspace version is 0.5.0, and the first release is `v0.5.0`.
 
+### M20: A clearer HUD (done)
+
+- A threat line above the input line counts down each ICE action, analyst read, and route cut against you. It reads the telegraphs, so older servers also work.
+- The SOC telegraph shows the ticks until the read.
+- In a narrow window, the bars remove full parts. The trace and the integrity always stay.
+- The HUD prompt does not show the state in brackets, because the bars show it.
+- The later rows of a wrapped line start two columns to the right.
+- The mouse wheel scrolls the output pane. `--no-mouse`, `mouse = no`, and the SSH word `nomouse` stop it.
+
 ## Later
 
 - Travel between linked cities.

@@ -50,10 +50,10 @@ The HUD uses the full terminal window:
     │ Sentry v2 watches port 8443.                                         │
     │ $ probe sentry | crack                                               │
     │ crack: overflow lands. Sentry integrity 40 -> 12                     │
-    │ Sentry v2 starts to compile TRACE BURST (2 ticks)                    │
+    │ hound starts to compile TRACE BURST (2 ticks).                       │
     ├ chat ──────────────────────────────────────────── nyx 34% · zer0 12% ┤
     │ [ostra] <nyx> arcadia patched ledgerbase. anyone got a new hole?     │
-    ├ news: Arcadia Bank raises its alert to red. ─────────────────────────┤
+    ├ threats: hound TRACE BURST 4s ───────────────────────────────────────┤
     │ ghost@arcadia-db $ _                                                 │
     └ integ 82 · heat ▲▲△△△ · ram 6/8 GB · cycles ●●●○ · 1250 cr ──────────┘
 
@@ -62,17 +62,30 @@ The HUD has these parts:
 - The top bar shows the host. During a run, it also shows the network, the access, the alert level of the corporation, and the trace.
 - The output pane shows the game text. It keeps the last 1,000 lines.
 - The chat pane shows `say` messages, channel messages, and private messages. During a group run, the line above it shows each crewmate in the run and the trace of that crewmate.
-- The line above the input line shows the latest headline of the news.
-- The input line shows the prompt and the line editor.
+- The threat line above the input line shows the telegraphs against the player. When there are no threats, it shows the latest headline of the news.
+- The input line shows the prompt and the line editor. The prompt does not show the state in brackets, because the bars show it.
 - The bottom bar shows the integrity, the heat, the RAM, the cycles, and the credits.
 
-The color of the alert level goes from green to red. In a narrow window, the top bar cuts the end of its left part. As a result, the alert level is the first part to go.
+The color of the alert level goes from green to red. In a narrow window, each bar removes full parts, not parts of words. The top bar removes the alert level first, then the network, and then the access. The bottom bar removes the RAM first, then the credits, the heat, and the cycles. The host, the trace, and the integrity always stay.
 
-PgUp and PgDn scroll the output pane. When the pane shows older text, the line below the pane shows "more below", and new text does not move the pane. A new command moves the pane back to the newest text.
+PgUp and PgDn scroll the output pane, and the mouse wheel scrolls it 3 rows at a time. When the pane shows older text, the line below the pane shows "more below", and new text does not move the pane. A new command moves the pane back to the newest text.
+
+The HUD gets the mouse wheel from the SGR mouse mode of the terminal. In this mode, a terminal selects text only with a modifier key, for example Shift. The `--no-mouse` option, the `mouse = no` setting, and the SSH word `nomouse` stop the mouse mode.
+
+When the client wraps a line in a pane with 20 columns or more, the next rows start two columns to the right. As a result, the start of each message is easy to see.
 
 The HUD changes its layout when the window size changes. A window with fewer than 60 columns gets no side borders. A window with fewer than 20 rows gets no chat pane, and the chat goes into the output pane. If the window is smaller than 40 columns or 10 rows, the HUD asks for a larger window.
 
 The HUD uses the alternate screen of the terminal. When the client stops, the terminal shows its earlier text again.
+
+### Threat line
+
+The server sends no new message for the threat line. The client reads the telegraphs that it gets, so a server of an older version also works. A telegraph that ends with a number of ticks starts a countdown. The client uses two seconds for each tick, and it draws the line again when a number changes.
+
+- An ICE telegraph gives the ICE and its action. A telegraph against a crewmate does not go on the line.
+- A SOC telegraph gives the analyst and the host to read, or the route to cut. If the telegraph has no ticks, the client uses 2 ticks.
+- A threat goes away when its action occurs, when the ICE loses the player, when the player breaks the ICE, or when the run ends.
+- If no message ends a threat, it goes away 2 seconds after its time. The line keeps a maximum of 16 threats, and shows the soonest first.
 
 ## Terminal detection
 
@@ -94,7 +107,7 @@ The settings file is `settings.ini` in the configuration directory. An option on
 With the `ssh` feature, the server also lets a player use a normal SSH client. Then the server runs the display of the client for the SSH terminal: line mode, edit mode, color mode, or the HUD. The same display code works for both ways in.
 
 - The SSH client sends the terminal type, the window size, and some environment variables. The server uses them as the client uses its own environment. Without a locale, the server uses UTF-8.
-- The words after the address select the layer, ASCII or UTF-8, and verbose output, for example `ssh -t -p 7332 ostra.example.net edit ascii`.
+- The words after the address select the layer, ASCII or UTF-8, verbose output, and no mouse, for example `ssh -t -p 7332 ostra.example.net edit ascii`.
 - Without a terminal, for example with `ssh -T`, the terminal of the player edits the lines, so the server uses line mode. With a terminal, the server edits the line, so the lowest layer is edit mode.
 
 ## Text from the server
