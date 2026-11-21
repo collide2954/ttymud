@@ -104,13 +104,14 @@ A contract section makes one contract by hand. The `contract` key of the city se
 | `offer` | 1 or more | One line of the offer. A new handle sees the offer after it selects a starter kit. |
 | `step` | 0 or more | One step of the contract: an event, a colon, and a hint. |
 
-A step teaches one command. The `contract` command shows the hint of the next step. If the player makes no progress for 15 ticks, the game shows the hint one time. An event also completes the steps before it. The game skips a step for a program that the handle does not know.
+A step teaches one command. The `contract` command shows the hint of the next step. If the player makes no progress for 15 ticks, the game shows the hint one time. An event also completes the steps before it. The game skips a step for a program that the handle does not know. If a run in the network of the contract ends without the goal, the steps start again at the first `enter` step.
 
 | Event | When it occurs |
 | --- | --- |
 | `home` | The player goes to the home host. |
 | `enter` | The player connects to the network of the contract. |
 | `scan`, `probe`, `crack`, `scrub`, `patch` | The player runs the program. |
+| `break` | A crack of the player breaks an ICE. |
 | `download` | The player downloads the goal file. |
 | `exit` | The player leaves the network of the contract with a clean exit. |
 

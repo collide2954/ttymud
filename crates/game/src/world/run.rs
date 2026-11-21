@@ -287,10 +287,11 @@ impl World {
                     .files
                     .retain(|file| !run.loot.contains(&file.name));
             }
-            closed = Some(run.instance);
+            closed = Some((run.instance, run.network));
         }
-        if let Some(id) = closed {
+        if let Some((id, network)) = closed {
             self.close_instance(id);
+            self.restart_steps(player, network);
         }
         let here = self.here(player);
         self.appear(player, here);
@@ -372,6 +373,7 @@ impl World {
         let mut shown = vec![exit];
         shown.extend(self.finish_contract(player, network, done));
         shown.extend(self.finish_heist(player, network));
+        self.restart_steps(player, network);
         shown
     }
 }

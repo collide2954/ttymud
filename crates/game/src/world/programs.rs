@@ -5,6 +5,7 @@ use super::presence::named;
 use super::{HostId, Output, PlayerId, Step, Thing, World, choose, usage};
 use crate::commands::{self, Command, Item, Program, Verb};
 use crate::content::File;
+use crate::contract::Event;
 
 #[derive(Debug)]
 pub(super) enum Target {
@@ -243,6 +244,7 @@ impl World {
                 .span(Style::Host, &self.hosts[target.0].id)
                 .text(" is open.");
         }
+        self.advance(player, Event::Break);
         Ok(Step::show(vec![message]))
     }
 

@@ -75,6 +75,46 @@ fn the_first_job_can_be_done() {
 }
 
 #[test]
+fn the_first_job_has_a_step_for_the_sentry_and_for_the_warden() {
+    let mut world = port_ostra(0).unwrap();
+    let (player, _) = world.join("guest");
+    let mut next = |lines: &[&str]| -> String {
+        for &line in lines {
+            if line == "~" {
+                world.tick();
+            } else {
+                world.command(player, line);
+            }
+        }
+        let shown = world.command(player, "contract");
+        shown.last().map_or_default(|out| out.message.plain())
+    };
+    assert_eq!(
+        next(&["go safehouse", "go smile-gw", "scan"]),
+        "Next: Type probe sentry | crack. The probe finds the weak point of the sentry, and the crack hits it."
+    );
+    assert_eq!(
+        next(&["~", "~", "probe sentry | crack"]),
+        "Next: A warden guards the route to records. Type probe warden | crack, and then crack warden."
+    );
+    let warden = [
+        "~",
+        "~",
+        "~",
+        "~",
+        "probe warden | crack",
+        "~",
+        "~",
+        "~",
+        "crack warden",
+    ];
+    assert_eq!(
+        next(&warden),
+        "Next: The file is on records. Go there, then type download patients.db."
+    );
+}
+
+#[test]
 fn the_sample_script_breaks_the_sentry_of_the_first_job() {
     let mut world = port_ostra(0).unwrap();
     let (player, _) = world.join("guest");

@@ -119,6 +119,31 @@ impl World {
         }
     }
 
+    pub(super) fn restart_steps(&mut self, player: PlayerId, network: NetworkId) {
+        if !self.is_job(player, network) {
+            return;
+        }
+        let Some(job) = self
+            .players
+            .get_mut(&player)
+            .and_then(|state| state.contract.as_mut())
+        else {
+            return;
+        };
+        let Some(contract) = self.contracts.get(job.contract) else {
+            return;
+        };
+        let enter = contract
+            .steps
+            .iter()
+            .position(|&(step, _)| step == Event::Enter);
+        if let Some(enter) = enter.filter(|&enter| enter < job.progress) {
+            job.progress = enter;
+            job.idle = 0;
+            job.hinted = false;
+        }
+    }
+
     fn next_step(&self, player: PlayerId) -> Option<&str> {
         let state = self.players.get(&player)?;
         let job = state.contract?;
@@ -528,6 +553,52 @@ mod tests {
             plain(&step(&mut world, player, "~15")),
             ["Hint: Go to core and type download data.db."]
         );
+    }
+
+    fn breaking_job() -> (World, PlayerId) {
+        let job = JOB.replace(
+            "step = scan: Type scan to find the ICE.",
+            "step = scan: Type scan to find the ICE.\nstep = break: Type probe sentry | crack.",
+        );
+        let city = CITY.replace("home = back-room", "home = back-room\ncontract = lab-job");
+        let mut world = World::new(Content::parse(&format!("{city}{job}")).unwrap(), 0);
+        let (player, _) = world.join("ghost");
+        for line in ["go back-room", "go gate", "scan"] {
+            world.command(player, line);
+        }
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.cycles = 20;
+        }
+        (world, player)
+    }
+
+    #[test]
+    fn a_break_step_ends_only_when_the_ice_breaks() {
+        let (mut world, player) = breaking_job();
+        world.command(player, "crack sentry");
+        assert_eq!(
+            next(&mut world, player).as_deref(),
+            Some("Next: Type probe sentry | crack.")
+        );
+        world.command(player, "probe sentry | crack");
+        assert_eq!(
+            next(&mut world, player).as_deref(),
+            Some("Next: Go to core and type download data.db.")
+        );
+    }
+
+    #[test]
+    fn a_run_that_ends_without_the_goal_starts_the_steps_again() {
+        let enter = Some("Next: Type go gate to connect to the lab.");
+        let (mut world, player) = hired();
+        for line in ["go back-room", "go gate", "scan", "jackout"] {
+            world.command(player, line);
+        }
+        assert_eq!(next(&mut world, player).as_deref(), enter);
+        for line in ["go gate", "scan", "back"] {
+            world.command(player, line);
+        }
+        assert_eq!(next(&mut world, player).as_deref(), enter);
     }
 
     #[test]

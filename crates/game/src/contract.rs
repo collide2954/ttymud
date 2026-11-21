@@ -7,6 +7,7 @@ pub(crate) enum Event {
     Scan,
     Probe,
     Crack,
+    Break,
     Download,
     Scrub,
     Patch,
@@ -14,12 +15,13 @@ pub(crate) enum Event {
 }
 
 impl Event {
-    const ALL: [Self; 9] = [
+    const ALL: [Self; 10] = [
         Self::Home,
         Self::Enter,
         Self::Scan,
         Self::Probe,
         Self::Crack,
+        Self::Break,
         Self::Download,
         Self::Scrub,
         Self::Patch,
@@ -55,6 +57,7 @@ impl Event {
             Self::Scan => "scan",
             Self::Probe => "probe",
             Self::Crack => "crack",
+            Self::Break => "break",
             Self::Download => "download",
             Self::Scrub => "scrub",
             Self::Patch => "patch",
@@ -71,6 +74,7 @@ mod tests {
     #[test]
     fn events_are_found_by_their_content_word() {
         assert_eq!(Event::find("download"), Some(Event::Download));
+        assert_eq!(Event::find("break"), Some(Event::Break));
         assert_eq!(Event::find("Download"), None);
     }
 
