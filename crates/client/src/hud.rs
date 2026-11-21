@@ -102,6 +102,10 @@ impl Layout {
         if self.borders { 2 } else { 0 }
     }
 
+    fn room(self) -> usize {
+        self.width - 2 * usize::from(self.borders)
+    }
+
     fn inner(self) -> usize {
         self.width - 2 * self.left()
     }
@@ -264,16 +268,14 @@ impl<W: Write> Hud<W> {
             return;
         };
         let dot = (format!(" {} ", glyphs.dot), Ink::Dim);
-        let mut left = vec![(format!(" {}", status.host), Ink::Strong)];
+        let mut groups = vec![Group::always(format!(" {}", status.host), Ink::Strong)];
         let mut right = Vec::new();
         if let Some(run) = &status.run {
-            left.push(dot.clone());
-            left.push((run.network.clone(), Ink::Plain));
-            left.push(dot.clone());
-            left.push((run.access.clone(), Ink::Plain));
+            groups.push(Group::new(1, vec![(run.network.clone(), Ink::Plain)]));
+            groups.push(Group::new(2, vec![(run.access.clone(), Ink::Plain)]));
             if let Some(level) = alert_level(&run.alert) {
-                left.push(dot);
-                left.push((format!("{} alert", run.alert), Ink::Level(level)));
+                let alert = (format!("{} alert", run.alert), Ink::Level(level));
+                groups.push(Group::new(0, vec![alert]));
             }
             let percent = run.trace.min(100);
             let filled = (usize::try_from(percent).unwrap_or(100) + 5) / 10;
@@ -283,8 +285,9 @@ impl<W: Write> Hud<W> {
             right.push((meter, Ink::Level(percent)));
             right.push((format!(" {percent}% "), Ink::Plain));
         }
-        left.push((" ".to_owned(), Ink::Plain));
-        bar(canvas, layout, 0, &left, &right);
+        let gap = usize::from(!right.is_empty());
+        let room = layout.room().saturating_sub(width(&right) + gap);
+        bar(canvas, layout, 0, &fit(groups, &dot, room), &right);
     }
 
     fn bottom_bar(&self, canvas: &mut Canvas, layout: Layout) {
@@ -292,35 +295,33 @@ impl<W: Write> Hud<W> {
             return;
         };
         let glyphs = self.glyphs;
-        let dot = || (format!(" {} ", glyphs.dot), Ink::Dim);
+        let dot = (format!(" {} ", glyphs.dot), Ink::Dim);
         let heat = (status.heat.saturating_mul(100))
             .checked_div(status.heat_max)
             .unwrap_or(0);
-        let parts = vec![
-            (
-                format!(" integ {}", status.integrity),
-                Ink::Level(100_u32.saturating_sub(status.integrity)),
+        let integrity = Ink::Level(100_u32.saturating_sub(status.integrity));
+        let hot = symbols(glyphs.hot, glyphs.cool, status.heat, status.heat_max);
+        let cycles = symbols(glyphs.cycle, glyphs.spent, status.cycles, status.cycles_max);
+        let groups = vec![
+            Group::always(format!(" integ {}", status.integrity), integrity),
+            Group::new(
+                2,
+                vec![("heat ".to_owned(), Ink::Plain), (hot, Ink::Level(heat))],
             ),
-            dot(),
-            ("heat ".to_owned(), Ink::Plain),
-            (
-                symbols(glyphs.hot, glyphs.cool, status.heat, status.heat_max),
-                Ink::Level(heat),
+            Group::new(
+                0,
+                vec![(
+                    format!("ram {}/{} GB", status.ram_used, status.ram_total),
+                    Ink::Plain,
+                )],
             ),
-            dot(),
-            (
-                format!("ram {}/{} GB", status.ram_used, status.ram_total),
-                Ink::Plain,
+            Group::new(
+                3,
+                vec![("cycles ".to_owned(), Ink::Plain), (cycles, Ink::Strong)],
             ),
-            dot(),
-            ("cycles ".to_owned(), Ink::Plain),
-            (
-                symbols(glyphs.cycle, glyphs.spent, status.cycles, status.cycles_max),
-                Ink::Strong,
-            ),
-            dot(),
-            (format!("{} cr ", status.credits), Ink::Plain),
+            Group::new(1, vec![(format!("{} cr", status.credits), Ink::Plain)]),
         ];
+        let parts = fit(groups, &dot, layout.room());
         bar(canvas, layout, layout.height - 1, &parts, &[]);
         if !status.headline.is_empty() {
             let news = [
@@ -447,19 +448,59 @@ impl<W: Write> View for Hud<W> {
     }
 }
 
-fn bar(
-    canvas: &mut Canvas,
-    layout: Layout,
-    y: usize,
-    left: &[(String, Ink)],
-    right: &[(String, Ink)],
-) {
-    let start = usize::from(layout.borders);
-    let end = layout.width - start;
-    let size: usize = right
+type Piece = (String, Ink);
+
+struct Group {
+    pieces: Vec<Piece>,
+    keep: u8,
+}
+
+impl Group {
+    fn new(keep: u8, pieces: Vec<Piece>) -> Self {
+        Self { pieces, keep }
+    }
+
+    fn always(text: String, ink: Ink) -> Self {
+        Self::new(u8::MAX, vec![(text, ink)])
+    }
+}
+
+fn fit(mut groups: Vec<Group>, dot: &Piece, room: usize) -> Vec<Piece> {
+    loop {
+        let mut pieces = Vec::new();
+        for (index, group) in groups.iter().enumerate() {
+            if index > 0 {
+                pieces.push(dot.clone());
+            }
+            pieces.extend(group.pieces.iter().cloned());
+        }
+        pieces.push((" ".to_owned(), Ink::Plain));
+        let lowest = groups
+            .iter()
+            .enumerate()
+            .filter(|(_, group)| group.keep < u8::MAX)
+            .min_by_key(|(_, group)| group.keep)
+            .map(|(index, _)| index);
+        match lowest {
+            Some(index) if width(&pieces) > room => {
+                groups.remove(index);
+            }
+            _ => return pieces,
+        }
+    }
+}
+
+fn width(pieces: &[Piece]) -> usize {
+    pieces
         .iter()
         .map(|(text, _)| text.chars().map(columns).sum::<usize>())
-        .sum();
+        .sum()
+}
+
+fn bar(canvas: &mut Canvas, layout: Layout, y: usize, left: &[Piece], right: &[Piece]) {
+    let start = usize::from(layout.borders);
+    let end = layout.width - start;
+    let size = width(right);
     let mut limit = end;
     if size > 0 && start + size < end {
         let mut x = end - size;
@@ -774,6 +815,54 @@ mod tests {
         hud.press(Key::Char('x')).unwrap();
         hud.press(Key::Enter).unwrap();
         assert_eq!(hud.rows()[11], framed("x"));
+    }
+
+    fn mosaic() -> Status {
+        let mut status = run_status();
+        status.host = "ws".to_owned();
+        if let Some(run) = status.run.as_mut() {
+            run.network = "Mosaic Media".to_owned();
+            run.alert = "yellow".to_owned();
+        }
+        status
+    }
+
+    #[test]
+    fn a_narrow_top_bar_drops_whole_parts_and_keeps_the_trace() {
+        let mut wide = hud(60, 20);
+        wide.show(Shown::Status(mosaic())).unwrap();
+        assert_eq!(
+            wide.rows()[0],
+            format!(
+                "┌ ws · Mosaic Media · user {} trace ▓▓▓░░░░░░░ 31% ┐",
+                "─".repeat(10)
+            )
+        );
+        let mut narrow = hud(42, 20);
+        narrow.show(Shown::Status(mosaic())).unwrap();
+        assert_eq!(
+            narrow.rows()[0],
+            format!(" ws · user {} trace ▓▓▓░░░░░░░ 31% ", "─".repeat(9))
+        );
+    }
+
+    #[test]
+    fn a_narrow_bottom_bar_drops_the_ram_and_then_the_credits() {
+        let mut wide = hud(60, 20);
+        wide.show(Shown::Status(mosaic())).unwrap();
+        assert_eq!(
+            wide.rows()[19],
+            format!(
+                "└ integ 82 · heat ▲▲△△△ · cycles ●●●○ · 1250 cr {}┘",
+                "─".repeat(11)
+            )
+        );
+        let mut narrow = hud(45, 20);
+        narrow.show(Shown::Status(mosaic())).unwrap();
+        assert_eq!(
+            narrow.rows()[19],
+            format!(" integ 82 · heat ▲▲△△△ · cycles ●●●○ {}", "─".repeat(8))
+        );
     }
 
     #[test]
