@@ -70,6 +70,7 @@ impl World {
             self.advance(player, Event::Home);
         }
         shown.extend(self.scene(to, player));
+        shown.extend(self.watch(player));
         self.capture(player);
         Step::show(shown)
     }

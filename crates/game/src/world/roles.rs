@@ -1,5 +1,6 @@
 use ttymud_text::{Kind, Message, Style};
 
+use super::ice::Ice;
 use super::instance::{name_of, tell, witnesses};
 use super::presence::named;
 use super::programs::Target;
@@ -33,13 +34,24 @@ impl World {
 
     pub(super) fn mask(&mut self, player: PlayerId) -> Step {
         let ticks = self.power(player, Verb::Mask);
+        let here = self.here(player);
         let Some(run) = self.run_mut(player) else {
             return Step::default();
         };
         run.mask = ticks;
-        Step::show(vec![Message::game(format!(
+        let mut shown = vec![Message::game(format!(
             "mask hides your noise for {ticks} ticks."
-        ))])
+        ))];
+        if let Some(instance) = self.instance_mut(player) {
+            let watching = instance.ice.iter_mut().filter(|ice| {
+                ice.host == here
+                    && ice.kind == IceKind::Sentry
+                    && ice.target == Some(player)
+                    && ice.intent.is_some()
+            });
+            shown.extend(watching.map(Ice::lose));
+        }
+        Step::show(shown)
     }
 
     pub(super) fn decoy(&mut self, player: PlayerId) -> Step {
@@ -199,6 +211,67 @@ mod tests {
         assert_eq!(
             prompt.as_deref(),
             Some("[trace 1% integ 100] ghost@gate $ ")
+        );
+    }
+
+    #[test]
+    fn a_working_sentry_sees_you_enter_its_host() {
+        let (shown, _) = walk(&["go back-room", "go gate"]);
+        assert_eq!(
+            shown.last().map(String::as_str),
+            Some("Unknown ICE starts to compile ALERT (3 ticks).")
+        );
+        let (shown, _) = walk(&["go back-room", "go gate", "~3"]);
+        assert!(
+            shown
+                .iter()
+                .any(|line| line.starts_with("Unknown ICE sends an ALERT.")),
+            "{shown:?}"
+        );
+    }
+
+    #[test]
+    fn a_mask_makes_a_sentry_lose_you() {
+        let (shown, _) = with("mask", &["go gate", "mask"]);
+        assert_eq!(
+            shown,
+            [
+                "mask hides your noise for 5 ticks.",
+                "Unknown ICE loses you."
+            ]
+        );
+        let (shown, _) = with("mask", &["go gate", "mask", "~3"]);
+        assert!(
+            !shown.iter().any(|line| line.contains("ALERT")),
+            "{shown:?}"
+        );
+    }
+
+    #[test]
+    fn a_masked_handle_enters_unseen() {
+        let lines = ["go gate", "mask", "go core", "back"];
+        let (shown, _) = with("mask", &lines);
+        assert!(
+            !shown.iter().any(|line| line.contains("ALERT")),
+            "{shown:?}"
+        );
+    }
+
+    #[test]
+    fn a_broken_sentry_sees_nothing() {
+        let (mut world, player) = joined();
+        for line in ["go back-room", "go gate", "scan"] {
+            world.command(player, line);
+        }
+        if let Some(state) = world.players.get_mut(&player) {
+            state.rig.cycles = 20;
+        }
+        world.command(player, "probe sentry | crack");
+        world.command(player, "go core");
+        let shown = plain(&world.command(player, "back"));
+        assert!(
+            !shown.iter().any(|line| line.contains("ALERT")),
+            "{shown:?}"
         );
     }
 

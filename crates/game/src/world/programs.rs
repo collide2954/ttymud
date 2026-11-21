@@ -457,7 +457,7 @@ mod tests {
     #[test]
     fn probe_takes_the_ice_from_a_scan() {
         let shown = at_gate(&["scan | probe"]);
-        assert_eq!(shown.len(), 3, "{shown:?}");
+        assert_eq!(shown.len(), 2, "{shown:?}");
         assert!(shown[1].starts_with("warden: Warden v1"), "{shown:?}");
     }
 
@@ -599,6 +599,7 @@ mod tests {
 
     #[test]
     fn a_new_run_starts_with_unknown_ice() {
-        assert_eq!(last(&at_gate(&["scan", "back", "go gate"])), Some(UNKNOWN));
+        let shown = at_gate(&["scan", "back", "go gate"]);
+        assert!(shown.iter().any(|line| line == UNKNOWN), "{shown:?}");
     }
 }

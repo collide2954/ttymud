@@ -73,6 +73,12 @@ impl Ice {
         self.named().text(" wakes up.")
     }
 
+    pub(super) fn lose(&mut self) -> Message {
+        self.intent = None;
+        self.target = None;
+        self.named().text(" loses you.")
+    }
+
     pub(super) fn describe(&self) -> Message {
         let title = format!("{} v{}", self.kind.title(), self.version);
         let state = if self.broken() {
@@ -594,7 +600,7 @@ mod tests {
 
     #[test]
     fn noise_near_a_sentry_starts_an_alert() {
-        let shown = at_gate(&["scan"]);
+        let shown = at_gate(&["~3", "scan"]);
         assert_eq!(
             shown.last().map(String::as_str),
             Some("sentry starts to compile ALERT (3 ticks).")

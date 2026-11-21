@@ -2,7 +2,7 @@ use ttymud_text::{Message, Style};
 
 use super::alert::{Alert, TRACE_ALERT};
 use super::heat::FAST_HEAT;
-use super::ice::deploy;
+use super::ice::{Ice, deploy};
 use super::instance::{Instance, InstanceId, decoy_on, name_of, witnesses};
 use super::matches::End;
 use super::{HostId, NetworkId, Output, PlayerId, Step, World};
@@ -155,24 +155,12 @@ impl World {
             self.raise_alert(corp, noise);
         }
         let here = self.here(player);
-        let alert = if self.heat_of(player) >= FAST_HEAT {
-            Action::Alert.ticks() - 1
-        } else {
-            Action::Alert.ticks()
-        };
+        let alert = self.alert_ticks(player);
         let Some(id) = self.instance_id(player) else {
             return Vec::new();
         };
-        let masked = self
-            .players
-            .get(&player)
-            .and_then(|state| state.run.as_ref())
-            .is_some_and(|run| run.mask > 0);
-        let members = self.members(id);
-        let target = decoy_on(&members, here).unwrap_or(player);
-        let name = name_of(&members, target).to_owned();
-        let mut present = witnesses(&members, here, target);
-        present.push(target);
+        let masked = self.masked(player);
+        let (target, name, present) = self.audience(id, here, player);
         let Some(instance) = self.instances.get_mut(&id) else {
             return Vec::new();
         };
@@ -197,13 +185,7 @@ impl World {
                 IceKind::Sentry => {
                     watched = true;
                     if ice.intent.is_none() {
-                        ice.target = Some(target);
-                        let mine = ice.compile_in(Action::Alert, alert);
-                        let theirs = ice.telegraph(Some(&name));
-                        for &other in &present {
-                            let message = if other == target { &mine } else { &theirs };
-                            told.push((other, message.clone()));
-                        }
+                        alert_on(ice, target, &name, &present, alert, &mut told);
                     }
                 }
                 kind if kind.local() && !ice.awake => {
@@ -214,6 +196,67 @@ impl World {
                 _ => {}
             }
         }
+        let mut shown = self.spread(player, told);
+        let gain = match (masked, watched) {
+            (true, _) => noise / 2,
+            (false, true) => noise * 2,
+            (false, false) => noise,
+        };
+        shown.extend(self.raise_trace(player, gain * (4 + steps) / 4));
+        shown
+    }
+
+    pub(super) fn watch(&mut self, player: PlayerId) -> Vec<Message> {
+        let here = self.here(player);
+        let alert = self.alert_ticks(player);
+        let Some(id) = self.instance_id(player).filter(|_| !self.masked(player)) else {
+            return Vec::new();
+        };
+        let (target, name, present) = self.audience(id, here, player);
+        let Some(instance) = self.instances.get_mut(&id) else {
+            return Vec::new();
+        };
+        let mut told = Vec::new();
+        let seeing = instance.ice.iter_mut().filter(|ice| {
+            ice.host == here && ice.kind == IceKind::Sentry && !ice.broken() && ice.intent.is_none()
+        });
+        for ice in seeing {
+            alert_on(ice, target, &name, &present, alert, &mut told);
+        }
+        self.spread(player, told)
+    }
+
+    fn masked(&self, player: PlayerId) -> bool {
+        self.players
+            .get(&player)
+            .and_then(|state| state.run.as_ref())
+            .is_some_and(|run| run.mask > 0)
+    }
+
+    fn alert_ticks(&self, player: PlayerId) -> u32 {
+        let ticks = Action::Alert.ticks();
+        if self.heat_of(player) >= FAST_HEAT {
+            ticks - 1
+        } else {
+            ticks
+        }
+    }
+
+    fn audience(
+        &self,
+        id: InstanceId,
+        here: HostId,
+        player: PlayerId,
+    ) -> (PlayerId, String, Vec<PlayerId>) {
+        let members = self.members(id);
+        let target = decoy_on(&members, here).unwrap_or(player);
+        let name = name_of(&members, target).to_owned();
+        let mut present = witnesses(&members, here, target);
+        present.push(target);
+        (target, name, present)
+    }
+
+    fn spread(&mut self, player: PlayerId, told: Vec<(PlayerId, Message)>) -> Vec<Message> {
         let mut shown = Vec::new();
         for (other, message) in told {
             if other == player {
@@ -225,12 +268,6 @@ impl World {
                 });
             }
         }
-        let gain = match (masked, watched) {
-            (true, _) => noise / 2,
-            (false, true) => noise * 2,
-            (false, false) => noise,
-        };
-        shown.extend(self.raise_trace(player, gain * (4 + steps) / 4));
         shown
     }
 
@@ -391,6 +428,23 @@ impl World {
         shown.extend(self.finish_heist(player, network));
         self.restart_steps(player, network);
         shown
+    }
+}
+
+fn alert_on(
+    ice: &mut Ice,
+    target: PlayerId,
+    name: &str,
+    present: &[PlayerId],
+    ticks: u32,
+    told: &mut Vec<(PlayerId, Message)>,
+) {
+    ice.target = Some(target);
+    let mine = ice.compile_in(Action::Alert, ticks);
+    let theirs = ice.telegraph(Some(name));
+    for &other in present {
+        let message = if other == target { &mine } else { &theirs };
+        told.push((other, message.clone()));
     }
 }
 

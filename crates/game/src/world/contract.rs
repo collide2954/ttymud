@@ -549,10 +549,9 @@ mod tests {
             next(&mut world, player).as_deref(),
             Some("Next: Go to core and type download data.db.")
         );
-        assert_eq!(
-            plain(&step(&mut world, player, "~15")),
-            ["Hint: Go to core and type download data.db."]
-        );
+        let hint = "Hint: Go to core and type download data.db.".to_owned();
+        let shown = plain(&step(&mut world, player, "~15"));
+        assert!(shown.contains(&hint), "{shown:?}");
     }
 
     fn breaking_job() -> (World, PlayerId) {

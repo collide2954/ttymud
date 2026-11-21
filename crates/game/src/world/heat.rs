@@ -95,13 +95,11 @@ mod tests {
         if let Some(state) = world.players.get_mut(&player) {
             state.heat = 3;
         }
-        for line in ["go back-room", "go gate"] {
-            world.command(player, line);
-        }
-        let shown = plain(&world.command(player, "scan"));
+        world.command(player, "go back-room");
+        let shown = plain(&world.command(player, "go gate"));
         assert_eq!(
             shown.last().map(String::as_str),
-            Some("sentry starts to compile ALERT (2 ticks).")
+            Some("Unknown ICE starts to compile ALERT (2 ticks).")
         );
     }
 
