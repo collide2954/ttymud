@@ -10,6 +10,7 @@ use crate::random::{Random, mix};
 use crate::target::{Layer, Target, generate};
 
 const SLOTS: u64 = 3;
+const REROLLS: u64 = 8;
 const ORDER_SALT: u64 = 0x6f72;
 pub(super) const DAY: u64 = 86_400;
 const PLANTS: [(&str, &str); 3] = [
@@ -217,6 +218,20 @@ impl World {
     }
 
     fn posted(&self, fixer: usize, day: u64, slot: u64) -> Option<Offer> {
+        let host = self.fixers.get(fixer)?.host;
+        self.offers_at(host, day)
+            .into_iter()
+            .find(|offer| offer.fixer == fixer && offer.slot == slot)
+    }
+
+    fn draft(&self, fixer: usize, day: u64, slot: u64, attempt: u64) -> Option<Offer> {
+        let again = |seed: u64| {
+            if attempt == 0 {
+                seed
+            } else {
+                mix(&[seed, attempt])
+            }
+        };
         let def = &self.fixers[fixer];
         let mut random = Random::new(mix(&[self.seed, day, fixer as u64, slot]));
         let corp = if slot == 0 {
@@ -230,8 +245,8 @@ impl World {
         let budget = self.corps[corp].budget;
         let percent = 80 + u32::try_from(random.below(41)).unwrap_or(0);
         let pay = base_pay(budget) * percent / 100 / 10 * 10;
-        let target = generate(&self.corps[corp], &self.templates, random.draw());
-        let seed = mix(&[self.seed, day, fixer as u64, slot, ORDER_SALT]);
+        let target = generate(&self.corps[corp], &self.templates, again(random.draw()));
+        let seed = again(mix(&[self.seed, day, fixer as u64, slot, ORDER_SALT]));
         let order = order(slot, &target, seed);
         Some(Offer {
             fixer,
@@ -245,10 +260,22 @@ impl World {
     }
 
     fn offers_at(&self, host: HostId, day: u64) -> Vec<Offer> {
-        self.fixers_at(host)
-            .into_iter()
-            .flat_map(|fixer| (0..SLOTS).filter_map(move |slot| self.posted(fixer, day, slot)))
-            .collect()
+        let mut offers: Vec<Offer> = Vec::new();
+        for fixer in self.fixers_at(host) {
+            for slot in 0..SLOTS {
+                let taken = |offer: &Offer| {
+                    let twin =
+                        |known: &Offer| known.corp == offer.corp && known.goal() == offer.goal();
+                    offers.iter().any(twin)
+                };
+                let fresh = (0..=REROLLS)
+                    .filter_map(|attempt| self.draft(fixer, day, slot, attempt))
+                    .find(|offer| !taken(offer));
+                let chosen = fresh.or_else(|| self.draft(fixer, day, slot, 0));
+                offers.extend(chosen);
+            }
+        }
+        offers
     }
 
     pub(super) fn no_fixer(&self) -> Message {
@@ -465,11 +492,10 @@ impl World {
         let mut shown = Vec::new();
         let mut number = 0;
         let day = self.now / DAY;
+        let board = self.offers_at(here, day);
         for fixer in self.fixers_at(here) {
             let name = Message::game("").span(Style::Player, self.fixer_name(fixer));
-            let offers: Vec<Offer> = (0..SLOTS)
-                .filter_map(|slot| self.posted(fixer, day, slot))
-                .collect();
+            let offers: Vec<&Offer> = board.iter().filter(|offer| offer.fixer == fixer).collect();
             if offers.is_empty() {
                 shown.push(name.text(" has no jobs today."));
                 continue;
@@ -495,7 +521,7 @@ impl World {
                 };
                 let mut line = line.text(format!(". Pay: {} cr.", offer.pay));
                 let need = needed(corp.budget);
-                if self.is_done(player, &offer) {
+                if self.is_done(player, offer) {
                     line = line.text(" Done.");
                 } else if rep < need {
                     line = line.text(format!(" Needs {need} reputation."));
@@ -900,6 +926,29 @@ mod tests {
             world.headline(),
             format!("Investigators find {goal} on a server of {corp}.")
         );
+    }
+
+    #[test]
+    fn no_two_jobs_on_a_board_share_a_corporation_and_a_goal() {
+        let world = world();
+        let host = world.fixers[0].host;
+        for day in 20_000..20_200 {
+            let offers = world.offers_at(host, day);
+            assert_eq!(offers.len(), 3, "day {day}");
+            for (index, offer) in offers.iter().enumerate() {
+                let twin = offers[..index]
+                    .iter()
+                    .any(|known| known.corp == offer.corp && known.goal() == offer.goal());
+                assert!(!twin, "day {day}: {} {}", offer.corp, offer.goal());
+            }
+            for offer in &offers {
+                let again = world.posted(offer.fixer, day, offer.slot);
+                assert_eq!(
+                    again.map(|again| again.goal().to_owned()),
+                    Some(offer.goal().to_owned())
+                );
+            }
+        }
     }
 
     #[test]
