@@ -1693,7 +1693,7 @@ dependencies = [
 
 [[package]]
 name = "site"
-version = "0.1.0"
+version = "0.5.0"
 dependencies = [
  "ttymud",
  "ttymud-net",
@@ -1812,7 +1812,7 @@ dependencies = [
 
 [[package]]
 name = "stelint"
-version = "0.1.0"
+version = "0.5.0"
 
 [[package]]
 name = "subtle"
@@ -1890,7 +1890,7 @@ dependencies = [
 
 [[package]]
 name = "ttymud"
-version = "0.1.0"
+version = "0.5.0"
 dependencies = [
  "crossterm",
  "ttymud-net",
@@ -1901,21 +1901,21 @@ dependencies = [
 
 [[package]]
 name = "ttymud-game"
-version = "0.1.0"
+version = "0.5.0"
 dependencies = [
  "ttymud-text",
 ]
 
 [[package]]
 name = "ttymud-net"
-version = "0.1.0"
+version = "0.5.0"
 dependencies = [
  "snow",
 ]
 
 [[package]]
 name = "ttymud-server"
-version = "0.1.0"
+version = "0.5.0"
 dependencies = [
  "rand",
  "russh",
@@ -1929,11 +1929,11 @@ dependencies = [
 
 [[package]]
 name = "ttymud-text"
-version = "0.1.0"
+version = "0.5.0"
 
 [[package]]
 name = "ttymud-wire"
-version = "0.1.0"
+version = "0.5.0"
 dependencies = [
  "ttymud-text",
 ]
