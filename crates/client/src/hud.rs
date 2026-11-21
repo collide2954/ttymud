@@ -17,8 +17,11 @@ const BORDERS: usize = 60;
 const CHAT: usize = 20;
 const BAR: usize = 10;
 const SYMBOLS: u32 = 12;
+const WHEEL: usize = 3;
 const ENTER: &str = "\x1b[?1049h\x1b[?7l\x1b[2J";
 const LEAVE: &str = "\x1b[0m\x1b[?7h\x1b[?1049l\x1b[?25h";
+const MOUSE_ON: &str = "\x1b[?1000h\x1b[?1006h";
+const MOUSE_OFF: &str = "\x1b[?1006l\x1b[?1000l";
 const SMALL: &str = "Make the window larger.";
 
 struct Glyphs {
@@ -131,6 +134,7 @@ pub(crate) struct Hud<W: Write> {
     shown: Option<Canvas>,
     closed: Option<String>,
     open: bool,
+    mouse: bool,
 }
 
 impl<W: Write> Hud<W> {
@@ -151,10 +155,17 @@ impl<W: Write> Hud<W> {
             shown: None,
             closed: None,
             open: true,
+            mouse: false,
         };
         hud.output.write_all(ENTER.as_bytes())?;
         hud.draw()?;
         Ok(hud)
+    }
+
+    pub(crate) fn capture_mouse(&mut self) -> io::Result<()> {
+        self.mouse = true;
+        self.output.write_all(MOUSE_ON.as_bytes())?;
+        self.output.flush()
     }
 
     fn add(&mut self, message: Message) {
@@ -362,6 +373,9 @@ impl<W: Write> Hud<W> {
 
     fn leave(&mut self) -> io::Result<()> {
         if std::mem::take(&mut self.open) {
+            if self.mouse {
+                self.output.write_all(MOUSE_OFF.as_bytes())?;
+            }
             self.output.write_all(LEAVE.as_bytes())?;
         }
         Ok(())
@@ -408,10 +422,16 @@ impl<W: Write> View for Hud<W> {
         match key {
             Key::PageUp => self.scroll += self.page(),
             Key::PageDown => self.scroll = self.scroll.saturating_sub(self.page()),
+            Key::ScrollUp => self.scroll += WHEEL,
+            Key::ScrollDown => self.scroll = self.scroll.saturating_sub(WHEEL),
             _ => {}
         }
+        let scrolled = matches!(
+            key,
+            Key::PageUp | Key::PageDown | Key::ScrollUp | Key::ScrollDown
+        );
         let typed = match self.editor.press(key) {
-            Action::Nothing if matches!(key, Key::PageUp | Key::PageDown) => Typed::Nothing,
+            Action::Nothing if scrolled => Typed::Nothing,
             Action::Nothing => return Ok(Typed::Nothing),
             Action::Complete(text) => {
                 self.asked = Some(text.clone());
@@ -581,6 +601,7 @@ mod tests {
             color,
             ascii,
             verbose: false,
+            mouse: false,
         }
     }
 
@@ -876,6 +897,32 @@ mod tests {
         hud.press(Key::Char('l')).unwrap();
         hud.press(Key::Enter).unwrap();
         assert_eq!(hud.rows()[1], framed("ghost@arcadia-db $ l"));
+    }
+
+    #[test]
+    fn the_mouse_wheel_scrolls_the_output_three_rows_at_a_time() {
+        let mut hud = hud(70, 20);
+        for number in 1..=30 {
+            hud.show(Shown::Line(Message::game(format!("line {number}"))))
+                .unwrap();
+        }
+        hud.press(Key::ScrollUp).unwrap();
+        assert_eq!(hud.rows()[11], framed("line 27"));
+        hud.press(Key::ScrollDown).unwrap();
+        assert_eq!(hud.rows()[11], framed("line 30"));
+    }
+
+    #[test]
+    fn a_captured_mouse_is_set_free_when_the_hud_closes() {
+        let mut hud = hud(70, 20);
+        written(&mut hud);
+        hud.capture_mouse().unwrap();
+        assert_eq!(written(&mut hud), "\x1b[?1000h\x1b[?1006h");
+        hud.finish().unwrap();
+        assert!(
+            written(&mut hud).starts_with("\x1b[?1006l\x1b[?1000l\x1b[0m"),
+            "the mouse goes free before the screen"
+        );
     }
 
     #[test]

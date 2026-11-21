@@ -119,7 +119,7 @@ fn an_unknown_word_after_the_address_is_refused() {
         let text = read_until(&mut channel, "\r\n").await;
         assert_eq!(
             text,
-            "Unknown word: fancy. Use line, edit, color, hud, ascii, utf8, or verbose.\r\n"
+            "Unknown word: fancy. Use line, edit, color, hud, ascii, utf8, verbose, or nomouse.\r\n"
         );
         assert_eq!(exit_status(&mut channel).await, Some(2));
     });

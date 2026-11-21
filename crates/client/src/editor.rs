@@ -16,6 +16,8 @@ pub(crate) enum Key {
     Down,
     PageUp,
     PageDown,
+    ScrollUp,
+    ScrollDown,
     Tab,
     DeleteWord,
     DeleteToStart,
@@ -86,7 +88,7 @@ impl Editor {
             Key::End => self.move_to(self.buffer.len()),
             Key::Up => self.older(),
             Key::Down => self.newer(),
-            Key::PageUp | Key::PageDown => Action::Nothing,
+            Key::PageUp | Key::PageDown | Key::ScrollUp | Key::ScrollDown => Action::Nothing,
             Key::Tab => Action::Complete(self.before()),
             Key::DeleteWord => self.delete_word(),
             Key::DeleteToStart => {

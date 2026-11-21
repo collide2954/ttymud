@@ -26,7 +26,7 @@ use crate::serve::Hub;
 const HOST_KEY: &str = "ssh_host.key";
 const LOGIN: Duration = Duration::from_secs(10);
 const VARS: [&str; 5] = ["LANG", "LC_ALL", "LC_CTYPE", "COLORTERM", "NO_COLOR"];
-const WORDS: &str = "Use line, edit, color, hud, ascii, utf8, or verbose.";
+const WORDS: &str = "Use line, edit, color, hud, ascii, utf8, verbose, or nomouse.";
 const QUEUE: usize = 64;
 const WRITE: Duration = Duration::from_secs(30);
 
@@ -472,6 +472,7 @@ fn choices(words: &str) -> Result<Choices, String> {
             "ascii" => choices.ascii = Some(true),
             "utf8" | "utf-8" => choices.ascii = Some(false),
             "verbose" => choices.verbose = Some(true),
+            "nomouse" => choices.mouse = Some(false),
             other => {
                 let shown: String = sanitize(word).chars().take(20).collect();
                 let layer = other
@@ -496,15 +497,16 @@ mod tests {
             layer: Some(Layer::Hud),
             ascii: Some(true),
             verbose: Some(true),
+            mouse: Some(false),
             ..Choices::default()
         };
-        assert_eq!(choices("HUD ascii verbose"), Ok(hud));
+        assert_eq!(choices("HUD ascii verbose nomouse"), Ok(hud));
         assert_eq!(choices(""), Ok(Choices::default()));
         assert_eq!(choices("utf8").map(|found| found.ascii), Ok(Some(false)));
         assert_eq!(
             choices("line fancy"),
             Err(
-                "Unknown word: fancy. Use line, edit, color, hud, ascii, utf8, or verbose."
+                "Unknown word: fancy. Use line, edit, color, hud, ascii, utf8, verbose, or nomouse."
                     .to_owned()
             )
         );

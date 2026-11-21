@@ -75,7 +75,10 @@ pub fn remote(
             verbose,
         ),
         Layer::Hud => {
-            let hud = Hud::new(output, settings, width, height)?;
+            let mut hud = Hud::new(output, settings, width, height)?;
+            if settings.mouse {
+                hud.capture_mouse()?;
+            }
             narrated(wire, reader, hud, verbose)
         }
     }

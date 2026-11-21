@@ -27,6 +27,7 @@ pub struct Settings {
     pub color: Depth,
     pub ascii: bool,
     pub verbose: bool,
+    pub mouse: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -35,6 +36,7 @@ pub struct Choices {
     pub color: Option<Depth>,
     pub ascii: Option<bool>,
     pub verbose: Option<bool>,
+    pub mouse: Option<bool>,
 }
 
 impl FromStr for Layer {
@@ -87,6 +89,7 @@ impl Choices {
                 "color" => choices.color = Some(value.parse().map_err(at)?),
                 "ascii" => choices.ascii = Some(yes(key, value).map_err(at)?),
                 "verbose" => choices.verbose = Some(yes(key, value).map_err(at)?),
+                "mouse" => choices.mouse = Some(yes(key, value).map_err(at)?),
                 other => return Err(at(format!("unknown setting: {other}"))),
             }
         }
@@ -100,6 +103,7 @@ impl Choices {
             color: self.color.or(other.color),
             ascii: self.ascii.or(other.ascii),
             verbose: self.verbose.or(other.verbose),
+            mouse: self.mouse.or(other.mouse),
         }
     }
 
@@ -112,6 +116,7 @@ impl Choices {
             color: self.color.unwrap_or(found.color),
             ascii: self.ascii.unwrap_or(found.ascii),
             verbose: self.verbose.unwrap_or(found.verbose),
+            mouse: self.mouse.unwrap_or(found.mouse),
         }
     }
 }
@@ -164,6 +169,7 @@ pub fn detect(var: impl Fn(&str) -> Option<String>, terminal: bool, windows: boo
         color,
         ascii: !utf8,
         verbose: false,
+        mouse: true,
     }
 }
 
@@ -190,7 +196,8 @@ mod tests {
 
     #[test]
     fn a_settings_file_sets_the_choices() {
-        let text = "# My settings.\nlayer = color\n\ncolor = 16\nascii = yes\nverbose = no\n";
+        let text =
+            "# My settings.\nlayer = color\n\ncolor = 16\nascii = yes\nverbose = no\nmouse = no\n";
         assert_eq!(
             Choices::read(text),
             Ok(Choices {
@@ -198,6 +205,7 @@ mod tests {
                 color: Some(Depth::Basic),
                 ascii: Some(true),
                 verbose: Some(false),
+                mouse: Some(false),
             })
         );
         assert_eq!(Choices::read(""), Ok(Choices::default()));
@@ -257,6 +265,7 @@ mod tests {
             color: Depth::Indexed,
             ascii: false,
             verbose: false,
+            mouse: true,
         };
         assert_eq!(
             options.or(file).settle(found),
@@ -265,6 +274,7 @@ mod tests {
                 color: Depth::True,
                 ascii: false,
                 verbose: true,
+                mouse: true,
             }
         );
         let wide = Choices {
@@ -284,6 +294,17 @@ mod tests {
             pair.map(|(_, value)| (*value).to_owned())
         };
         detect(var, terminal, windows)
+    }
+
+    #[test]
+    fn the_mouse_is_on_until_a_choice_turns_it_off() {
+        let found = found(&[("TERM", "xterm")], true, false);
+        assert!(found.mouse);
+        let off = Choices {
+            mouse: Some(false),
+            ..Choices::default()
+        };
+        assert!(!off.settle(found).mouse);
     }
 
     #[test]

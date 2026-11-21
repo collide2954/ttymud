@@ -1,8 +1,11 @@
 use std::io::{self, IsTerminal};
 use std::sync::mpsc;
 
-use crossterm::event::{self, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use crossterm::terminal;
+use crossterm::event::{
+    self, DisableMouseCapture, EnableMouseCapture, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
+    MouseEvent, MouseEventKind,
+};
+use crossterm::{execute, terminal};
 
 use crate::editor::{Key, control_key};
 use crate::hud::Hud;
@@ -31,6 +34,11 @@ pub fn edit_mode(wire: impl Into<Wire>, settings: Settings) -> io::Result<Ending
 
 pub fn hud_mode(wire: impl Into<Wire>, settings: Settings) -> io::Result<Ending> {
     let _raw = Raw::enable()?;
+    let _mouse = if settings.mouse {
+        Some(Mouse::capture()?)
+    } else {
+        None
+    };
     let (width, height) = terminal::size().unwrap_or((80, 24));
     let mut hud = Hud::new(io::stdout(), settings, width, height)?;
     if settings.verbose {
@@ -65,10 +73,29 @@ impl Drop for Raw {
     }
 }
 
+struct Mouse;
+
+impl Mouse {
+    fn capture() -> io::Result<Self> {
+        execute!(io::stdout(), EnableMouseCapture)?;
+        Ok(Self)
+    }
+}
+
+impl Drop for Mouse {
+    fn drop(&mut self) {
+        let _ = execute!(io::stdout(), DisableMouseCapture);
+    }
+}
+
 fn read_keys(events: &mpsc::Sender<Event>) {
     loop {
         let event = match event::read() {
             Ok(event::Event::Key(key)) => match to_key(key) {
+                Some(key) => Event::Key(key),
+                None => continue,
+            },
+            Ok(event::Event::Mouse(mouse)) => match wheel(mouse) {
                 Some(key) => Event::Key(key),
                 None => continue,
             },
@@ -80,6 +107,14 @@ fn read_keys(events: &mpsc::Sender<Event>) {
         if events.send(event).is_err() || ended {
             return;
         }
+    }
+}
+
+fn wheel(event: MouseEvent) -> Option<Key> {
+    match event.kind {
+        MouseEventKind::ScrollUp => Some(Key::ScrollUp),
+        MouseEventKind::ScrollDown => Some(Key::ScrollDown),
+        _ => None,
     }
 }
 
@@ -113,9 +148,11 @@ fn to_key(event: KeyEvent) -> Option<Key> {
 
 #[cfg(test)]
 mod tests {
-    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+    use crossterm::event::{
+        KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
+    };
 
-    use super::to_key;
+    use super::{to_key, wheel};
     use crate::editor::Key;
 
     fn press(code: KeyCode, modifiers: KeyModifiers) -> Option<Key> {
@@ -158,6 +195,22 @@ mod tests {
         assert_eq!(control('d'), Some(Key::EndOfInput));
         assert_eq!(control('j'), Some(Key::Enter));
         assert_eq!(control('z'), None);
+    }
+
+    #[test]
+    fn the_mouse_wheel_scrolls_and_other_mouse_events_do_nothing() {
+        let mouse = |kind| MouseEvent {
+            kind,
+            column: 3,
+            row: 4,
+            modifiers: KeyModifiers::NONE,
+        };
+        assert_eq!(wheel(mouse(MouseEventKind::ScrollUp)), Some(Key::ScrollUp));
+        assert_eq!(
+            wheel(mouse(MouseEventKind::ScrollDown)),
+            Some(Key::ScrollDown)
+        );
+        assert_eq!(wheel(mouse(MouseEventKind::Moved)), None);
     }
 
     #[test]

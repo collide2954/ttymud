@@ -2,6 +2,7 @@ use crate::editor::{Key, control_key};
 
 const ESC: u8 = 0x1b;
 const LONGEST: usize = 16;
+const MODIFIERS: u16 = 0b1_1100;
 
 #[derive(Debug, Default)]
 pub(crate) struct Decoder {
@@ -74,6 +75,9 @@ fn csi(tail: &[u8]) -> Step {
             Step::Skip(2 + tail.len())
         };
     };
+    if let Some(report) = tail[..end].strip_prefix(b"<") {
+        return found(wheel(report), end + 3);
+    }
     let first = std::str::from_utf8(&tail[..end])
         .ok()
         .and_then(|params| params.split(';').next()?.parse::<u16>().ok());
@@ -90,6 +94,15 @@ fn csi(tail: &[u8]) -> Step {
         _ => None,
     };
     found(key, end + 3)
+}
+
+fn wheel(report: &[u8]) -> Option<Key> {
+    let button = std::str::from_utf8(report).ok()?.split(';').next()?;
+    match button.parse::<u16>().ok()? & !MODIFIERS {
+        64 => Some(Key::ScrollUp),
+        65 => Some(Key::ScrollDown),
+        _ => None,
+    }
 }
 
 fn ss3(last: u8) -> Option<Key> {
@@ -206,6 +219,14 @@ mod tests {
             assert_eq!(keys(bytes), [key], "{bytes:?}");
         }
         assert_eq!(keys(b"\x1b\x7f"), [Key::DeleteWord]);
+    }
+
+    #[test]
+    fn the_mouse_wheel_scrolls_and_other_mouse_reports_type_nothing() {
+        assert_eq!(keys(b"\x1b[<64;10;5M"), [Key::ScrollUp]);
+        assert_eq!(keys(b"\x1b[<65;10;5M"), [Key::ScrollDown]);
+        assert_eq!(keys(b"\x1b[<68;1;1M"), [Key::ScrollUp]);
+        assert_eq!(keys(b"\x1b[<0;10;5M\x1b[<0;10;5mx"), chars("x"));
     }
 
     #[test]

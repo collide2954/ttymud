@@ -14,6 +14,7 @@ Usage: ttymud [OPTION]
        ttymud servers
        ttymud connect <ADDRESS|NAME> [--key KEY] [--accept-new] [--config DIR]
                       [--layer LAYER] [--color DEPTH] [--ascii] [--verbose]
+                      [--no-mouse]
 
 Commands:
   servers            Show the public list of servers.
@@ -31,6 +32,7 @@ Options:
   --color DEPTH    Use none, 16, 256, or true colors.
   --ascii          Use only ASCII characters for lines and symbols.
   --verbose        Write changes of state as text, for screen readers.
+  --no-mouse       Do not let the mouse wheel scroll the HUD.
   -h, --help       Show this help.
   -V, --version    Show the version.
 ";
@@ -87,6 +89,7 @@ fn parse_connect(args: &[OsString]) -> Result<Cli, String> {
             Some("--color") => choices.color = Some(value("--color")?.parse()?),
             Some("--ascii") => choices.ascii = Some(true),
             Some("--verbose") => choices.verbose = Some(true),
+            Some("--no-mouse") => choices.mouse = Some(false),
             Some("--config") => {
                 let dir = rest.next().ok_or("--config needs a directory")?;
                 options.config = Some(PathBuf::from(dir));
@@ -426,6 +429,7 @@ mod tests {
             "256",
             "--ascii",
             "--verbose",
+            "--no-mouse",
         ];
         assert_eq!(
             parse(&args(&flags)),
@@ -436,6 +440,7 @@ mod tests {
                     color: Some(Depth::Indexed),
                     ascii: Some(true),
                     verbose: Some(true),
+                    mouse: Some(false),
                 },
                 ..Options::default()
             }))
