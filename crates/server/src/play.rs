@@ -105,17 +105,17 @@ mod tests {
 
     #[test]
     fn text_from_a_tick_starts_on_a_new_line() {
+        let world = city_world(None).unwrap();
         let (reader, mut writer) = std::io::pipe().unwrap();
         let typist = thread::spawn(move || {
             writer
                 .write_all(b"ghost\ngo safehouse\ngo smile-gw\nscan\n")
                 .unwrap();
-            thread::sleep(Duration::from_millis(400));
+            thread::sleep(Duration::from_millis(600));
             writer.write_all(b"quit\n").unwrap();
         });
         let mut output = Vec::new();
         let every = Duration::from_millis(20);
-        let world = city_world(None).unwrap();
         session(
             world,
             Some("nyx"),
