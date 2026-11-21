@@ -1,4 +1,5 @@
 use std::io;
+use std::time::Instant;
 
 use ttymud_text::{Kind, Message, Status};
 
@@ -50,6 +51,14 @@ impl<V: View> View for Narrated<V> {
         self.view.submitted();
     }
 
+    fn redraw_at(&self) -> Option<Instant> {
+        self.view.redraw_at()
+    }
+
+    fn redraw(&mut self) -> io::Result<()> {
+        self.view.redraw()
+    }
+
     fn finish(&mut self) -> io::Result<()> {
         self.view.finish()
     }
@@ -95,6 +104,7 @@ fn changes(last: &Status, next: &Status) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use std::io;
+    use std::time::Instant;
 
     use ttymud_text::{Kind, Message, RunStatus, Status, Style};
 
@@ -204,6 +214,35 @@ mod tests {
         assert_eq!(told(&["nyx"]), ["nyx is in your run now."]);
         assert_eq!(told(&["nyx"]), Vec::<String>::new());
         assert_eq!(told(&[]), ["nyx left your run."]);
+    }
+
+    struct Timed {
+        at: Instant,
+        redraws: usize,
+    }
+
+    impl View for Timed {
+        fn show(&mut self, _shown: Shown) -> io::Result<()> {
+            Ok(())
+        }
+
+        fn redraw_at(&self) -> Option<Instant> {
+            Some(self.at)
+        }
+
+        fn redraw(&mut self) -> io::Result<()> {
+            self.redraws += 1;
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn verbose_passes_the_redraws_to_the_view() {
+        let at = Instant::now();
+        let mut narrated = Narrated::new(Timed { at, redraws: 0 });
+        assert_eq!(narrated.redraw_at(), Some(at));
+        narrated.redraw().unwrap();
+        assert_eq!(narrated.view.redraws, 1);
     }
 
     #[test]

@@ -2,7 +2,7 @@ use std::io;
 use std::net::Shutdown;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ttymud_text::clean;
 use ttymud_wire::{ClientMessage, ServerMessage};
@@ -90,6 +90,14 @@ pub(crate) trait View {
 
     fn submitted(&mut self) {}
 
+    fn redraw_at(&self) -> Option<Instant> {
+        None
+    }
+
+    fn redraw(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+
     fn finish(&mut self) -> io::Result<()> {
         Ok(())
     }
@@ -155,6 +163,14 @@ fn play(
     loop {
         let next = if draining {
             inbox.recv_timeout(DRAIN).ok()
+        } else if let Some(at) = view.redraw_at() {
+            match inbox.recv_timeout(at.saturating_duration_since(Instant::now())) {
+                Err(RecvTimeoutError::Timeout) => {
+                    view.redraw()?;
+                    continue;
+                }
+                result => result.ok(),
+            }
         } else {
             inbox.recv().ok()
         };
@@ -204,5 +220,51 @@ fn play(
         if draining && prompts > sent {
             return Ok(Ending::Quit);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+    use std::sync::mpsc;
+    use std::time::{Duration, Instant};
+
+    use super::{Event, View, run};
+    use crate::Shown;
+    use crate::testing::echo_wire;
+
+    struct Waiting {
+        redraws: usize,
+        told: mpsc::Sender<()>,
+    }
+
+    impl View for Waiting {
+        fn show(&mut self, _shown: Shown) -> io::Result<()> {
+            Ok(())
+        }
+
+        fn redraw_at(&self) -> Option<Instant> {
+            (self.redraws < 2).then(Instant::now)
+        }
+
+        fn redraw(&mut self) -> io::Result<()> {
+            self.redraws += 1;
+            let _ = self.told.send(());
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_view_gets_the_redraws_that_it_asks_for_between_events() {
+        let (told, redrawn) = mpsc::channel();
+        let mut view = Waiting { redraws: 0, told };
+        let input = move |events: &mpsc::Sender<Event>| {
+            for _ in 0..2 {
+                let _ = redrawn.recv_timeout(Duration::from_secs(5));
+            }
+            let _ = events.send(Event::InputEnded);
+        };
+        run(echo_wire(), input, &mut view).unwrap();
+        assert_eq!(view.redraws, 2);
     }
 }

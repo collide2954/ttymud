@@ -17,6 +17,7 @@ mod settings;
 mod terminal;
 #[cfg(test)]
 mod testing;
+mod threats;
 mod wrap;
 
 pub use config::{Identity, config_dir, identity};

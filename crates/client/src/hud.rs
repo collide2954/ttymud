@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::io::{self, Write};
+use std::time::Instant;
 
 use ttymud_text::{Kind, Message, Status, Style};
 
@@ -8,6 +9,7 @@ use crate::canvas::{Canvas, Ink};
 use crate::editor::{Action, Completed, Editor, Key};
 use crate::session::{Typed, View};
 use crate::settings::{Depth, Settings};
+use crate::threats::{Threat, Threats};
 use crate::wrap::{Row, columns, wrap};
 
 const KEEP: usize = 1_000;
@@ -135,6 +137,8 @@ pub(crate) struct Hud<W: Write> {
     closed: Option<String>,
     open: bool,
     mouse: bool,
+    threats: Threats,
+    fixed: Option<Instant>,
 }
 
 impl<W: Write> Hud<W> {
@@ -156,6 +160,8 @@ impl<W: Write> Hud<W> {
             closed: None,
             open: true,
             mouse: false,
+            threats: Threats::default(),
+            fixed: None,
         };
         hud.output.write_all(ENTER.as_bytes())?;
         hud.draw()?;
@@ -206,6 +212,7 @@ impl<W: Write> Hud<W> {
         self.frame(canvas, layout);
         self.top_bar(canvas, layout);
         self.bottom_bar(canvas, layout);
+        self.notice(canvas, layout);
         let chat = layout.chat > 0;
         let game = self
             .lines
@@ -334,13 +341,27 @@ impl<W: Write> Hud<W> {
         ];
         let parts = fit(groups, &dot, layout.room());
         bar(canvas, layout, layout.height - 1, &parts, &[]);
-        if !status.headline.is_empty() {
-            let news = [
+    }
+
+    fn notice(&mut self, canvas: &mut Canvas, layout: Layout) {
+        let now = self.now();
+        let dot = (format!(" {} ", self.glyphs.dot), Ink::Dim);
+        let threats = self.threats.live(now);
+        let pieces = if !threats.is_empty() {
+            countdowns(threats, now, &dot, layout.room())
+        } else if let Some(status) = self
+            .status
+            .as_ref()
+            .filter(|status| !status.headline.is_empty())
+        {
+            vec![
                 (" news: ".to_owned(), Ink::Dim),
                 (format!("{} ", status.headline), Ink::Plain),
-            ];
-            bar(canvas, layout, layout.height - 3, &news, &[]);
-        }
+            ]
+        } else {
+            return;
+        };
+        bar(canvas, layout, layout.height - 3, &pieces, &[]);
     }
 
     fn short_prompt(&self) -> &str {
@@ -381,6 +402,15 @@ impl<W: Write> Hud<W> {
         Ok(())
     }
 
+    fn now(&self) -> Instant {
+        self.fixed.unwrap_or_else(Instant::now)
+    }
+
+    #[cfg(test)]
+    fn at(&mut self, now: Instant) {
+        self.fixed = Some(now);
+    }
+
     #[cfg(test)]
     fn rows(&self) -> Vec<String> {
         self.shown.as_ref().map_or_default(Canvas::rows)
@@ -397,9 +427,18 @@ impl<W: Write> Drop for Hud<W> {
 impl<W: Write> View for Hud<W> {
     fn show(&mut self, shown: Shown) -> io::Result<()> {
         match shown {
-            Shown::Line(message) => self.add(message),
+            Shown::Line(message) => {
+                let now = self.now();
+                self.threats.hear(&message, now);
+                self.add(message);
+            }
             Shown::Prompt(prompt) => self.prompt = prompt,
-            Shown::Status(status) => self.status = Some(status),
+            Shown::Status(status) => {
+                if status.run.is_none() {
+                    self.threats.clear();
+                }
+                self.status = Some(status);
+            }
             Shown::Closed(reason) => {
                 self.closed = Some(reason);
                 return Ok(());
@@ -459,6 +498,14 @@ impl<W: Write> View for Hud<W> {
         self.draw()
     }
 
+    fn redraw_at(&self) -> Option<Instant> {
+        self.threats.wake(self.now())
+    }
+
+    fn redraw(&mut self) -> io::Result<()> {
+        self.draw()
+    }
+
     fn finish(&mut self) -> io::Result<()> {
         self.leave()?;
         if let Some(reason) = self.closed.take() {
@@ -485,15 +532,51 @@ impl Group {
     }
 }
 
+fn joined<'a>(parts: impl IntoIterator<Item = &'a [Piece]>, dot: &Piece) -> Vec<Piece> {
+    let mut pieces = Vec::new();
+    for (index, part) in parts.into_iter().enumerate() {
+        if index > 0 {
+            pieces.push(dot.clone());
+        }
+        pieces.extend_from_slice(part);
+    }
+    pieces
+}
+
+fn countdowns(threats: &[Threat], now: Instant, dot: &Piece, room: usize) -> Vec<Piece> {
+    let parts: Vec<Vec<Piece>> = threats
+        .iter()
+        .map(|threat| {
+            let kind = threat.label.kind;
+            let spans = threat.label.spans.iter();
+            let mut part: Vec<Piece> = spans
+                .map(|span| (span.text.clone(), Ink::Text(span.style, kind)))
+                .collect();
+            let left = threat
+                .left(now)
+                .map_or_else(|| "now".to_owned(), |seconds| format!("{seconds}s"));
+            part.push((format!(" {left}"), Ink::Strong));
+            part
+        })
+        .collect();
+    let mut shown = parts.len();
+    loop {
+        let mut pieces = vec![(" threats: ".to_owned(), Ink::Dim)];
+        pieces.extend(joined(parts[..shown].iter().map(Vec::as_slice), dot));
+        if shown < parts.len() {
+            pieces.push((format!(" +{}", parts.len() - shown), Ink::Strong));
+        }
+        pieces.push((" ".to_owned(), Ink::Plain));
+        if shown == 0 || width(&pieces) <= room {
+            return pieces;
+        }
+        shown -= 1;
+    }
+}
+
 fn fit(mut groups: Vec<Group>, dot: &Piece, room: usize) -> Vec<Piece> {
     loop {
-        let mut pieces = Vec::new();
-        for (index, group) in groups.iter().enumerate() {
-            if index > 0 {
-                pieces.push(dot.clone());
-            }
-            pieces.extend(group.pieces.iter().cloned());
-        }
+        let mut pieces = joined(groups.iter().map(|group| group.pieces.as_slice()), dot);
         pieces.push((" ".to_owned(), Ink::Plain));
         let lowest = groups
             .iter()
@@ -587,6 +670,8 @@ fn symbols(on: char, off: char, count: u32, total: u32) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{Duration, Instant};
+
     use ttymud_text::{Kind, Mate, Message, RunStatus, Status, Style};
 
     use super::Hud;
@@ -922,6 +1007,74 @@ mod tests {
         assert!(
             written(&mut hud).starts_with("\x1b[?1006l\x1b[?1000l\x1b[0m"),
             "the mouse goes free before the screen"
+        );
+    }
+
+    fn compile(name: &str, action: &str, ticks: u32) -> Message {
+        Message::new(Kind::Telegraph)
+            .span(Style::Ice, name)
+            .text(" starts to compile ")
+            .span(Style::Danger, action)
+            .text(format!(" ({ticks} ticks)."))
+    }
+
+    #[test]
+    fn the_threat_line_counts_down_above_the_input_and_then_gives_way_to_the_news() {
+        let start = Instant::now();
+        let mut hud = hud(70, 20);
+        hud.at(start);
+        let mut status = run_status();
+        status.headline = "Acme Corp raises its alert to red.".to_owned();
+        hud.show(Shown::Status(status)).unwrap();
+        hud.show(Shown::Line(compile("sentry", "ALERT", 3)))
+            .unwrap();
+        let dashes = |count| "─".repeat(count);
+        let threat = |left| format!("├ threats: sentry ALERT {left} {}┤", dashes(42));
+        assert_eq!(hud.rows()[17], threat("6s"));
+        assert_eq!(hud.redraw_at(), Some(start + Duration::from_secs(1)));
+        hud.at(start + Duration::from_millis(2_500));
+        hud.redraw().unwrap();
+        assert_eq!(hud.rows()[17], threat("4s"));
+        let sends = Message::new(Kind::Telegraph)
+            .span(Style::Ice, "sentry")
+            .text(" sends an ")
+            .span(Style::Danger, "ALERT")
+            .text(".");
+        hud.show(Shown::Line(sends)).unwrap();
+        assert_eq!(
+            hud.rows()[17],
+            format!("├ news: Acme Corp raises its alert to red. {}┤", dashes(26))
+        );
+        assert_eq!(hud.redraw_at(), None);
+    }
+
+    #[test]
+    fn a_narrow_threat_line_keeps_the_soonest_threats_and_counts_the_rest() {
+        let mut hud = hud(55, 20);
+        hud.at(Instant::now());
+        hud.show(Shown::Status(run_status())).unwrap();
+        let threats = [
+            ("sentry", "ALERT", 5),
+            ("scorch", "BURN", 2),
+            ("hound", "TRACE BURST", 4),
+        ];
+        for (name, action, ticks) in threats {
+            hud.show(Shown::Line(compile(name, action, ticks))).unwrap();
+        }
+        assert_eq!(
+            hud.rows()[17],
+            format!(
+                " threats: scorch BURN 4s · hound TRACE BURST 8s +1 {}",
+                "─".repeat(4)
+            )
+        );
+        let mut home = run_status();
+        home.run = None;
+        hud.show(Shown::Status(home)).unwrap();
+        assert_eq!(
+            hud.rows()[17],
+            "─".repeat(55),
+            "a run that ends takes its threats"
         );
     }
 
