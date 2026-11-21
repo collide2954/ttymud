@@ -1,12 +1,17 @@
-use ttymud_text::Message;
+use ttymud_text::{Message, Style};
 use unicode_width::UnicodeWidthChar;
 
 use crate::canvas::Ink;
+
+const INDENT: usize = 2;
+const INDENT_WIDTH: usize = 20;
 
 pub(crate) type Row = Vec<(char, Ink)>;
 
 pub(crate) fn wrap(message: &Message, width: usize) -> Vec<Row> {
     let width = width.max(1);
+    let indent = if width >= INDENT_WIDTH { INDENT } else { 0 };
+    let pad = (' ', Ink::Text(Style::Plain, message.kind));
     let chars: Row = message
         .spans
         .iter()
@@ -16,28 +21,29 @@ pub(crate) fn wrap(message: &Message, width: usize) -> Vec<Row> {
         })
         .collect();
     let mut rows: Vec<Row> = vec![Vec::new()];
-    let mut used = 0;
+    let (mut used, mut start) = (0, 0);
+    let next = |rows: &mut Vec<Row>| {
+        rows.push(vec![pad; indent]);
+        (indent, indent)
+    };
     for token in chars.chunk_by(|a, b| (a.0 == ' ') == (b.0 == ' ')) {
         let size: usize = token.iter().map(|&(c, _)| columns(c)).sum();
         if token[0].0 == ' ' {
-            if used == 0 && rows.len() > 1 {
+            if used == start && rows.len() > 1 {
                 continue;
             }
             if used + size > width {
-                rows.push(Vec::new());
-                used = 0;
+                (used, start) = next(&mut rows);
                 continue;
             }
         } else if used + size > width {
-            if used > 0 {
-                rows.push(Vec::new());
-                used = 0;
+            if used > start {
+                (used, start) = next(&mut rows);
             }
-            if size > width {
+            if used + size > width {
                 for &(c, ink) in token {
-                    if used + columns(c) > width && used > 0 {
-                        rows.push(Vec::new());
-                        used = 0;
+                    if used + columns(c) > width && used > start {
+                        (used, start) = next(&mut rows);
                     }
                     if let Some(row) = rows.last_mut() {
                         row.push((c, ink));
@@ -95,6 +101,24 @@ mod tests {
     fn the_first_row_keeps_its_indent_but_later_rows_do_not() {
         let message = Message::game("  crack: overflow lands");
         assert_eq!(texts(&message, 12), ["  crack:", "overflow", "lands"]);
+    }
+
+    #[test]
+    fn from_a_width_of_20_later_rows_hang_two_columns_in() {
+        let message = Message::game("The ledger server hums behind two firewalls tonight.");
+        assert_eq!(
+            texts(&message, 24),
+            [
+                "The ledger server hums",
+                "  behind two firewalls",
+                "  tonight."
+            ]
+        );
+        let message = Message::game("see abcdefghijklmnopqrstuvwxyz0123456789");
+        assert_eq!(
+            texts(&message, 20),
+            ["see", "  abcdefghijklmnopqr", "  stuvwxyz0123456789"]
+        );
     }
 
     #[test]
