@@ -3,7 +3,7 @@ use ttymud_text::{Kind, Message, Style};
 use super::alert::{Alert, BREACH_ALERT};
 use super::contract::Contract;
 use super::crews::MAX_CREW;
-use super::jobs::{DAY, Offer, Order, base_pay, needed};
+use super::jobs::{DAY, Offer, Order, REROLLS, base_pay, needed, repeats, rotated};
 use super::presence::named;
 use super::{HostId, NetworkId, PlayerId, Step, World};
 use crate::random::{Random, mix};
@@ -30,13 +30,26 @@ fn both(names: &[String]) -> String {
 
 impl World {
     pub(super) fn posted_heist(&self, fixer: usize, day: u64) -> Option<Offer> {
+        let host = self.fixers.get(fixer)?.host;
+        self.heists_at(host, day)
+            .into_iter()
+            .find(|offer| offer.fixer == fixer)
+    }
+
+    fn draft_heist(&self, fixer: usize, day: u64, attempt: u64) -> Option<Offer> {
         let def = &self.fixers[fixer];
         let mut random = Random::new(mix(&[self.seed, day, fixer as u64, HEIST_SLOT]));
-        let corp = *def.corps.get(random.below(def.corps.len()))?;
+        let corp = rotated(&def.corps, random.below(def.corps.len()), attempt)?;
         let budget = self.corps[corp].budget;
         let percent = 80 + u32::try_from(random.below(41)).unwrap_or(0);
         let pay = base_pay(budget) * HEIST_PAY * percent / 100 / 10 * 10;
-        let target = generate_heist(&self.corps[corp], &self.templates, random.draw())?;
+        let draw = random.draw();
+        let seed = if attempt == 0 {
+            draw
+        } else {
+            mix(&[draw, attempt])
+        };
+        let target = generate_heist(&self.corps[corp], &self.templates, seed)?;
         Some(Offer {
             fixer,
             day,
@@ -49,10 +62,15 @@ impl World {
     }
 
     pub(super) fn heists_at(&self, host: HostId, day: u64) -> Vec<Offer> {
-        self.fixers_at(host)
-            .into_iter()
-            .filter_map(|fixer| self.posted_heist(fixer, day))
-            .collect()
+        let mut board = self.offers_at(host, day);
+        let jobs = board.len();
+        for fixer in self.fixers_at(host) {
+            let fresh = (0..=REROLLS)
+                .filter_map(|attempt| self.draft_heist(fixer, day, attempt))
+                .find(|offer| !repeats(&board, offer));
+            board.extend(fresh.or_else(|| self.draft_heist(fixer, day, 0)));
+        }
+        board.split_off(jobs)
     }
 
     pub(super) fn heist_board(
@@ -455,6 +473,26 @@ mod tests {
                 && line.ends_with(" cr for the crew. Needs a crew of 2 to 4."),
             "{board:?}"
         );
+    }
+
+    #[test]
+    fn a_heist_does_not_repeat_a_job_on_its_board() {
+        let world = world();
+        let host = world.fixers[0].host;
+        for day in 20_000..20_200 {
+            let jobs = world.offers_at(host, day);
+            for heist in world.heists_at(host, day) {
+                let twin = jobs
+                    .iter()
+                    .any(|job| job.corp == heist.corp && job.goal() == heist.goal());
+                assert!(!twin, "day {day}: {}", heist.goal());
+                let again = world.posted_heist(heist.fixer, day);
+                assert_eq!(
+                    again.map(|again| again.goal().to_owned()),
+                    Some(heist.goal().to_owned())
+                );
+            }
+        }
     }
 
     #[test]

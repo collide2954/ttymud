@@ -10,7 +10,7 @@ use crate::random::{Random, mix};
 use crate::target::{Layer, Target, generate};
 
 const SLOTS: u64 = 3;
-const REROLLS: u64 = 8;
+pub(super) const REROLLS: u64 = 8;
 const ORDER_SALT: u64 = 0x6f72;
 pub(super) const DAY: u64 = 86_400;
 const PLANTS: [(&str, &str); 3] = [
@@ -78,7 +78,7 @@ pub(super) struct Offer {
 }
 
 impl Offer {
-    fn goal(&self) -> &str {
+    pub(super) fn goal(&self) -> &str {
         match self.order {
             Order::Plant { file, .. } => PLANTS[file].0,
             Order::Steal | Order::Wipe => &self.target.goal,
@@ -96,6 +96,17 @@ impl Offer {
             }
         }
     }
+}
+
+pub(super) fn rotated(corps: &[usize], first: usize, attempt: u64) -> Option<usize> {
+    let step = usize::try_from(attempt).unwrap_or(0);
+    corps.get((first + step) % corps.len().max(1)).copied()
+}
+
+pub(super) fn repeats(offers: &[Offer], offer: &Offer) -> bool {
+    offers
+        .iter()
+        .any(|known| known.corp == offer.corp && known.goal() == offer.goal())
 }
 
 pub(super) fn fixers(
@@ -240,7 +251,7 @@ impl World {
                 .copied()
                 .min_by_key(|&corp| self.corps[corp].budget)?
         } else {
-            *def.corps.get(random.below(def.corps.len()))?
+            rotated(&def.corps, random.below(def.corps.len()), attempt)?
         };
         let budget = self.corps[corp].budget;
         let percent = 80 + u32::try_from(random.below(41)).unwrap_or(0);
@@ -259,18 +270,13 @@ impl World {
         })
     }
 
-    fn offers_at(&self, host: HostId, day: u64) -> Vec<Offer> {
+    pub(super) fn offers_at(&self, host: HostId, day: u64) -> Vec<Offer> {
         let mut offers: Vec<Offer> = Vec::new();
         for fixer in self.fixers_at(host) {
             for slot in 0..SLOTS {
-                let taken = |offer: &Offer| {
-                    let twin =
-                        |known: &Offer| known.corp == offer.corp && known.goal() == offer.goal();
-                    offers.iter().any(twin)
-                };
                 let fresh = (0..=REROLLS)
                     .filter_map(|attempt| self.draft(fixer, day, slot, attempt))
-                    .find(|offer| !taken(offer));
+                    .find(|offer| !repeats(&offers, offer));
                 let chosen = fresh.or_else(|| self.draft(fixer, day, slot, 0));
                 offers.extend(chosen);
             }
