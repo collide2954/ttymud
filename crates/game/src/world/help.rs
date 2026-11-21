@@ -194,7 +194,7 @@ mod tests {
     fn help_for_repair_gives_the_price() {
         assert_eq!(
             run("help repair")[1],
-            "Restore your integrity at home. Up to 50 is free. Above 50, each point costs 2 cr."
+            "Restore your integrity at home. Up to 50 is free. repair all also pays 2 cr for each point above 50."
         );
     }
 

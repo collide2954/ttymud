@@ -112,7 +112,6 @@ impl Verb {
                 | Self::Inventory
                 | Self::Status
                 | Self::Jackout
-                | Self::Repair
                 | Self::Jobs
                 | Self::Rumors
                 | Self::Shop
@@ -395,8 +394,8 @@ pub(crate) const COMMANDS: &[Command] = &[
     Command {
         verb: Verb::Repair,
         names: &["repair"],
-        usage: "repair",
-        summary: "Restore your integrity at home. Up to 50 is free. Above 50, each point costs 2 cr.",
+        usage: "repair [all]",
+        summary: "Restore your integrity at home. Up to 50 is free. repair all also pays 2 cr for each point above 50.",
         example: "repair",
         takes: Takes::Nothing,
         gives: Gives::Nothing,

@@ -91,7 +91,12 @@ impl World {
         ))]))
     }
 
-    pub(super) fn repair(&mut self, player: PlayerId) -> Result<Step, Message> {
+    pub(super) fn repair(&mut self, player: PlayerId, args: &[String]) -> Result<Step, Message> {
+        let all = match args {
+            [] => false,
+            [word] if word.eq_ignore_ascii_case("all") => true,
+            _ => return Err(Message::error("Usage: repair [all].")),
+        };
         self.at_home(player, "repair your rig")?;
         let Some(state) = self.players.get_mut(&player) else {
             return Ok(Step::default());
@@ -102,6 +107,22 @@ impl World {
         }
         let price = format!("Above {FREE_REPAIR} integrity, each point costs {REPAIR_PRICE} cr.");
         let free = before.max(FREE_REPAIR);
+        if !all {
+            state.rig.integrity = free;
+            let full = (MAX_INTEGRITY - free) * REPAIR_PRICE;
+            let offer = |start: String| {
+                Message::game(format!("{start}A full repair costs {full} cr. Type "))
+                    .span(Style::Command, "repair all")
+                    .text(" to pay for it.")
+            };
+            let shown = if free > before {
+                let repaired = format!("You repair your rig. Integrity: {before} -> {free}.");
+                vec![Message::game(repaired), offer(String::new())]
+            } else {
+                vec![offer(format!("{price} "))]
+            };
+            return Ok(Step::show(shown));
+        }
         let after = (free + state.credits / REPAIR_PRICE).min(MAX_INTEGRITY);
         if after == before {
             let credits = state.credits;
@@ -295,16 +316,31 @@ mod tests {
             plain(&world.command(player, "repair")),
             [
                 "You repair your rig. Integrity: 20 -> 50.",
-                "A full repair needs 100 cr more. Above 50 integrity, each point costs 2 cr.",
+                "A full repair costs 100 cr. Type repair all to pay for it.",
             ]
         );
     }
 
     #[test]
-    fn each_point_above_50_integrity_costs_2_credits() {
+    fn repair_asks_before_it_costs_credits() {
         let (mut world, player) = damaged(80, 100);
         assert_eq!(
             plain(&world.command(player, "repair")),
+            [
+                "Above 50 integrity, each point costs 2 cr. A full repair costs 40 cr. Type repair all to pay for it."
+            ]
+        );
+        assert_eq!(
+            plain(&world.command(player, "status | grep credits")),
+            ["Credits: 100 cr"]
+        );
+    }
+
+    #[test]
+    fn repair_all_pays_2_credits_for_each_point_above_50_integrity() {
+        let (mut world, player) = damaged(80, 100);
+        assert_eq!(
+            plain(&world.command(player, "repair all")),
             ["You repair your rig. Integrity: 80 -> 100. It costs 40 cr."]
         );
         assert_eq!(
@@ -314,10 +350,10 @@ mod tests {
     }
 
     #[test]
-    fn a_repair_uses_the_credits_that_you_have() {
+    fn repair_all_uses_the_credits_that_you_have() {
         let (mut world, player) = damaged(40, 31);
         assert_eq!(
-            plain(&world.command(player, "repair")),
+            plain(&world.command(player, "repair all")),
             [
                 "You repair your rig. Integrity: 40 -> 65. It costs 30 cr.",
                 "A full repair needs 70 cr more. Above 50 integrity, each point costs 2 cr.",
@@ -329,8 +365,17 @@ mod tests {
     fn without_credits_a_rig_above_50_integrity_stays_as_it_is() {
         let (mut world, player) = damaged(80, 1);
         assert_eq!(
-            plain(&world.command(player, "repair")),
+            plain(&world.command(player, "repair all")),
             ["Above 50 integrity, each point costs 2 cr. You have 1 cr."]
+        );
+    }
+
+    #[test]
+    fn repair_takes_only_all() {
+        let (mut world, player) = damaged(80, 100);
+        assert_eq!(
+            plain(&world.command(player, "repair now")),
+            ["Usage: repair [all]."]
         );
     }
 

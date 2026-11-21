@@ -573,7 +573,7 @@ impl World {
             Verb::Inventory => Ok(self.inventory(player)),
             Verb::Status => Ok(self.status(player)),
             Verb::Jackout => self.jackout(player),
-            Verb::Repair => self.repair(player),
+            Verb::Repair => self.repair(player, args),
             Verb::Contract => self.contract(player, args),
             Verb::Channels => Ok(self.list_channels(player)),
             Verb::Join => self.join_channel(player, args),
