@@ -190,6 +190,9 @@ impl World {
             }
         }
         let mut shown = self.spread(player, told);
+        if !masked {
+            self.warn_analysts(player, here);
+        }
         let gain = match (masked, watched) {
             (true, _) => noise / 2,
             (false, true) => noise * 2,

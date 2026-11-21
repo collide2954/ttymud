@@ -55,6 +55,7 @@ pub(super) struct Analyst {
     pub(super) habit: Habit,
     pub(super) wait: u32,
     pub(super) target: Option<HostId>,
+    pub(super) warned: bool,
     pub(super) fooled: bool,
     pub(super) cut: bool,
 }
@@ -63,6 +64,13 @@ fn soc_line(name: &str) -> Message {
     Message::new(Kind::Telegraph)
         .text("[SOC] Analyst ")
         .span(Style::Player, name)
+}
+
+fn turns(name: &str, place: &str) -> Message {
+    soc_line(name)
+        .text(" turns to the logs of ")
+        .span(Style::Host, place)
+        .text(".")
 }
 
 pub(super) fn day_shift(now: u64) -> bool {
@@ -100,6 +108,7 @@ impl World {
                 habit,
                 wait: habit.every() + 2 * index,
                 target: None,
+                warned: false,
                 fooled: false,
                 cut: false,
             })
@@ -229,7 +238,8 @@ impl World {
             }
             if let Some(host) = analyst.target.take() {
                 analyst.wait = analyst.habit.every();
-                events.push((analyst.name.clone(), analyst.habit, host, true));
+                let warned = std::mem::take(&mut analyst.warned);
+                events.push((analyst.name.clone(), analyst.habit, host, true, warned));
                 continue;
             }
             let host = match analyst.habit {
@@ -242,15 +252,43 @@ impl World {
             };
             analyst.target = Some(host);
             analyst.wait = READ_TICKS;
-            events.push((analyst.name.clone(), analyst.habit, host, false));
+            analyst.warned = totals.iter().any(|&(at, noise)| at == host && noise > 0);
+            let warned = analyst.warned;
+            events.push((analyst.name.clone(), analyst.habit, host, false, warned));
         }
-        for (name, habit, host, read) in events {
+        for (name, habit, host, read, warned) in events {
             if self.members(id).is_empty() {
                 break;
             }
-            outputs.extend(self.soc_event(id, (&name, habit), host, read));
+            if read || warned {
+                outputs.extend(self.soc_event(id, (&name, habit), host, read, warned));
+            }
         }
         outputs
+    }
+
+    pub(super) fn warn_analysts(&mut self, player: PlayerId, host: HostId) {
+        let Some(id) = self.instance_id(player) else {
+            return;
+        };
+        let everyone: Vec<PlayerId> = self
+            .members(id)
+            .iter()
+            .map(|member| member.player)
+            .collect();
+        let place = &self.hosts[host.0].id;
+        let Some(instance) = self.instances.get_mut(&id) else {
+            return;
+        };
+        let watching = instance
+            .analysts
+            .iter_mut()
+            .filter(|analyst| analyst.target == Some(host) && !analyst.warned && !analyst.fooled);
+        for analyst in watching {
+            analyst.warned = true;
+            self.outbox
+                .extend(tell(&everyone, &turns(&analyst.name, place)));
+        }
     }
 
     fn soc_event(
@@ -259,17 +297,14 @@ impl World {
         (name, habit): (&str, Habit),
         host: HostId,
         read: bool,
+        warned: bool,
     ) -> Vec<Output> {
         let members = self.members(id);
         let everyone: Vec<PlayerId> = members.iter().map(|member| member.player).collect();
         let place = self.hosts[host.0].id.clone();
         let line = || soc_line(name);
         if !read {
-            let turns = line()
-                .text(" turns to the logs of ")
-                .span(Style::Host, &place)
-                .text(".");
-            return tell(&everyone, &turns);
+            return tell(&everyone, &turns(name, &place));
         }
         let reads = || line().text(" reads the logs of ").span(Style::Host, &place);
         let mut found = Vec::new();
@@ -297,6 +332,9 @@ impl World {
             found.push((member.player, member.name.clone(), noise));
         }
         if found.is_empty() {
+            if !warned {
+                return Vec::new();
+            }
             return tell(&everyone, &reads().text(" and finds nothing."));
         }
         let mut outputs = Vec::new();
@@ -545,14 +583,12 @@ mod tests {
     #[test]
     fn scrub_cleans_the_log_and_mask_hides_you() {
         let (mut world, player, name, here) = watched(NOON);
-        for line in ["scan", "scrub"] {
-            world.command(player, line);
-        }
-        for _ in 0..2 {
-            world.tick();
-        }
+        world.command(player, "scan");
+        world.tick();
+        world.command(player, "scrub");
+        world.tick();
         let nothing = format!("[SOC] Analyst {name} reads the logs of {here} and finds nothing.");
-        assert_eq!(plain(&world.tick()), std::slice::from_ref(&nothing));
+        assert_eq!(plain(&world.tick()), [nothing]);
         let (mut world, player, _, _) = watched(NOON);
         if let Some(run) = world
             .players
@@ -562,10 +598,33 @@ mod tests {
             run.mask = 5;
         }
         world.command(player, "scan");
-        for _ in 0..2 {
-            world.tick();
+        for _ in 0..3 {
+            assert_eq!(plain(&world.tick()), Vec::<String>::new());
         }
-        assert_eq!(plain(&world.tick()), [nothing]);
+    }
+
+    #[test]
+    fn an_analyst_with_nothing_to_find_stays_quiet() {
+        let (mut world, _, _, _) = watched(NOON);
+        for _ in 0..12 {
+            assert_eq!(plain(&world.tick()), Vec::<String>::new());
+        }
+    }
+
+    #[test]
+    fn a_new_log_on_a_watched_host_brings_the_warning_at_once() {
+        let (mut world, player, name, here) = watched(NOON);
+        assert_eq!(plain(&world.tick()), Vec::<String>::new());
+        let shown = plain(&world.command(player, "scan"));
+        assert_eq!(
+            shown.last(),
+            Some(&format!(
+                "[SOC] Analyst {name} turns to the logs of {here}."
+            ))
+        );
+        world.tick();
+        let shown = plain(&world.tick());
+        assert!(shown[0].contains(" and finds your trail."), "{shown:?}");
     }
 
     fn set_up(world: &mut World, player: PlayerId, habits: &[Habit], access: Level) {

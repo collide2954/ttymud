@@ -98,9 +98,11 @@ impl World {
         if run.mask > 0 {
             return Some(learned);
         }
-        if let Some(instance) = self.instances.get_mut(&run.instance) {
+        let id = run.instance;
+        if let Some(instance) = self.instances.get_mut(&id) {
             instance.log(here, player, LOGIN_TRAIL);
         }
+        self.warn_analysts(player, here);
         let place = &self.hosts[here.0].id;
         Some(learned.text(format!(" The login leaves a line in the logs of {place}.")))
     }
