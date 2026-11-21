@@ -88,7 +88,7 @@ This table records the main design decisions. When a decision changes, change th
 | RAM | A new rig has 8 GB. A starter kit fills it with five programs. `load` and `unload` work only at the home host. |
 | First contract | The fixer Pell offers it to each new handle. Its steps and hints come from the content file. A trace in it adds no heat. |
 | Repair | The `repair` command at the home host. It is free up to 50 integrity. Above 50, `repair all` pays 2 credits for each point. |
-| Job board | Each fixer posts 3 jobs each day. All players see the same jobs. No two jobs on a board have the same company and goal. One contract at a time, with no time limit. |
+| Job board | Each fixer posts 3 jobs each day. All players see the same jobs. No two jobs or heists on a board have the same company and goal. One contract at a time, with no time limit. |
 | Reputation | Each clean contract adds 1 reputation with its fixer. Jobs against bigger budgets need more reputation. |
 | Targets | The server makes each target from the world seed: an edge, a LAN, and a core with 5 to 8 hosts. A heist target also has a vault. |
 | Access | Guest, user, and admin. Stolen credentials raise the access without noise, but each login leaves a line in the logs. The `exploit` program raises it with noise. |

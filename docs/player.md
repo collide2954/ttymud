@@ -346,7 +346,7 @@ Programs cost cycles. Your rig has a maximum of 4 cycles, and it gets 1 cycle on
 
 Programs also make noise, and noise raises your trace. A Sentry on the host doubles the trace from noise. A pipeline makes less noise than the same commands on different lines.
 
-A working Sentry also sees you when you enter its host, and it starts to compile an ALERT. Crack the Sentry before the ALERT comes, or use `mask`. While `mask` is up, a Sentry does not see you. When you start `mask`, a Sentry on your host that compiles an ALERT against you loses you.
+A working Sentry also sees you when you enter its host, and it starts to compile an ALERT. This ALERT takes 5 ticks. Crack the Sentry before the ALERT comes, or use `mask`. While `mask` is up, a Sentry does not see you. When you start `mask`, a Sentry on your host that compiles an ALERT against you loses you.
 
 ## Programs and RAM
 
@@ -400,7 +400,7 @@ The telegraph comes only when the host has logs to find. If you leave logs on a 
 
 A careful analyst reads the host with the most noise. A strict analyst reads the host where you are. A lazy analyst reads a random host, and reads less often.
 
-Stolen credentials make no noise, but each login leaves a line in the logs of the host where you read them. If you have access from stolen credentials, a careful or a strict analyst who finds your logs locks the account. Then your access in the network is guest again. The analyst also resets the password, so those credentials do not work until the next day.
+Stolen credentials make no noise, but each login leaves a line in the logs of the host where you read them. If you have access from stolen credentials, a careful or a strict analyst who finds your logs locks the account. Then your access in the network is guest again. The analyst also resets the password, so those credentials do not work until the run ends.
 
 A strict analyst who finds your noise can also cut one route that leads deeper into the network. A telegraph comes two ticks before the cut. The cut lasts until the run ends, but the way back out stays open.
 

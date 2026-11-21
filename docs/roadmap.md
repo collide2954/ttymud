@@ -181,10 +181,10 @@ M9 added crew channels.
 An offline playtest found the problems that this milestone repairs.
 
 - The first contract: one step for `probe sentry | crack`, a step for the Warden, and steps that start again after a failed run. It has no Hound, and a trace in it adds no heat.
-- A working Sentry sees you enter its host. `mask` makes a Sentry lose you.
-- A login with stolen credentials leaves a line in the logs, and analysts can find it.
+- A working Sentry sees you enter its host, and its ALERT then takes 5 ticks. `mask` makes a Sentry lose you.
+- A login with stolen credentials leaves a line in the logs, and analysts can find it. A reset password works again in the next run.
 - An analyst shows only when the host has logs to find.
-- No two jobs on a board have the same company and goal file.
+- No two jobs or heists on a board have the same company and goal file.
 - `repair` does the free part and shows the price of the rest. `repair all` pays for it.
 
 ## Later

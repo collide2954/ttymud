@@ -161,7 +161,7 @@ Heat decreases by 1 for each 24 hours of real time without new heat. New heat st
 
 Heat also has effects before a burn:
 
-- At heat 3 or more, the SOC of a target recognizes you faster. In version 0.1, the ALERT of a Sentry takes 2 ticks, not 3.
+- At heat 3 or more, the SOC of a target recognizes you faster. The ALERT of a Sentry takes 1 tick less.
 - At heat 4 or more, fixers keep 25% of the pay as a fee. Some fixers do not give jobs to handles with too much heat. In Port Ostra, Wren does not work with handles at heat 4 or more.
 
 ## How a run ends
@@ -203,7 +203,7 @@ The game has six types of ICE, and honeypot files. Each version above 1 adds 10 
 
 | Type | Integrity | Behavior | Actions |
 | --- | --- | --- | --- |
-| Sentry | 20 | It starts an alert when you enter its host or make noise there. | ALERT (3 ticks) wakes the Hounds of the network. If no Hound sleeps, the trace increases by 10%. |
+| Sentry | 20 | It starts an alert when you enter its host or make noise there. | ALERT (3 ticks after noise, 5 ticks after you enter) wakes the Hounds of the network. If no Hound sleeps, the trace increases by 10%. |
 | Warden | 40 | It blocks one route until it breaks. | None. |
 | Hound | 30 | An alert wakes it. Then it follows you from host to host. | TRACE BURST (2 ticks) adds 8% trace. DEEP TRACE (4 ticks) adds 20% trace. |
 | Scorch | 30 | Noise on its host wakes it. It attacks only while you are on its host. | BURN (2 ticks) does 20 damage. SPIKE (1 tick) does 8 damage. |
@@ -254,7 +254,7 @@ The noise of your actions goes into the logs of the host. A login with stolen cr
 | Strict | The host where you are. | 6 ticks |
 | Lazy | A random host of the network. | 12 ticks |
 
-If the analyst finds your logs, the trace increases by 5% and by the noise in the logs. Then the logs of that host are empty. If your access comes from stolen credentials, a careful or a strict analyst also locks the account. Your access in the network goes back to guest, but a shell from `exploit` stays open. The analyst also resets the stolen password. Until the next day of UTC time, those credentials do not work in that network.
+If the analyst finds your logs, the trace increases by 5% and by the noise in the logs. Then the logs of that host are empty. If your access comes from stolen credentials, a careful or a strict analyst also locks the account. Your access in the network goes back to guest, but a shell from `exploit` stays open. The analyst also resets the stolen password. Until the copy of the network ends, those credentials do not work in it.
 
 A strict analyst who finds your noise can also cut one route from that host to a host that is deeper in the network. A telegraph comes 2 ticks before the cut. The cut stops movement to the deeper host until the copy of the network ends. The routes back to the entry stay open. Each analyst cuts one route at most in each copy.
 
@@ -443,7 +443,7 @@ Type `jobs` on the host of a fixer to see the board. Type `accept <number>` to t
 | High | About 1500 cr | 5 |
 | Top | About 3000 cr | 9 |
 
-The pay of a job can be up to 20% more or less. Each clean contract adds 1 reputation with its fixer. The first job of each fixer is always against its company with the lowest budget. As a result, a new handle can always find work. No two jobs on one board have the same company and the same goal file.
+The pay of a job can be up to 20% more or less. Each clean contract adds 1 reputation with its fixer. The first job of each fixer is always against its company with the lowest budget. As a result, a new handle can always find work. No two jobs or heists on one board have the same company and the same goal file.
 
 A job has one of three goals. The first job of each fixer is always a theft. About one job in three is a wipe or a plant.
 
