@@ -3,7 +3,6 @@ use std::collections::VecDeque;
 use ttymud_text::{Kind, Message, Style};
 
 use super::instance::{Cut, InstanceId, tell};
-use super::jobs::DAY;
 use super::run::MAX_TRACE;
 use super::{HostId, NetworkId, Output, PlayerId, Step, World, address};
 use crate::names::person;
@@ -360,13 +359,11 @@ impl World {
                 )));
                 if habit != Habit::Lazy && run.access > Level::Guest {
                     run.access = Level::Guest;
-                    let day = self.now / DAY;
                     let used = std::mem::take(&mut run.passwords);
-                    let network = &mut self.networks[run.network.0];
-                    network
-                        .resets
-                        .extend(used.into_iter().map(|key| (key, day)));
-                    let name = &network.name;
+                    if let Some(instance) = self.instances.get_mut(&id) {
+                        instance.resets.extend(used);
+                    }
+                    let name = &self.networks[run.network.0].name;
                     shown.push(line().text(format!(
                         " locks your stolen account and resets its password. Your access in {name}: guest."
                     )));
@@ -704,7 +701,7 @@ mod tests {
     }
 
     #[test]
-    fn a_reset_password_stops_the_stolen_credentials_until_the_next_day() {
+    fn a_reset_password_stops_the_stolen_credentials_until_the_run_ends() {
         let (mut world, player, _, _) = watched(NOON);
         set_up(&mut world, player, &[Habit::Strict], Level::Guest);
         give_helpdesk(&mut world, player);
@@ -722,7 +719,8 @@ mod tests {
             learned(&mut world),
             "These credentials do not work. Somebody reset the password."
         );
-        world.set_time(NOON + 86_400);
+        world.command(player, "jackout");
+        enter_job(&mut world, player);
         assert!(learned(&mut world).starts_with(user));
     }
 

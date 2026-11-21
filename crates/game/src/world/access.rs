@@ -1,6 +1,5 @@
 use ttymud_text::{Message, Style};
 
-use super::jobs::DAY;
 use super::{PlayerId, Step, World};
 use crate::content::File;
 use crate::target::Level;
@@ -66,7 +65,6 @@ impl World {
     }
 
     pub(super) fn learn(&mut self, player: PlayerId, files: &[File]) -> Option<Message> {
-        let day = self.now / DAY;
         let here = self.here(player);
         let run = self.players.get_mut(&player)?.run.as_mut()?;
         let network = &self.networks[run.network.0];
@@ -75,10 +73,11 @@ impl World {
             .filter_map(|file| file.key.as_ref())
             .filter_map(|key| network.keys.iter().find(|(known, _)| known == key))
             .collect();
-        let reset = |key: &str| {
-            let mut resets = network.resets.iter();
-            resets.any(|(known, when)| known == key && *when == day)
-        };
+        let resets = self
+            .instances
+            .get(&run.instance)
+            .map_or(&[][..], |instance| instance.resets.as_slice());
+        let reset = |key: &str| resets.iter().any(|known| known == key);
         let (stale, fresh): (Vec<_>, Vec<_>) = found.into_iter().partition(|(key, _)| reset(key));
         let Some(best) = fresh.iter().map(|&&(_, level)| level).max() else {
             return (!stale.is_empty()).then(|| {

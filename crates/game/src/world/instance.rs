@@ -19,6 +19,7 @@ pub(super) struct Instance {
     pub(super) clock: u32,
     pub(super) cuts: Vec<(HostId, HostId)>,
     pub(super) cutting: Vec<Cut>,
+    pub(super) resets: Vec<String>,
 }
 
 impl Instance {

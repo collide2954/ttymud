@@ -374,6 +374,7 @@ impl World {
                 clock: 0,
                 cuts: Vec::new(),
                 cutting: Vec::new(),
+                resets: Vec::new(),
             };
             self.open_instance(instance)
         });

@@ -109,7 +109,6 @@ struct Network {
     zone: Zone,
     entries: Vec<HostId>,
     keys: Vec<(String, Level)>,
-    resets: Vec<(String, u64)>,
     corp: Option<usize>,
     vault: Option<Vault>,
     bases: Vec<HostId>,
@@ -124,7 +123,6 @@ impl Network {
             zone: def.zone,
             entries: Vec::new(),
             keys: Vec::new(),
-            resets: Vec::new(),
             corp: None,
             vault: None,
         }

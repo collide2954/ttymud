@@ -114,6 +114,7 @@ impl World {
             clock: 0,
             cuts: Vec::new(),
             cutting: Vec::new(),
+            resets: Vec::new(),
         };
         let copy = self.open_instance(instance);
         let mut moves = Vec::new();

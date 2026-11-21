@@ -476,7 +476,6 @@ impl World {
             zone: Zone::Target,
             entries,
             keys: target.keys.clone(),
-            resets: Vec::new(),
             corp: Some(corp),
             vault: target.vault.as_ref().map(|vault| vault.moved(base)),
             bases: Vec::new(),
