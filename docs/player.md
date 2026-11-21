@@ -266,7 +266,7 @@ Do these steps:
 3. Find the ICE on this host: `scan`. The Sentry saw you come in, and it compiles an ALERT.
 4. Find the weak point of the Sentry, and crack it in the same pipeline: `probe sentry | crack`. The pipeline needs 4 cycles, so wait 2 ticks after the scan.
 5. A Warden guards the route to `records`. Crack it: `probe warden | crack`, and then `crack warden`.
-6. Go to `records`, and download the file: `download patients.db`.
+6. Go to `records`, and download the file: `download patients.db`. The ICE on `records` wakes and burns your rig, so leave at once: `back`.
 7. If your kit has `scrub`, lower your trace: `scrub`.
 8. Go back the way that you came in: `back`. Then the contract is complete, and Pell pays you 250 cr.
 

@@ -110,7 +110,7 @@ fn the_first_job_has_a_step_for_the_sentry_and_for_the_warden() {
     ];
     assert_eq!(
         next(&warden),
-        "Next: The file is on records. Go there, then type download patients.db."
+        "Next: The file is on records. Type download patients.db there. Its ICE burns your rig, so leave at once."
     );
 }
 
